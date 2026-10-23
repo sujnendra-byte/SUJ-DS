@@ -14,8 +14,10 @@
  *        browse the store, upload). With several shapes selected, one picture shows through all of them.
  *        Card texts, the logo, the QR code and the photo can be made any size from their corners.
  *        Box-select can start outside the page. Shapes and texts move together on cards.
- *   151, 265  AI Presentation: with several shapes selected, Fill > Picture puts one picture across all of
- *        them (in the editor and in the PowerPoint download), with a "One picture across all / Each its own" switch.
+ *        A selected logo shows an Upload logo / Change logo button.
+ *   151, 265  AI Presentation and AI Document: a GROUP of shapes with Fill > Picture shows one picture across
+ *        all of them (also in the PowerPoint / Word download). Several shapes selected without a group each get
+ *        their own copy. Ungroup removes the group's picture. Grouping shapes that all have a picture shares the first one.
  * 42.0.2 - 2026-10-23 AI Document business cards. 2 includes updated (372, 373; 371 in the previous commit).
  *   372  55 corporate business card designs (front/back, details-first and one-side layouts), QR codes and photos.
  *        FIXED: an uploaded logo did not show on the back; it now shows on both sides in different places.

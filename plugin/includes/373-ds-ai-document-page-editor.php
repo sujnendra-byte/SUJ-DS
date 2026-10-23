@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 20:30:00
+ * Modified   : 2026-10-23 21:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.6.4-picfill' );
+define( 'DS_DOC_APP_VER', '1.6.6-logo' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -630,6 +630,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
             '<button type="button" data-m="app" title="Apply this look to similar elements: on this page, or in the whole document">' + IC.brush + '</button></div>';
         }
         if (lk) h += '<span class="dsel-lkm" title="Locked">' + IC.lock + '</span>';
+        if (single && isB(k) && (obj(k) || {}).t === 's_mark' && editing !== k && !drag) h += '<span class="dsel-imgbtns"><button type="button" class="dsel-pbtn" data-m="chglogo" title="Upload your logo, or change it">' + IC.pic + '<span>' + (doc.logo && doc.logo.src && !doc.logo.hide ? 'Change logo' : 'Upload logo') + '</span></button></span>';
         if (!lk && single && famOf(k) === 'image' && editing !== k && !drag) h += '<span class="dsel-imgbtns"><button type="button" class="dsel-pbtn" data-m="crop" title="Crop the picture">' + IC.crop + '<span>Crop</span></button><button type="button" class="dsel-pbtn" data-m="chgimg" title="Pick, create or upload another picture">' + IC.pic + '<span>Change image</span></button></span>';
         h += '</div>';
       });
@@ -695,6 +696,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (m === 'dup') duplicate();
       if (m === 'copy') copy();
       if (m === 'chgimg' && sel[0]) changePic(sel[0]);
+      if (m === 'chglogo') { logoDialog(); return; }
       if (m === 'crop' && sel[0]) cropPic(sel[0]);
       if (m === 'app') { var r = b.getBoundingClientRect(); openMenu(r.left, r.bottom + 6, applyItems()); }
     }
@@ -1036,8 +1038,21 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     function groupIds() { return sel.filter(isL); }
     function oneGroup() { var a = sel.map(obj); return sel.length > 1 && sel.every(isL) && a[0].grp && a.every(function (x) { return x.grp === a[0].grp; }); }
     function hasGroup() { return sel.some(function (k) { return isL(k) && obj(k).grp; }); }
-    function doGroup() { var a = groupIds(); if (a.length < 2) return; begin(); var g = 'g' + uid(); a.forEach(function (k) { obj(k).grp = g; }); redraw(a); done(); paint(); env.toast('Grouped.', '', 1200); }
-    function doUngroup() { begin(); sel.filter(isL).forEach(function (k) { delete obj(k).grp; }); redraw(); done(); paint(); env.toast('Ungrouped.', '', 1200); }
+    function doGroup() {
+      var a = groupIds(); if (a.length < 2) return; begin(); var g = 'g' + uid(); a.forEach(function (k) { obj(k).grp = g; });
+      /* shapes that all have a picture fill share the first one's picture once grouped */
+      var pk = a.filter(function (k) { var q = getP(k, 'fill'); return supports(k, 'fill') && q && q.m === 'pic' && D.picSrcOK(q.src); });
+      if (pk.length > 1) { var f0 = getP(pk[0], 'fill'), keep = sel; pk.forEach(function (k) { var q = D.clone(f0); delete q.gb; setP(k, 'fill', q); }); sel = pk; setPicGroup(true); sel = keep; }
+      redraw(a); done(); paint(); env.toast('Grouped.', '', 1200);
+    }
+    function doUngroup() {
+      begin(); var pf = 0;
+      sel.filter(isL).forEach(function (k) {
+        var q = getP(k, 'fill'); if (q && q.m === 'pic' && q.gb) { setP(k, 'fill', { m: 'solid', c: '@a' }); pf++; }   /* the group's picture goes with the group */
+        delete obj(k).grp;
+      });
+      redraw(); done(); paint(); env.toast(pf ? 'Ungrouped. The group picture was removed.' : 'Ungrouped.', '', 1600);
+    }
     function arrange(how) {
       var ks = sel.filter(isL), ids = ks.map(kid);
       if (!ks.length) {                       /* document texts: move up / down in the document */
@@ -1682,8 +1697,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       var h = '<div class="dsel-sub">Picture</div>';
       if (has) h += '<div style="height:96px;border-radius:8px;border:1px solid #CBD5E1;background:#F1F5F9 url(' + String(P.src).replace(/["\'()\\\s<>]/g, '') + ') center/cover no-repeat;margin-bottom:8px"></div>';
       h += '<div class="dsel-grid2"><button type="button" class="dsel-pbt" data-p="pfins">' + (has ? 'Change picture...' : 'Insert picture...') + '</button>' + (has ? '<button type="button" class="dsel-pbt dsel-danger" data-p="pfdel">Remove picture</button>' : '') + '</div>';
-      if (many) h += '<label class="dsel-chk" style="margin:9px 0 2px"><input type="checkbox" data-pc="pfone"' + (!has || P.gb ? ' checked' : '') + '> One picture across all the selected shapes</label>';
-      if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.' + (many ? ' With several shapes selected, one picture is shown through all of them.' : '') + '</p>';
+      if (many) h += '<p class="dsel-note" style="margin:8px 0 2px">' + (oneGroup() ? 'This group shows one picture across all its shapes. Ungroup removes the picture.' : 'Each selected shape gets its own copy of the picture. Group them first to show one picture across all of them.') + '</p>';
+      if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.</p>';
       h += slider('Transparency', 'pftr', 0, 100, 1, Math.round((1 - D.num(P.o, 1, 0, 1)) * 100), '%');
       h += '<div class="dsel-sub">Fit</div><div class="dsel-seg"><button type="button" data-p="pffit" data-n="fill" class="' + (P.st ? '' : 'dsel-on') + '">Fill shape</button><button type="button" data-p="pffit" data-n="stretch" class="' + (P.st ? 'dsel-on' : '') + '">Stretch</button></div>';
       if (!P.st) h += slider('Zoom', 'pfz', 100, 400, 5, Math.round(D.num(P.z, 1, 1, 4) * 100), '%') + slider('Left \u2194 right', 'pfx', 0, 100, 1, Math.round(D.num(P.px, 50, 0, 100)), '%') + slider('Top \u2195 bottom', 'pfy', 0, 100, 1, Math.round(D.num(P.py, 50, 0, 100)), '%');
@@ -1719,7 +1734,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       im.src = src;
     }
     function insertPicFill(k) {
-      var keys = sel.slice(), one = !panel || !panel.querySelector('[data-pc="pfone"]') || panel.querySelector('[data-pc="pfone"]').checked;
+      var keys = sel.slice(), one = oneGroup();   /* one picture across the shapes only when they are a group */
       env.pickPicture(function (pic) {
         picData(pic, function (r) {
           if (!r) { env.toast('This picture could not be used.', 'error'); return; }
@@ -2252,7 +2267,6 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (pc === 'gsc') { var c2 = t.value.toUpperCase(); editPaint(k, pmode, function (q) { if (q.g) q.g.s[Math.min(gSel, q.g.s.length - 1)][1] = c2; }); done(); paintPanel(); return; }
       if (pc === 'gsp') { var v2 = Math.max(0, Math.min(100, +t.value || 0)); editPaint(k, pmode, function (q) { if (q.g) q.g.s[Math.min(gSel, q.g.s.length - 1)][0] = v2; }); done(); paintPanel(); return; }
       if (pc === 'dash') { editPaint(k, pmode, function (q) { q.d = t.value; }); done(); return; }
-      if (pc === 'pfone') { var hasPic = sel.some(function (x) { var q = getP(x, 'fill'); return q && q.m === 'pic'; }); if (!hasPic) return; begin(); setPicGroup(t.checked); redraw(); done(); paint(); return; }
       if (pc === 'shon') { begin(); sel.forEach(function (x) { if (supports(x, 'sh')) setP(x, 'sh', t.checked ? D.clone(getP(x, 'sh') || SHDEF) : null); }); redraw(); done(); paint(); return; }
       if (pc === 'shc') { begin(); var c3 = t.value.toUpperCase(); sel.forEach(function (x) { var s = getP(x, 'sh'); if (s) { s = D.clone(s); s.c = c3; setP(x, 'sh', s); } }); redraw(); done(); return; }
     }
