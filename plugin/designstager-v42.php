@@ -2,13 +2,19 @@
 /**
  * Plugin Name: Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in
  * Description: All active DesignStager Code Snippets packaged as a single plugin. V42 = V41 (41.5.0) + AI Document: write with AI or use your own text, review, then a designed document in the AI Presentation-style editor; 784 designs in 8 categories (business, education, career, letters, meetings, finance, marketing, events) incl. 2-sided flyers, tri-fold brochures, posters, social posts, infographics, business cards, invitations, menus, certificates, tickets and folded cards; page sizes per type; Word, PDF, PNG, JPG, TIFF (96-1200 dpi) and EPS+SVG downloads + DesignStager Word add-in. Deactivate V41 before activating V42.
- * Version: 42.0.1
+ * Version: 42.0.2
  * Author: DesignStager
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
  *
  * CHANGELOG
  * ---------
+ * 42.0.2 - 2026-10-23 AI Document business cards. 2 includes updated (372, 373; 371 in the previous commit).
+ *   372  55 corporate business card designs (front/back, details-first and one-side layouts), QR codes and photos.
+ *        FIXED: an uploaded logo did not show on the back; it now shows on both sides in different places.
+ *        Logo size can be set for the front and the back. Card pages no longer spill onto a blank page in Word.
+ *   373  Cards: texts, the logo, the QR code and the photo can be dragged anywhere (also in the Word file).
+ *        Clicking or double-clicking the logo opens the logo dialog; the upload box is now easy to see.
  * 42.0.1 - 2026-10-23 Bug fixes found by loading every page, admin screen and REST route on a test site. 4 includes updated.
  *   058  Creator portal - FIXED: visitors who are not signed in got a fatal error (it called users_can_register(),
  *        which is not a WordPress function); they now see the sign-in screen with Sign up when registration is open.
@@ -1356,7 +1362,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DSV42_VERSION', '42.0.1' );
+define( 'DSV42_VERSION', '42.0.2' );
 define( 'DSV42_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DSV42_URL', plugin_dir_url( __FILE__ ) );
 

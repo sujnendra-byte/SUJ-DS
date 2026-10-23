@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 13:00:00
+ * Modified   : 2026-10-23 19:00:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.6.1-cards36' );
+define( 'DS_DOC_ENGINE_VER', '1.6.2-cards55' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -2873,7 +2873,7 @@ D.toDocx = function (doc, opts) {
       });
       if (b.t === 's_qr') jobs.push(D.svgToPng(D.qrSVG(b.text || ' ', '#111111', '#FFFFFF', 300), 300, 300, 1).then(function (by) { pics['qr_' + b.id] = { data: by, type: 'png', w: 300, h: 300 }; }).catch(function () {}));
       if (b.t === 's_photo' && b.src) jobs.push(D.loadPicture(b.src).then(function (p) { if (p) pics['ph_' + b.id] = p; }).catch(function () {}));
-      if (b.t === 's_mark' && doc.logo && doc.logo.src && !doc.logo.hide && pics.__logo === undefined) { pics.__logo = null; jobs.push(D.loadPicture(doc.logo.src).then(function (p) { if (p) pics.__logo = p; }).catch(function () {})); }
+      if ((b.t === 's_mark' || dz.kind === 'panels') && doc.logo && doc.logo.src && !doc.logo.hide && pics.__logo === undefined) { pics.__logo = null; jobs.push(D.loadPicture(doc.logo.src).then(function (p) { if (p) pics.__logo = p; }).catch(function () {})); }
     });
     // block pictures
     (doc.blocks || []).forEach(function (b) {
@@ -3213,8 +3213,8 @@ D.toDocx = function (doc, opts) {
           }
           break;
         case 's_mark':
-          var lp = pics.__logo, mkPt = o.small ? 24 : 34;
-          if (lp) { var mh = mkPt * 96 / 72, mw = Math.min(cw / 15, mh * lp.w / lp.h); out.push(P([new X.ImageRun({ type: lp.type, data: lp.data, transformation: { width: Math.round(mw), height: Math.round(mw * lp.h / lp.w) }, altText: { title: 'Logo', description: 'Logo', name: 'Logo' } })], { alignment: o.align, spacing: { after: 80 } })); }
+          var lp = pics.__logo, mkPt = (o.mk || (o.small ? 24 : 34)) * (o.lgk || 1);
+          if (lp) { var mh = mkPt * 96 / 72, mw = Math.min(cw / 15, mh * lp.w / lp.h); out.push(P([new X.ImageRun({ type: lp.type, data: lp.data, transformation: { width: Math.round(mw), height: Math.round(mw * lp.h / lp.w) }, altText: { title: 'Logo', description: 'Logo', name: 'Logo' } })], { alignment: o.align, spacing: { after: o.after || 80 } })); }
           else out.push(P([new X.TextRun({ text: '\u00a0' + (b.text || D.initials(D.panelCompany(doc))) + '\u00a0', bold: true, size: Math.round(mkPt * 0.8), color: h(D.onColor(t.a)), font: HF, shading: { type: SH.CLEAR, fill: h(t.a), color: 'auto' } })], { alignment: o.align, spacing: { after: 100 } }));
           break;
         case 's_menu':
@@ -3315,17 +3315,22 @@ D.toDocx = function (doc, opts) {
       });
       PS.pages.forEach(function (Pg, pi) {
         var zs = Pg.zones, kids = [], top = Math.min.apply(null, zs.map(function (z) { return z.y; }));
-        var zk = function (z, zi) {
-          var f = D.panelFit(doc, pi, zi) * 0.92, al = z.align === 'center' ? A.CENTER : z.align === 'right' ? A.RIGHT : A.LEFT, out = [];
-          (grp[pi + '.' + zi] || []).forEach(function (b) { out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f), cw: tw(z.w), k: (z.k || 1) * f, bc: /\bbc\b/.test(z.cls || ''), zw: z.w, zh: z.h })); });
-          if (!out.length && z.auto === 'mark') out = out.concat(block({ t: 's_mark', id: 'auto' + pi + zi, text: D.initials(D.panelCompany(doc)) }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, small: true }));
+        var lgk = D.lgK(doc, !(PS.roles && PS.roles.logo ? PS.roles.logo[0] === pi : pi === 0));
+        var zk = function (z, zi, only) {
+          var f = D.panelFit(doc, pi, zi) * (z.lgTop && pics.__logo ? 0.78 : 0.92), al = z.align === 'center' ? A.CENTER : z.align === 'right' ? A.RIGHT : A.LEFT, out = [];
+          (only || grp[pi + '.' + zi] || []).forEach(function (b) { out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f), cw: tw(z.w), k: (z.k || 1) * f, bc: /\bbc\b/.test(z.cls || ''), zw: z.w, zh: z.h, lgk: lgk })); });
+          if (only) return out;
+          if (z.lgTop && pics.__logo) out = block({ t: 's_mark', id: 'lgtop' + pi + zi }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, mk: 15, lgk: lgk, after: 40 }).concat(out);
+          if (!out.length && z.auto === 'mark') out = out.concat(block({ t: 's_mark', id: 'auto' + pi + zi, text: D.initials(D.panelCompany(doc)) }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, small: true, lgk: lgk }));
           return out;
         };
         var ar = artRun('panel' + pi); if (ar) kids.push(P([ar], tiny));
         if (pi === 0 && !PS.ownLogo) { var lg0 = logoP('cover'); if (lg0) kids.push(lg0); }
         var ap = anchorPara('pp' + pi); if (ap) kids.push(ap);
         var minX = Math.min.apply(null, zs.map(function (z) { return z.x; })), maxR = Math.max.apply(null, zs.map(function (z) { return z.x + z.w; }));
-        if (zs.length === 1) {
+        /* a one-zone card page goes in a floating table, like the mixed card pages: Word lines are taller than the page's, so normal margins spill onto a blank third page */
+        var bcOne = zs.some(function (z) { return /\bbc\b/.test(z.cls || ''); });
+        if (zs.length === 1 && !bcOne) {
           var z0 = zs[0], k0 = zk(z0, 0), free = z0.h - 0;
           if (z0.v === 'bottom' || z0.v === 'center') {
             /* push the text down roughly like the page does: measured height is not known in Word, so use the zone's fit */
@@ -3334,11 +3339,23 @@ D.toDocx = function (doc, opts) {
           }
           kids = kids.concat(k0.length ? k0 : [P([])]);
           sections.push({ properties: pageProps({ t: z0.y, r: Math.max(0, sz.w - z0.x - z0.w), b: 20, l: z0.x }), children: kids });
-        } else if (!zs.every(function (a, i) { return zs.every(function (b, j) { return i === j || a.x + a.w <= b.x + 1 || b.x + b.w <= a.x + 1; }); }) &&
+        } else if (bcOne || !zs.every(function (a, i) { return zs.every(function (b, j) { return i === j || a.x + a.w <= b.x + 1 || b.x + b.w <= a.x + 1; }); }) &&
           !zs.every(function (a, i) { return zs.every(function (b, j) { return i === j || a.y + a.h <= b.y + 1 || b.y + b.h <= a.y + 1; }); })) {
           /* zones beside AND above one another (cards): each zone is a small floating table at its own place on the page */
           zs.forEach(function (z, zi) {
-            var ck = zk(z, zi); if (!ck.length) return;
+            /* blocks moved freely on the page: each goes in its own small table where the page shows it */
+            var all0 = grp[pi + '.' + zi] || [], moved = all0.filter(function (b) { return D.num(b.dx, 0) || D.num(b.dy, 0); });
+            if (moved.length) {
+              grp[pi + '.' + zi] = all0.filter(function (b) { return moved.indexOf(b) < 0; });
+              moved.forEach(function (b) {
+                var r = D.blockRectOnPage(b.id, pi, sz), ob = zk(z, zi, [b]); if (!r || !ob.length) { grp[pi + '.' + zi].push(b); return; }
+                kids.push(new X.Table({ rows: [new X.TableRow({ children: [cell(ob, { w: tw(r.w), margins: { top: 0, bottom: 0, left: 0, right: 0 } })] })],
+                  width: { size: tw(r.w), type: WT.DXA }, columnWidths: [tw(r.w)], layout: X.TableLayoutType.FIXED, borders: noBorders,
+                  float: { horizontalAnchor: X.TableAnchorType.PAGE, verticalAnchor: X.TableAnchorType.PAGE, absoluteHorizontalPosition: tw(Math.max(0, r.x)), absoluteVerticalPosition: tw(Math.max(0, r.y)), overlap: X.OverlapType.OVERLAP } }));
+                kids.push(P([], tiny));
+              });
+            }
+            var ck = zk(z, zi); grp[pi + '.' + zi] = all0; if (!ck.length) return;
             var VA2 = X.VerticalAlign;
             kids.push(new X.Table({ rows: [new X.TableRow({ cantSplit: true, height: { value: tw(z.h * 0.9), rule: X.HeightRule.ATLEAST }, children: [cell(ck, { w: tw(z.w), margins: { top: 0, bottom: 0, left: 0, right: 0 }, va: z.v === 'bottom' ? VA2.BOTTOM : z.v === 'center' ? VA2.CENTER : VA2.TOP })] })],
               width: { size: tw(z.w), type: WT.DXA }, columnWidths: [tw(z.w)], layout: X.TableLayoutType.FIXED, borders: noBorders,
@@ -3529,6 +3546,23 @@ D.toDocx = function (doc, opts) {
     var f = D.PANEL[dz.layout] || D.PANEL.flyer2;
     return f(doc, t, sz.w, sz.h, dz, sz);
   };
+  /* where a block shows on its page (page px), read from the editor if it is open, else from any render */
+  D.blockRectOnPage = function (id, pi, sz) {
+    var els = Array.prototype.slice.call(document.querySelectorAll('.dsd-blk[data-id="' + String(id).replace(/"/g, '') + '"]')).filter(function (e) { return e.getBoundingClientRect().width > 0; });
+    var e = els.filter(function (x) { return x.closest('.dsd-edit'); })[0] || els[0]; if (!e) return null;
+    var fl = e.closest('.dsd-flow'), pg = fl && fl.querySelector('.dsd-page[data-pg="' + pi + '"]'); if (!pg) return null;
+    var pr = pg.getBoundingClientRect(), k = pr.width / sz.w || 1, r = e.getBoundingClientRect();
+    return { x: (r.left - pr.left) / k, y: (r.top - pr.top) / k, w: Math.max(30, r.width / k + 4), h: r.height / k };
+  };
+  /* logo size on cards: doc.logo.bc = { f: front 0-100, b: back 0-100, back: 0 hides the small back logo }; 50 is the normal size */
+  D.lgK = function (doc, back) { var c = doc && doc.logo && doc.logo.bc || {}, v = D.num(back ? c.b : c.f, 50); return Math.round((v <= 50 ? 0.5 + v / 100 : 1 + (v - 50) / 50) * 100) / 100; };
+  /* a block moved freely on a card page keeps its place in its zone and is shifted by b.dx, b.dy (page px) */
+  D.offBlock = function (html, b) {
+    var dx = D.num(b.dx, 0), dy = D.num(b.dy, 0); if (!dx && !dy) return html;
+    var tr = 'translate:' + Math.round(dx) + 'px ' + Math.round(dy) + 'px;', i = html.indexOf('>'), head = html.slice(0, i);
+    head = /\sstyle="/.test(head) ? head.replace(/\sstyle="/, ' style="' + tr) : head + ' style="' + tr + '"';
+    return head + html.slice(i);
+  };
   D.renderPanels = function (root, doc, ctx, t, dz, sz, gap) {
     var spec = D.panelSpec(doc, t, dz, sz), n = spec.pages.length, pitch = sz.h + gap, artOn = D.artOn(doc), o = ctx.o;
     var flow = document.createElement('div');
@@ -3553,11 +3587,12 @@ D.toDocx = function (doc, opts) {
     spec.pages.forEach(function (P, p) {
       P.zones.forEach(function (z, zi) {
         ctx.titlePt = z.titlePt || 48;
-        var inner = (groups[p + '.' + zi] || []).map(function (b) { return D.blockHTML(b, ctx); }).join('');
+        var inner = (groups[p + '.' + zi] || []).map(function (b) { return D.offBlock(D.blockHTML(b, ctx), b); }).join('');
+        if (z.lgTop && doc.logo && doc.logo.src && !doc.logo.hide) inner = '<div class="dsd-s-mk dsd-s-mk2"><img alt="Logo" src="' + D.esc(doc.logo.src) + '"></div>' + inner;
         if (!inner && z.auto === 'mark') { var lg0 = doc.logo && doc.logo.src && !doc.logo.hide ? doc.logo.src : ''; inner = '<div class="dsd-s-mk">' + (lg0 ? '<img alt="Logo" src="' + D.esc(lg0) + '">' : '<span class="mono">' + D.esc(D.initials(D.panelCompany(doc))) + '</span>') + '</div>'; }
         var dk = z.dark ? ';--ink:#FFFFFF;--p:#FFFFFF;--s:' + t.a + ';--mute:rgba(255,255,255,.82);--line:rgba(255,255,255,.35);' + D.darkAt(t) : '';
         zh += '<div class="dsd-sz dsd-pz' + (z.dark ? ' dark' : '') + (z.cls ? ' ' + z.cls : '') + '" data-pg="' + p + '" data-zn="' + zi + '" data-h="' + Math.round(z.h) + '" style="left:' + Math.round(z.x) + 'px;top:' + Math.round(p * pitch + z.y) + 'px;width:' + Math.round(z.w) + 'px;height:' + Math.round(z.h) + 'px;' +
-          'text-align:' + z.align + ';align-items:' + (z.align === 'center' ? 'center' : z.align === 'right' ? 'flex-end' : 'flex-start') + ';justify-content:' + (z.v === 'bottom' ? 'flex-end' : z.v === 'center' ? 'center' : 'flex-start') + ';' + zoneVars(z) + dk + (z.vars ? ';' + z.vars : '') + '">' + inner + '</div>';
+          '--lgk:' + D.lgK(doc, !(spec.roles && spec.roles.logo ? spec.roles.logo[0] === p : p === 0)) + ';text-align:' + z.align + ';align-items:' + (z.align === 'center' ? 'center' : z.align === 'right' ? 'flex-end' : 'flex-start') + ';justify-content:' + (z.v === 'bottom' ? 'flex-end' : z.v === 'center' ? 'center' : 'flex-start') + ';' + zoneVars(z) + dk + (z.vars ? ';' + z.vars : '') + '">' + inner + '</div>';
       });
     });
     flow.insertAdjacentHTML('beforeend', zh);
@@ -4139,8 +4174,8 @@ D.toDocx = function (doc, opts) {
     '.bcph{padding:0!important}.bcph>.dsd-blk{margin:0!important}.dsd-s-ph{width:100%;height:var(--zh,120px);background:#CBD5E1 center/cover no-repeat;clip-path:var(--clip,none);display:flex;align-items:center;justify-content:center}' +
     '.dsd-s-ph.empty{background:linear-gradient(135deg,#E2E8F0,#CBD5E1)}.dsd-s-ph span{display:flex;flex-direction:column;align-items:center;gap:3px}.dsd-s-ph svg{width:38%;max-width:46px;fill:#94A3B8}.dsd-s-ph em{font-style:normal;font-size:6pt;color:#475569}.dsd-edit .dsd-s-ph{cursor:pointer}' +
     '.bc.ond .dsd-s-ct .ic{background:var(--icb,#1B1D22)}.bc.ond .dsd-s-ct .ic svg{fill:#fff}.bc.ond:not(.dark) .dsd-s-s{color:var(--p)}.bc.ond.dark .dsd-s-s{color:rgba(255,255,255,.9)}.bc.ond.lead .dsd-s-t,.bc.ond .dsd-s-t{border-color:rgba(255,255,255,.6)}' +
-    '.dsd-s-mk{display:block;width:100%;line-height:0}' +
-    '.dsd-s-mk img{display:inline-block;max-width:100%;height:calc(var(--mk,34pt)*var(--fit,1));object-fit:contain}' +
+    '.dsd-s-mk{display:block;width:100%;line-height:0}.dsd-s-mk2{margin-bottom:calc(6pt*var(--fit,1))}.dsd-s-mk2 img{height:calc(20pt*var(--fit,1)*var(--lgk,1))}' +
+    '.dsd-s-mk img{display:inline-block;max-width:100%;height:calc(var(--mk,34pt)*var(--fit,1)*var(--lgk,1));object-fit:contain}' +
     '.dsd-s-mk .mono{display:inline-flex;align-items:center;justify-content:center;width:calc(var(--mk,34pt)*var(--fit,1));height:calc(var(--mk,34pt)*var(--fit,1));border-radius:var(--mkr,50%);background:var(--a);color:var(--ona);font-family:var(--headf);font-weight:800;font-size:calc(var(--mk,34pt)*.4*var(--fit,1));letter-spacing:.02em}' +
     /* card text: tight and readable */
     '.bc .dsd-s-t{line-height:1.02;margin:0 0 calc(1.5pt*var(--fit,1))}.bc .dsd-s-s{font-style:normal;font-family:var(--bodyf);font-size:calc(6.6pt*var(--fit,1));letter-spacing:.16em;text-transform:uppercase;margin:0;color:var(--st)}' +
@@ -4310,7 +4345,7 @@ D.toDocx = function (doc, opts) {
       z: [{ x: W * 0.07, y: H * 0.08, w: W * 0.62, h: H * 0.66, align: 'left', v: 'center', dark: false, lead: 1 }, { tag: 'qr', x: W * 0.74, y: H * 0.16, w: H * 0.4, h: H * 0.4 }] };
   };
   Bk.orangePanel = function (t, W, H) {
-    var dk = D.lum(t.a) < 0.4;
+    var dk = D.cr('#FFFFFF', t.a) > D.cr('#141414', t.a);
     return { s: rect(0, 0, W, H, t.p) + rect(W * 0.04, H * 0.08, W * 0.56, H * 0.84, t.a) + rect(W * 0.66, H * 0.08, W * 0.3, 2, t.a),
       z: [{ x: W * 0.08, y: H * 0.12, w: W * 0.49, h: H * 0.76, align: 'left', v: 'center', dark: dk, ond: 1, icb: t.p }, { x: W * 0.66, y: H * 0.14, w: W * 0.3, h: H * 0.3, align: 'center', v: 'center', dark: true, small: 1 },
         { tag: 'qr', x: W * 0.81 - H * 0.2, y: H * 0.5, w: H * 0.4, h: H * 0.4 }] };
@@ -4343,6 +4378,111 @@ D.toDocx = function (doc, opts) {
     return { s: rect(0, 0, W, H, '#FFFFFF') + rect(W * 0.06, H * 0.12, 3, H * 0.64, t.a) + rect(0, H * 0.86, W, H * 0.14, t.p),
       z: [{ x: W * 0.1, y: H * 0.08, w: W * 0.58, h: H * 0.72, align: 'left', v: 'center', dark: false }, { tag: 'qr', x: W * 0.74, y: H * 0.14, w: H * 0.42, h: H * 0.42 }] };
   };
+  /* ---- third set (picked from the reference sheet) ---- */
+  function mandala(cx, cy, R, c, op) {
+    var s = ring(cx, cy, R, c, 1.2, op) + ring(cx, cy, R * 0.78, c, 0.8, op) + ring(cx, cy, R * 0.34, c, 1, op) + circ(cx, cy, R * 0.12, c, op);
+    for (var i = 0; i < 16; i++) { var a = i * 22.5; s += '<ellipse cx="' + cx + '" cy="' + (cy - R * 0.56) + '" rx="' + R * 0.09 + '" ry="' + R * 0.2 + '" transform="rotate(' + a + ' ' + cx + ' ' + cy + ')" fill="none" stroke="' + c + '" stroke-width="1"' + (op != null ? ' stroke-opacity="' + op + '"' : '') + '/>'; }
+    for (i = 0; i < 32; i++) { var b = i * 11.25; s += '<circle cx="' + cx + '" cy="' + (cy - R * 0.89) + '" r="' + R * 0.025 + '" transform="rotate(' + b + ' ' + cx + ' ' + cy + ')" fill="' + c + '"' + (op != null ? ' fill-opacity="' + op + '"' : '') + '/>'; }
+    return s;
+  }
+  F.mandala = function (t, W, H) {
+    return { s: rect(0, 0, W, H, '#14161B') + mandala(W * 0.98, H * 0.5, H * 0.62, t.a) + rect(0, H * 0.92, W * 0.5, 2, t.a),
+      z: [{ x: W * 0.08, y: H * 0.14, w: W * 0.5, h: H * 0.72, align: 'left', v: 'center', dark: true, gold: 1 }] };
+  };
+  F.mandalaColor = function (t, W, H) {
+    return { s: rect(0, 0, W, H, t.p) + mandala(W * 0.04, H / 2, H * 0.6, t.a, 0.7) + rect(0, 0, W, H * 0.04, t.a) + rect(0, H * 0.96, W, H * 0.04, t.a),
+      z: [{ x: W * 0.44, y: H * 0.16, w: W * 0.5, h: H * 0.68, align: 'left', v: 'center', dark: true }] };
+  };
+  F.blobs = function (t, W, H) {
+    return { s: rect(0, 0, W, H, '#FFFFFF') + blob(W * 0.95, H * 0.08, H * 0.48, 2, t.a, 0.85) + blob(W * 0.98, H * 0.18, H * 0.36, 5, t.p) + blob(W * 0.02, H * 0.98, H * 0.36, 8, t.s, 0.9) + blob(W * 0.09, H * 1.02, H * 0.2, 3, t.a),
+      z: [{ x: W * 0.2, y: H * 0.16, w: W * 0.5, h: H * 0.68, align: 'center', v: 'center', dark: false }] };
+  };
+  F.shards = function (t, W, H) {
+    var C = [t.p, t.a, t.s, D.mix(t.a, '#FFFFFF', 0.35), D.mix(t.p, '#FFFFFF', 0.3), t.a], s = rect(0, 0, W, H, '#FFFFFF'), x = W * 0.44;
+    var pts = [[[0, 0], [x * 0.6, 0], [x * 0.2, H * 0.45]], [[x * 0.6, 0], [x, 0], [x * 0.7, H * 0.4], [x * 0.2, H * 0.45]], [[0, 0], [x * 0.2, H * 0.45], [0, H * 0.62]], [[x * 0.2, H * 0.45], [x * 0.7, H * 0.4], [x * 0.55, H], [0, H], [0, H * 0.62]], [[x * 0.7, H * 0.4], [x, 0], [x * 0.82, H], [x * 0.55, H]]];
+    pts.forEach(function (p, i) { s += P(p, C[i % C.length]); });
+    return { s: s, z: [{ x: W * 0.5, y: H * 0.16, w: W * 0.44, h: H * 0.68, align: 'left', v: 'center', dark: false }] };
+  };
+  F.centerBand = function (t, W, H) {
+    return { s: rect(0, 0, W, H, t.p) + rect(0, H * 0.3, W, H * 0.4, '#FFFFFF') + rect(0, H * 0.27, W, 2, t.a) + rect(0, H * 0.71, W, 2, t.a) + dots(W * 0.06, H * 0.08, 8, 2, H * 0.06, 1.2, '#FFFFFF', 0.35),
+      z: [{ x: W * 0.1, y: H * 0.31, w: W * 0.8, h: H * 0.38, align: 'center', v: 'center', dark: false, mk: 22, tp: 12 }] };
+  };
+  F.diamondEdge = function (t, W, H) {
+    return { s: rect(0, 0, W, H, t.p) + P([[W * 0.78, H * 0.5 - H * 0.62], [W * 0.78 + H * 0.62, H * 0.5], [W * 0.78, H * 0.5 + H * 0.62], [W * 0.78 - H * 0.62, H * 0.5]], t.a) + P([[W * 0.78, H * 0.5 - H * 0.36], [W * 0.78 + H * 0.36, H * 0.5], [W * 0.78, H * 0.5 + H * 0.36], [W * 0.78 - H * 0.36, H * 0.5]], t.p),
+      z: [{ x: W * 0.07, y: H * 0.14, w: W * 0.46, h: H * 0.72, align: 'left', v: 'center', dark: true }] };
+  };
+  F.quarter = function (t, W, H) {
+    var r = H * 0.26;
+    return { s: rect(0, 0, W, H, t.p) + circ(0, 0, r, t.a) + circ(W, 0, r * 0.6, t.a) + circ(0, H, r * 0.6, t.a) + circ(W, H, r, t.a) + ring(W, H, r * 1.35, t.a, 1.2, 0.6),
+      z: [{ x: W * 0.2, y: H * 0.16, w: W * 0.6, h: H * 0.68, align: 'center', v: 'center', dark: true }] };
+  };
+  F.diagStripes = function (t, W, H) {
+    var s = rect(0, 0, W, H, t.p) + P([[0, 0], [W * 0.46, 0], [W * 0.3, H], [0, H]], t.a);
+    for (var i = 0; i < 4; i++) s += P([[W * (0.47 + i * 0.05), 0], [W * (0.49 + i * 0.05), 0], [W * (0.33 + i * 0.05), H], [W * (0.31 + i * 0.05), H]], t.a, 0.8 - i * 0.18);
+    return { s: s, z: [{ x: W * 0.52, y: H * 0.16, w: W * 0.42, h: H * 0.68, align: 'right', v: 'center', dark: true }] };
+  };
+  F.texture = function (t, W, H) {
+    var s = rect(0, 0, W, H, t.p), m = H * 0.08;
+    for (var i = -10; i < 40; i++) s += line(i * 9, 0, i * 9 - H, H, '#FFFFFF', 0.5, 0.06);
+    s += '<rect x="' + m + '" y="' + m + '" width="' + (W - 2 * m) + '" height="' + (H - 2 * m) + '" fill="none" stroke="' + t.a + '" stroke-width="1.2"/>';
+    return { s: s, z: [{ x: W * 0.16, y: H * 0.16, w: W * 0.68, h: H * 0.68, align: 'center', v: 'center', dark: true }] };
+  };
+  F.silk = function (t, W, H) {
+    var s = '<defs>' + grad('bcsk', t.p, t.s, 1, 1) + '</defs><rect width="' + W + '" height="' + H + '" fill="url(#bcsk)"/>';
+    for (var i = 0; i < 4; i++) s += path('M' + W * 0.45 + ' ' + H + ' C ' + W * (0.6 + i * 0.04) + ' ' + H * (0.55 - i * 0.05) + ', ' + W * (0.78 - i * 0.02) + ' ' + H * (0.62 + i * 0.04) + ', ' + W + ' ' + H * (0.15 + i * 0.1) + ' L ' + W + ' ' + H + ' Z', i % 2 ? t.a : '#FFFFFF', i % 2 ? 0.55 : 0.08);
+    return { s: s, z: [{ x: W * 0.08, y: H * 0.14, w: W * 0.5, h: H * 0.62, align: 'left', v: 'center', dark: true }] };
+  };
+  F.fold = function (t, W, H) {
+    var f = H * 0.34;
+    return { s: rect(0, 0, W, H, '#FFFFFF') + P([[W - f, 0], [W, 0], [W, f]], t.p) + P([[W - f, 0], [W, f], [W - f * 0.88, f * 0.88]], D.mix(t.p, '#000000', 0.25)) + rect(0, 0, W * 0.025, H, t.a) + rect(0, H - H * 0.05, W * 0.6, H * 0.05, t.p),
+      z: [{ x: W * 0.1, y: H * 0.16, w: W * 0.62, h: H * 0.66, align: 'left', v: 'center', dark: false }] };
+  };
+  F.zigzagBand = function (t, W, H) {
+    var s = rect(0, 0, W, H, t.p), y = H * 0.78, n = 14, d = 'M0 ' + H + ' L0 ' + y;
+    for (var i = 0; i < n; i++) d += ' L' + (W / n * (i + 0.5)) + ' ' + (y - H * 0.06) + ' L' + (W / n * (i + 1)) + ' ' + y;
+    s += path(d + ' L' + W + ' ' + H + ' Z', t.a);
+    return { s: s, z: [{ x: W * 0.1, y: H * 0.1, w: W * 0.8, h: H * 0.56, align: 'center', v: 'center', dark: true }] };
+  };
+  Bk.qrStrip = function (t, W, H) {
+    return { s: rect(0, 0, W, H, t.p) + rect(W * 0.7, 0, W * 0.3, H, t.a) + rect(W * 0.07, H * 0.88, W * 0.16, 2, t.a),
+      z: [{ x: W * 0.07, y: H * 0.1, w: W * 0.6, h: H * 0.76, align: 'left', v: 'center', dark: true, lead: 1 },
+        { tag: 'mark', x: W * 0.72, y: H * 0.06, w: W * 0.26, h: H * 0.38, align: 'center', v: 'center', dark: D.cr('#FFFFFF', t.a) > D.cr('#141414', t.a), small: 1 },
+        { tag: 'qr', x: W * 0.85 - H * 0.19, y: H * 0.5, w: H * 0.38, h: H * 0.38 }] };
+  };
+  Bk.blobBack = function (t, W, H) {
+    return { s: rect(0, 0, W, H, '#FFFFFF') + blob(W * 0.98, H * 0.96, H * 0.46, 4, t.a, 0.85) + blob(W * 1.02, H * 1.02, H * 0.3, 6, t.p) + blob(W * 0.02, H * 0.02, H * 0.18, 9, t.s, 0.9),
+      z: [{ x: W * 0.1, y: H * 0.12, w: W * 0.62, h: H * 0.76, align: 'left', v: 'center', dark: false, lead: 1 }] };
+  };
+  Bk.diamondBack = function (t, W, H) {
+    var c = H * 0.5, r = H * 0.62;
+    return { s: rect(0, 0, W, H, '#FFFFFF') + P([[-r * 0.25, c - r], [r * 0.75, c], [-r * 0.25, c + r]], t.p) + P([[r * 0.75 + 6, c], [-r * 0.25 + 6, c - r], [-r * 0.25 + 10, c - r]], t.a),
+      z: [{ tag: 'mark', x: W * 0.02, y: H * 0.3, w: W * 0.2, h: H * 0.4, align: 'center', v: 'center', dark: true, small: 1 }, { x: W * 0.36, y: H * 0.1, w: W * 0.6, h: H * 0.8, align: 'left', v: 'center', dark: false, lead: 1 }], swap: 1 };
+  };
+  Bk.centerBandBack = function (t, W, H) {
+    return { s: rect(0, 0, W, H, '#FFFFFF') + rect(0, 0, W, H * 0.3, t.p) + rect(0, H * 0.3, W, 2, t.a) + rect(0, H - 3, W, 3, t.a),
+      z: [{ tag: 'tab', x: W * 0.07, y: H * 0.04, w: W * 0.86, h: H * 0.22, align: 'left', v: 'center', dark: true, tp: 13 },
+        { x: W * 0.07, y: H * 0.38, w: W * 0.6, h: H * 0.54, align: 'left', v: 'center', dark: false }, { tag: 'qr', x: W * 0.74, y: H * 0.42, w: H * 0.4, h: H * 0.4 }] };
+  };
+  Bk.quarterBack = function (t, W, H) {
+    var r = H * 0.22;
+    return { s: rect(0, 0, W, H, t.p) + circ(W, 0, r, t.a) + circ(0, H, r * 0.7, t.a) + ring(W, 0, r * 1.4, t.a, 1, 0.6),
+      z: [{ x: W * 0.1, y: H * 0.12, w: W * 0.66, h: H * 0.76, align: 'left', v: 'center', dark: true, lead: 1 }] };
+  };
+  Bk.foldBack = function (t, W, H) {
+    var f = H * 0.22;
+    return { s: rect(0, 0, W, H, '#FFFFFF') + P([[0, H - f], [0, H], [f, H]], t.p) + P([[0, H - f], [f, H], [f * 0.88, H - f * 0.88]], D.mix(t.p, '#000000', 0.25)) + rect(W * 0.07, H * 0.08, W * 0.86, 2, t.a),
+      z: [{ x: W * 0.12, y: H * 0.13, w: W * 0.56, h: H * 0.66, align: 'left', v: 'center', dark: false, lead: 1 }, { tag: 'qr', x: W * 0.74, y: H * 0.46, w: H * 0.4, h: H * 0.4 }, { tag: 'mark', x: W * 0.72, y: H * 0.12, w: W * 0.24, h: H * 0.3, align: 'center', v: 'center', dark: false, small: 1 }] };
+  };
+  Bk.mandalaBack = function (t, W, H) {
+    return { s: rect(0, 0, W, H, '#14161B') + mandala(W * 1.02, H * 1.02, H * 0.6, t.a, 0.85) + rect(W * 0.08, H * 0.1, W * 0.12, 1.5, t.a),
+      z: [{ x: W * 0.08, y: H * 0.14, w: W * 0.6, h: H * 0.74, align: 'left', v: 'center', dark: true, lead: 1, gold: 1, icl: 1 }] };
+  };
+  Bk.zigzagBack = function (t, W, H) {
+    var x = W * 0.1, n = 8, d = 'M0 0 L' + x + ' 0';
+    for (var i = 0; i < n; i++) d += ' L' + (x + H * 0.06) + ' ' + (H / n * (i + 0.5)) + ' L' + x + ' ' + (H / n * (i + 1));
+    return { s: rect(0, 0, W, H, '#FFFFFF') + path(d + ' L0 ' + H + ' Z', t.a) + rect(0, 0, x * 0.55, H, t.p),
+      z: [{ x: W * 0.22, y: H * 0.1, w: W * 0.5, h: H * 0.8, align: 'left', v: 'center', dark: false, lead: 1 }, { tag: 'qr', x: W * 0.76, y: H * 0.3, w: H * 0.4, h: H * 0.4 }] };
+  };
   /* logo on colour, for the "details + logo" layout */
   Bk.logoColour = function (t, W, H, k) {
     var s = rect(0, 0, W, H, k % 2 ? t.p : t.s);
@@ -4369,6 +4509,7 @@ D.toDocx = function (doc, opts) {
     var f = F[dz.front] ? F[dz.front](t, W, H) : null, b = Bk[dz.backd] ? Bk[dz.backd](t, W, H, dz.vi || 0) : null, pages = [], roles = {};
     var det = function (p) {          /* name, title, contacts, QR and photo on the details side (page p) */
       var main = at(pages, p, 'main'), tab = at(pages, p, 'tab');
+      if (main && !tab && !at(pages, p, 'mark') && !(doc.logo && doc.logo.bc && doc.logo.bc.back === 0)) pages[p].zones[main[1]].lgTop = 1;   /* an uploaded logo also shows small, above the name, on the details side */
       roles.name = tab || main; roles.title = tab || main; roles.contact = main;
       roles.qr = at(pages, p, 'qr'); if (!roles.photo) roles.photo = at(pages, p, 'photo');
     };
@@ -4410,7 +4551,10 @@ D.toDocx = function (doc, opts) {
     cp('bc05', 'Forest Gold', '#123524', '#1E5A3C', '#D4A72C', 'Georgia', 'Calibri'), cp('bc06', 'Wine Rose', '#4C1130', '#7A1F4B', '#F4A3B5', 'Constantia', 'Corbel'),
     cp('bc07', 'Charcoal Lime', '#23272E', '#3A404A', '#A3D139', 'Franklin Gothic Medium', 'Aptos'), cp('bc08', 'Black Gold', '#14161B', '#2A2D34', '#C9A14A', 'Bodoni MT', 'Gill Sans MT'),
     cp('bc09', 'Purple Amber', '#2E1A5E', '#4C2C96', '#FFB020', 'Aptos Display', 'Aptos'), cp('bc10', 'Slate Red', '#1F2933', '#334454', '#E23D3D', 'Arial Black', 'Arial'),
-    cp('bc11', 'Ocean Sun', '#073B4C', '#0B5A73', '#FFD166', 'Trebuchet MS', 'Calibri'), cp('bc12', 'Blue Orange', '#12355B', '#1F5288', '#FF8C42', 'Calibri Light', 'Calibri')
+    cp('bc11', 'Ocean Sun', '#073B4C', '#0B5A73', '#FFD166', 'Trebuchet MS', 'Calibri'), cp('bc12', 'Blue Orange', '#12355B', '#1F5288', '#FF8C42', 'Calibri Light', 'Calibri'),
+    cp('bc13', 'Black Yellow', '#111111', '#2B2B2B', '#FFC300', 'Bahnschrift', 'Aptos'), cp('bc14', 'Violet Pink', '#3A0CA3', '#7209B7', '#F72585', 'Century Gothic', 'Century Gothic'),
+    cp('bc15', 'Leaf Green', '#1B4332', '#2D6A4F', '#74C69D', 'Gill Sans MT', 'Gill Sans MT'), cp('bc16', 'Deep Teal Orange', '#0B3C49', '#145A6B', '#FF7F3F', 'Segoe UI', 'Segoe UI'),
+    cp('bc17', 'Maroon Gold', '#5E0B15', '#90323D', '#D9B44A', 'Garamond', 'Calibri'), cp('bc18', 'Ink Sky', '#0B2545', '#13315C', '#8DA9C4', 'Aptos Display', 'Aptos')
   ];
   CP.forEach(function (x) { D.THEMES.push(x); });
   /* drop the first card collection; add the new one */
@@ -4426,9 +4570,14 @@ D.toDocx = function (doc, opts) {
     ['logo', 'scallop', 'nameTab', 'Scallop', 6], ['logo', 'leaf', 'leftBar', 'Leaf', 4], ['logo', 'geoTri', 'cleanQR', 'Prism', 9], ['logo', 'doubleWave', 'waveBottom2', 'Ripple', 3],
     ['logo', 'photoHalf', 'nameTab', 'Portrait', 1], ['logo', 'photoCircle', 'footWeb', 'Profile', 10],
     ['details', null, 'nameTab', 'Tag', 5], ['details', null, 'footWeb', 'Footer', 8], ['details', null, 'leftBar', 'Pillar', 0], ['details', null, 'photoSide', 'Photo ID', 11],
-    ['one', null, 'panelQR', 'Scan', 3], ['one', null, 'photoMark', 'Face', 2]
+    ['one', null, 'panelQR', 'Scan', 3], ['one', null, 'photoMark', 'Face', 2],
+    ['logo', 'mandala', 'mandalaBack', 'Mandala', 7], ['logo', 'blobs', 'blobBack', 'Organic', 14], ['logo', 'shards', 'foldBack', 'Mosaic', 11], ['logo', 'centerBand', 'centerBandBack', 'Banner', 9],
+    ['logo', 'diamondEdge', 'diamondBack', 'Diamond', 12], ['logo', 'quarter', 'qrStrip', 'Quarter', 15], ['logo', 'diagStripes', 'zigzagBack', 'Stripe', 12], ['logo', 'texture', 'quarterBack', 'Linen', 16],
+    ['logo', 'silk', 'blobBack', 'Silk', 13], ['logo', 'fold', 'foldBack', 'Fold', 17], ['logo', 'zigzagBand', 'zigzagBack', 'Zigzag', 10], ['logo', 'mandalaColor', 'quarterBack', 'Royal', 16],
+    ['details', null, 'mandalaBack', 'Ornate', 16], ['details', null, 'qrStrip', 'Strip', 15], ['details', null, 'centerBandBack', 'Header', 5], ['details', null, 'diamondBack', 'Facet', 3],
+    ['details', null, 'quarterBack', 'Corner', 2], ['one', null, 'qrStrip', 'Compact', 1], ['one', null, 'foldBack', 'Folded', 17]
   ];
-  var DESC = { logo: 'Logo side + details side', details: 'Details side + logo side', one: 'One side, all details' }, EXTRA = { orangePanel: ' · QR code', footWeb: ' · QR code', goldLines: ' · QR code', nameTab: ' · QR code', cleanQR: ' · QR code', waveBottom2: ' · QR code', photoSide: ' · photo', panelQR: ' · QR code', photoMark: ' · photo', photoHalf: ' · photo', photoCircle: ' · photo' };
+  var DESC = { logo: 'Logo side + details side', details: 'Details side + logo side', one: 'One side, all details' }, EXTRA = { orangePanel: ' · QR code', footWeb: ' · QR code', goldLines: ' · QR code', nameTab: ' · QR code', cleanQR: ' · QR code', waveBottom2: ' · QR code', photoSide: ' · photo', panelQR: ' · QR code', photoMark: ' · photo', qrStrip: ' · QR code', centerBandBack: ' · QR code', foldBack: ' · QR code', zigzagBack: ' · QR code', photoHalf: ' · photo', photoCircle: ' · photo' };
   LIST.forEach(function (x, i) {
     D.DESIGNS.push(des('ma-businesscard-' + (i + 1), x[3], 'panels', ['business_card'], CP[x[4]].id, {
       layout: 'bizcard2', bc: x[0], front: x[1], backd: x[2], vi: i, coll: 'marketing', desc: DESC[x[0]] + (EXTRA[x[1]] || EXTRA[x[2]] || '') + ' · ' + CP[x[4]].name

@@ -1,11 +1,16 @@
 === Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in ===
 Requires PHP: 7.4
-Stable tag: 42.0.1
+Stable tag: 42.0.2
 
 All active DesignStager Code Snippets packaged as a single plugin.
 
 V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
+
+NEW IN 42.0.2
+ - includes/371-373: AI Document business cards - 55 corporate designs with QR codes
+   and photos; the uploaded logo shows on the front and the back (sizes adjustable);
+   texts and the logo can be dragged anywhere on the card; clearer logo upload box.
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to

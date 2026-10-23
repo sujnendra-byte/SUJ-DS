@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 13:00:00
+ * Modified   : 2026-10-23 19:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.6.1-cards' );
+define( 'DS_DOC_APP_VER', '1.6.3-cards' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -661,13 +661,17 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         if (!(sel.length === 1 && sel[0] === ck)) { e.preventDefault(); select([ck]); startMove(e, [ck]); }
         return;
       }
+      var mkz = e.target.closest('.dsd-s-mk');
+      if (mkz && docBox.contains(mkz) && !mkz.closest('.dsd-blk')) { e.preventDefault(); if (editing) stopEdit(); clearSel(); logoDialog(); return; }
       var be = e.target.closest('.dsd-blk');
       if (be && docBox.contains(be) && !be.closest('.dsd-hb.dark,.dsd-toc') || (be && docBox.contains(be))) {
         var bk = 'B:' + be.dataset.id, b = obj(bk); if (!b) return;
         if (editing) stopEdit();
         if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); select([bk], true); return; }
-        if (!(sel.length === 1 && sel[0] === bk)) select([bk]);
+        var wasSel = sel.length === 1 && sel[0] === bk, ae0 = document.activeElement, typing = wasSel && ae0 && be.contains(ae0) && ae0.isContentEditable;
+        if (!wasSel) select([bk]);
         if (b.lock) e.preventDefault();
+        else if (dzn().kind === 'panels' && !typing) startFreeBlockMove(e, [bk]);   /* cards: drag a text or the logo anywhere */
         return;                                            /* the caret goes into the text: type straight away */
       }
       if (editing) stopEdit();
@@ -738,7 +742,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         return;
       }
       var ks = ks0.filter(function (k) { return !isC(k); }); if (!ks.length) return;
-      if (ks.some(isB)) { if (ks.every(isB)) startBlockMove(e, ks); return; }
+      if (ks.some(isB)) { if (ks.every(isB)) (dzn().kind === 'panels' ? startFreeBlockMove : startBlockMove)(e, ks); return; }
       var st = toLocal(e.clientX, e.clientY), orig = ks.map(function (k) { var L = obj(k); return { L: L, x: D.num(L.x, 0), y: D.num(L.y, 0), off: pageOff(L.pg) }; }), moved = false, sx0 = e.clientX, sy0 = e.clientY;
       drag = {
         move: function (ev) {
@@ -804,6 +808,35 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           rest.splice.apply(rest, [target.where === 'before' ? ti : ti + 1, 0].concat(moving));
           doc.blocks = rest; env.rerender(); done();
           var n = domOf(ks[0]); if (n) n.scrollIntoView({ block: 'nearest' });
+        }
+      };
+    }
+    /* on card pages a text, the logo, the QR code or the photo is dragged anywhere: it keeps its zone and is shifted by b.dx, b.dy */
+    function startFreeBlockMove(e, ks) {
+      var sx0 = e.clientX, sy0 = e.clientY, moved = false, z = zoom() || 1;
+      /* a picture (logo, QR, photo, icon) must not start the browser's own picture drag */
+      if (e.preventDefault && e.target && e.target.closest && e.target.closest('img,svg,.dsd-s-ph')) e.preventDefault();
+      var items = ks.map(function (k) { var b = obj(k); return b && !b.lock ? { b: b, k: k, x: D.num(b.dx, 0), y: D.num(b.dy, 0) } : null; }).filter(Boolean);
+      if (!items.length) return;
+      drag = {
+        move: function (ev) {
+          if (!ev.clientX && !ev.clientY) return;
+          if (!moved && Math.abs(ev.clientX - sx0) + Math.abs(ev.clientY - sy0) < 5) return;
+          if (!moved) {
+            moved = true; begin(); document.documentElement.classList.add('dsel-dragging');
+            try { window.getSelection().removeAllRanges(); } catch (er) {}
+            var ae = document.activeElement; if (ae && ae.blur && docBox.contains(ae)) ae.blur();
+          }
+          var dx = (ev.clientX - sx0) / z, dy = (ev.clientY - sy0) / z;
+          if (ev.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+          items.forEach(function (q) { q.b.dx = Math.round(q.x + dx); q.b.dy = Math.round(q.y + dy); var n = domOf(q.k); if (n) n.style.translate = q.b.dx + 'px ' + q.b.dy + 'px'; });
+          sync();
+        },
+        up: function () {
+          document.documentElement.classList.remove('dsel-dragging');
+          if (!moved) return;
+          items.forEach(function (q) { if (!q.b.dx) delete q.b.dx; if (!q.b.dy) delete q.b.dy; });
+          env.rerender(); done(); sync();
         }
       };
     }
@@ -914,6 +947,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (api && api.drawLayers) api.drawLayers(); sync(); done();
     }
     function onDbl(e) {
+      var mkb = e.target.closest('.dsd-blk[data-t="s_mark"]');
+      if (mkb && docBox.contains(mkb)) { e.preventDefault(); logoDialog(); return; }
       var le = e.target.closest('.dsd-L'); if (!le || !docBox.contains(le)) return;
       var k = 'L:' + (le.dataset.lid || le.dataset.glid), L = obj(k); if (!L) return;
       if (L.k === 'text') { e.preventDefault(); startEdit(k); }
@@ -1849,7 +1884,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         W[key] = Object.assign({}, D.LOGO_DEF[key], W[key] || {}, c ? { x: c.x, y: c.y, s: c.s } : {});
       });
       delete W.pos; delete W.w; delete W.m; delete W.hide;
-      var view = hasCover ? 'cover' : 'page';
+      var view = hasCover ? 'cover' : 'page', card = dz.kind === 'panels';
+      if (card) W.bc = Object.assign({ f: 50, b: 50 }, W.bc || {});
       var m = el('div', 'dsdoc-lgm'); m.innerHTML = '<div class="dsdoc-lgb" role="dialog" aria-label="Company logo"><div class="dsdoc-lgh"><h3>&#127991; Company logo</h3><button type="button" class="dsdoc-lgx" data-l="x" title="Close">&times;</button></div><div class="dsdoc-lgc"></div>' +
         '<div class="dsdoc-lgf"><button type="button" class="dsdoc-lgbt" data-l="del">Remove logo</button><span></span><button type="button" class="dsdoc-lgbt" data-l="x">Cancel</button><button type="button" class="dsdoc-lgbt pri" data-l="ok">&#10003; Apply to all pages</button></div></div>';
       document.body.appendChild(m);
@@ -1857,7 +1893,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       function sl(key, f, lab, a, b) { var v = Math.round(D.num(W[key][f], 0)); return '<div class="dsdoc-lgs"><div class="dsdoc-lgsh"><span>' + lab + '</span><em data-v="' + key + '.' + f + '">' + v + '%</em></div><input type="range" min="0" max="100" step="1" value="' + v + '" data-r="' + key + '.' + f + '"><div class="dsdoc-lgse"><span>' + a + '</span><span>' + b + '</span></div></div>'; }
       function drop(which) {
         var src = which === 2 ? W.src2 : W.src, t = which === 2 ? 'Upload a short logo or icon for the pages after the cover. Without one, the main logo is used.' : 'Click to upload PNG, JPG, SVG or WebP';
-        return '<label class="dsdoc-lgd' + (src ? ' has' : '') + '">' + (src ? '<img alt="" src="' + esc(src) + '"><span>Click to change</span>' : '<span>' + t + '</span>') + '<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-f="' + which + '"></label>' +
+        return '<label class="dsdoc-lgd' + (src ? ' has' : '') + '">' + (src ? '<img alt="" src="' + esc(src) + '"><span>Click to change</span>' : '<span><b class="dsdoc-lgup">&#8679; Upload logo</b>' + t + '</span>') + '<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-f="' + which + '"></label>' +
           (which === 2 && src ? '<button type="button" class="dsdoc-lglink" data-l="rm2">Use the main logo on these pages</button>' : '');
       }
       function part(key, title, showLab, badgeLab) {
@@ -1871,10 +1907,14 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       }
       function draw() {
         var st = body.querySelector('.dsdoc-lgr'), sc = st ? st.scrollTop : 0;
-        var h = '<div class="dsdoc-lgv"><div class="dsdoc-lgpv"></div><div class="dsdoc-lgvt">' + (hasPages ? '<button type="button" data-l="vp" class="' + (view === 'page' ? 'on' : '') + '">Preview: page</button>' : '') + (hasCover ? '<button type="button" data-l="vc" class="' + (view === 'cover' ? 'on' : '') + '">Preview: ' + (single ? 'page' : 'cover') + '</button>' : '') + '</div>' +
+        var h = '<div class="dsdoc-lgv"><div class="dsdoc-lgpv"></div><div class="dsdoc-lgvt">' + (card ? '<button type="button" data-l="vp" class="' + (view === 'page' ? 'on' : '') + '">Preview: front</button><button type="button" data-l="vb" class="' + (view === 'back' ? 'on' : '') + '">Preview: back</button>' : hasPages ? '<button type="button" data-l="vp" class="' + (view === 'page' ? 'on' : '') + '">Preview: page</button>' : '') + (hasCover ? '<button type="button" data-l="vc" class="' + (view === 'cover' ? 'on' : '') + '">Preview: ' + (single ? 'page' : 'cover') + '</button>' : '') + '</div>' +
           '<p class="dsdoc-lgn">' + (hasCover && hasPages ? 'The cover and the other pages each have their own position and size. Both are used in the downloaded Word document.' : 'The logo is used in the downloaded Word document too.') + '</p></div>';
         h += '<div class="dsdoc-lgr"><div class="dsdoc-lgl">Logo image (' + (hasCover && hasPages ? 'cover and, unless you add another below, every page' : 'every page') + ')</div>' + drop(1);
-        if (W.src) {
+        if (W.src && card) {
+          h += '<div class="dsdoc-lgt">Front of the card</div>' + sl('bc', 'f', 'Logo size', 'Small', 'Big') +
+            '<div class="dsdoc-lgt">Back of the card</div><label class="dsdoc-lgck"><input type="checkbox" data-c="bc.back"' + (W.bc.back === 0 ? '' : ' checked') + '> Also show the logo on the details side</label>' +
+            sl('bc', 'b', 'Logo size', 'Small', 'Big') + '<p class="dsdoc-lgn">To move the logo or any text, drag it on the card. Double-click the logo to come back here.</p>';
+        } else if (W.src) {
           if (hasCover) h += part('cv', single ? 'The page' : 'Cover page', single ? 'Show the logo' : 'Show the logo on the cover', single ? 'Badge' : 'Cover badge');
           if (hasPages) h += (hasCover ? '<div class="dsdoc-lgsep"></div>' : '') + '<div class="dsdoc-lgt">' + (hasCover ? 'Other pages' : 'Pages') + '</div>' + (hasCover ? '<div class="dsdoc-lgl">Logo for these pages (optional)</div>' + drop(2) : '') + part('pg', '', 'Show the logo on ' + (hasCover ? 'these pages' : 'every page'), 'Page badge').replace('<div class="dsdoc-lgt"></div>', '');
         }
@@ -1896,7 +1936,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           var keepC = D._cdoc;
           try { D.render(inner, pd, { edit: false, gap: 0 }); } catch (er) { D._cdoc = keepC; return; }
           D._cdoc = keepC;
-          var target = view === 'cover' ? inner.querySelector('.dsd-cover,.dsd-single') : Array.prototype.filter.call(inner.querySelectorAll('.dsd-page'), function (n) { return !n.classList.contains('dsd-cover'); })[0];
+          var target = view === 'cover' ? inner.querySelector('.dsd-cover,.dsd-single') : Array.prototype.filter.call(inner.querySelectorAll('.dsd-page'), function (n) { return !n.classList.contains('dsd-cover'); })[view === 'back' ? 1 : 0];
           var oy = 0; if (target) { var a = inner.getBoundingClientRect(), b = target.getBoundingClientRect(); oy = b.top - a.top; }
           inner.style.transform = 'scale(' + k + ') translateY(' + (-oy) + 'px)';
         }, 120);
@@ -1909,7 +1949,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         var b = e.target.closest('[data-l],[data-p]'); if (!b) return;
         var l = b.getAttribute('data-l'), p = b.getAttribute('data-p');
         if (l === 'x') { close(); return; }
-        if (l === 'vp' || l === 'vc') { view = l === 'vp' ? 'page' : 'cover'; draw(); return; }
+        if (l === 'vp' || l === 'vc' || l === 'vb') { view = l === 'vp' ? 'page' : l === 'vb' ? 'back' : 'cover'; draw(); return; }
         if (l === 'rm2') { delete W.src2; delete W.ar2; draw(); return; }
         if (l === 'del') { close(); if (doc.logo) { begin(); delete doc.logo; env.rerender(); done(); } return; }
         if (l === 'ok') {
@@ -1922,6 +1962,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         var t = e.target, r = t.getAttribute('data-r'); if (!r) return;
         var q = r.split('.'); W[q[0]][q[1]] = +t.value;
         var em = body.querySelector('[data-v="' + r + '"]'); if (em) em.textContent = t.value + '%';
+        if (q[0] === 'bc') { view = q[1] === 'b' ? 'back' : 'page'; body.querySelectorAll('.dsdoc-lgvt button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-l') === (view === 'back' ? 'vb' : 'vp')); }); preview(); return; }
         var want = q[0] === 'cv' ? 'cover' : 'page'; if (view !== want && ((want === 'cover' && hasCover) || (want === 'page' && hasPages))) { view = want; body.querySelectorAll('.dsdoc-lgvt button').forEach(function (x) { x.classList.toggle('on', (x.getAttribute('data-l') === 'vc') === (view === 'cover')); }); }
         body.querySelectorAll('[data-p^="' + q[0] + '."]').forEach(function (x) { var ps = LGPOS.filter(function (y) { return q[0] + '.' + y[0] === x.getAttribute('data-p'); })[0]; x.classList.toggle('on', !!ps && Math.abs(ps[2] - W[q[0]].x) < 1 && Math.abs(ps[3] - W[q[0]].y) < 1); });
         preview();
@@ -3607,6 +3648,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         if (b.t === 'stats' || b.t === 'timeline' || b.t === 'cols' || b.t === 'sigs') h += '<button data-o="additem">+ Item</button><button data-o="delitem">− Item</button>';
         if (b.t === 'kv' || b.t === 's_details') h += '<button data-o="addkv">+ Row</button><button data-o="delkv">− Row</button>';
         if (b.t === 's_contact') h += '<button data-o="addct">+ Row</button><button data-o="delct">− Row</button>';
+        if (b.t === 's_mark') h += '<button data-o="logo">🖼 Upload or change logo</button>';
+        if (b.dx || b.dy) h += '<button data-o="unmove">↺ Put back in place</button>';
         if (b.t === 'inv') h += '<button data-o="addinv">+ Line</button><button data-o="delinv">− Line</button>';
         if (b.t === 'todo') h += '<button data-o="addtodo">+ Task</button><button data-o="deltodo">− Task</button>';
         if (b.t === 'image') h += '<button data-o="pic">🖼 Change picture</button><button data-o="w100">Full width</button><button data-o="w60">Medium</button><button data-o="w40">Small</button>';
@@ -3615,11 +3658,14 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         if (b.t === 'inv') h += '<label class="rlab">Currency symbol</label><input id="dde-cur" value="' + esc(b.cur || '$') + '"><label class="rlab">Tax %</label><input id="dde-tax" type="number" min="0" step="0.5" value="' + esc(b.tax || 0) + '">';
         if (b.t === 'cal') h += '<label class="rlab">Month</label><input id="dde-cal" type="month" value="' + b.y + '-' + ('0' + (+b.m + 1)).slice(-2) + '">';
         if (b.t === 's_tickets') h += '<label class="rlab">First ticket number</label><input id="dde-tk" type="number" min="1" value="' + esc(b.start || 1) + '">';
-        h += '<p class="rnote" style="margin-top:12px">Click text in the page to type. Use the toolbar above the block to move, copy, delete or add blocks.</p>';
+        h += '<p class="rnote" style="margin-top:12px">' + (D.design(doc.tpl).kind === 'panels' ? 'Drag a text, the logo, the QR code or the photo to move it anywhere on the card. Click text to type. Double-click the logo to upload yours.' : 'Click text in the page to type. Use the toolbar above the block to move, copy, delete or add blocks.') + '</p>';
         pane.innerHTML = h;
         var bo = $('#dde-bo', pane);
         bo.onclick = function (e) {
-          var x = e.target.closest('[data-o]'); if (!x) return; var o = x.dataset.o; snapshot();
+          var x = e.target.closest('[data-o]'); if (!x) return; var o = x.dataset.o;
+          if (o === 'logo') { var lb = document.querySelector('.dsel-b[data-a="logo"]'); if (lb) lb.click(); return; }
+          snapshot();
+          if (o === 'unmove') { delete b.dx; delete b.dy; }
           if (o === 'addrow') b.rows.push((b.head || b.rows[0] || ['']).map(function () { return ''; }));
           if (o === 'delrow' && b.rows.length > 1) b.rows.pop();
           if (o === 'addcol') { (b.head || []).push('Column'); b.rows.forEach(function (r) { r.push(''); }); }
@@ -4830,7 +4876,9 @@ html.dsel-dragging #dsel-ov .dsel-mini{display:none}
 .dsdoc-lgr>.dsdoc-lgl:first-child{margin-top:2px}
 .dsdoc-lgt{margin:14px 0 4px;font-size:15px;font-weight:700;color:#fff}
 .dsdoc-lgsep{height:1px;background:#23304A;margin:20px 0 6px}
-.dsdoc-lgd{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-height:62px;padding:12px;border:1.5px dashed #3B4A66;border-radius:10px;color:#CBD5E1;font-size:13.5px;text-align:center;line-height:1.6;cursor:pointer}
+.dsdoc-lgd{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-height:104px;padding:14px;border:2px dashed #60A5FA;border-radius:12px;background:rgba(37,99,235,.12);color:#F1F5F9;font-size:13.5px;text-align:center;line-height:1.6;cursor:pointer}
+.dsdoc-lgup{display:block;width:max-content;margin:0 auto 8px;padding:8px 18px;border-radius:999px;background:#2563EB;color:#fff;font-size:14px;font-weight:700}
+.dsdoc-lgd.has{min-height:76px}
 .dsdoc-lgd:hover{border-color:#3B82F6;background:rgba(59,130,246,.06)}
 .dsdoc-lgd input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .dsdoc-lgd img{max-height:46px;max-width:60%;object-fit:contain;background:repeating-conic-gradient(#334155 0 25%,#1E293B 0 50%) 0 0/12px 12px;border-radius:4px;padding:3px}
@@ -4852,6 +4900,7 @@ html.dsel-dragging #dsel-ov .dsel-mini{display:none}
 .dsdoc-lgbt.pri:hover{background:#1D4ED8}
 @media (max-width:760px){.dsdoc-lgc{grid-template-columns:1fr;overflow-y:auto}.dsdoc-lgr{overflow:visible}}
 #dde-doc .dsd-logo{pointer-events:auto;cursor:pointer}
+#dde-doc .dsd-panels .dsd-blk img,#dde-doc .dsd-panels .dsd-blk svg{-webkit-user-drag:none;user-select:none}#dde-doc .dsd-panels .dsd-blk{cursor:move}#dde-doc .dsd-panels .dsd-blk [contenteditable]{cursor:text}
 #dde-doc .dsd-logo:hover{outline:1.5px dashed #3B82F6;outline-offset:2px}
 
 .dsel-pwin{position:fixed;z-index:44!important;resize:both;overflow:auto;min-width:220px;min-height:120px;box-shadow:0 10px 32px rgba(0,0,0,.45)!important;outline:2px solid #3B82F6;outline-offset:-1px}
