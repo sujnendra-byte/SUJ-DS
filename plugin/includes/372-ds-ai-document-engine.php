@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 19:00:00
+ * Modified   : 2026-10-23 20:30:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.6.2-cards55' );
+define( 'DS_DOC_ENGINE_VER', '1.6.3-picfill' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -1780,6 +1780,7 @@ function ed(o, tag, cls, field, val, ph, rich) {
 /* ---------------- a block's own box: width, place and look (set in the editor) ---------------- */
 function rgbaC(c, a) { var r = D.rgb(c); return 'rgba(' + r[0] + ',' + r[1] + ',' + r[2] + ',' + (Math.round(a * 1000) / 1000) + ')'; }
 D.paintCSS = function (p, t) {
+  if (p && p.m === 'pic') return D.picSrcOK(p.src) ? 'url(' + String(p.src).replace(/["'()\\\s]/g, '') + ') ' + D.num(p.px, 50, 0, 100) + '% ' + D.num(p.py, 50, 0, 100) + '%/' + (p.st ? '100% 100%' : (D.num(p.z, 1, 1, 4) === 1 ? 'cover' : Math.round(D.num(p.z, 1, 1, 4) * 100) + '%')) + ' no-repeat' : rgbaC(D.col('@tint', t, '#EEF1F6'), 1);
   if (p && p.m === 'grad') {
     var g = p.g || {}, st = (g.s && g.s.length ? g.s : [[0, '@p', 1], [100, '@a', 1]]).map(function (x) { return rgbaC(D.col(x[1], t), D.num(x[2], 1, 0, 1)) + ' ' + D.num(x[0], 0, 0, 100) + '%'; }).join(',');
     return g.t === 'radial' ? 'radial-gradient(circle,' + st + ')' : 'linear-gradient(' + (D.num(g.a, 0) + 90) + 'deg,' + st + ')';
@@ -2394,9 +2395,26 @@ function gradDef(g, t, op) {
   var a = D.num(g && g.a, 0) * Math.PI / 180, cx = Math.cos(a) / 2, cy = Math.sin(a) / 2;
   return { id: id, def: '<linearGradient id="' + id + '" x1="' + (0.5 - cx) + '" y1="' + (0.5 - cy) + '" x2="' + (0.5 + cx) + '" y2="' + (0.5 + cy) + '">' + st + '</linearGradient>' };
 }
+/** a picture fill: p = {m:'pic', src, iw, ih, z 1-4, px/py 0-100, st (stretch), o, gb {x,y,w,h}: one picture across several shapes - the picture's box from this shape's top left corner}
+ *  c = {w, h, L, bx}: the shape's size, the layer (for gb) and, for a design piece, its viewBox */
+D.picSrcOK = function (s) { return /^(data:image\/(png|jpe?g|webp);base64,|https:\/\/)/.test(String(s || '')); };
+D.picBox = function (p, w, h, L) {
+  var gb = p.gb, b = gb ? { x: D.num(gb.x, 0), y: D.num(gb.y, 0), w: Math.max(1, D.num(gb.w, w)), h: Math.max(1, D.num(gb.h, h)) } : { x: 0, y: 0, w: w, h: h };
+  var iw = D.num(p.iw, 0), ih = D.num(p.ih, 0), r = { x: b.x, y: b.y, w: b.w, h: b.h };
+  if (!p.st && iw > 0 && ih > 0) { var k = Math.max(b.w / iw, b.h / ih) * D.num(p.z, 1, 1, 4); r.w = iw * k; r.h = ih * k; r.x = b.x + (b.w - r.w) * D.num(p.px, 50, 0, 100) / 100; r.y = b.y + (b.h - r.h) * D.num(p.py, 50, 0, 100) / 100; }
+  return r;
+};
+function picPaint(p, t, c) {
+  if (!D.picSrcOK(p.src) || !c) return { defs: '', attr: 'fill="' + D.col('@tint', t, '#EEF1F6') + '"' };
+  var r = D.picBox(p, c.w, c.h, c.L), op = D.num(p.o, 1, 0, 1), id = 'p' + (++_gid) + Math.random().toString(36).slice(2, 6);
+  if (c.bx) { var sx = c.bx[2] / c.w, sy = c.bx[3] / c.h; r = { x: c.bx[0] + r.x * sx, y: c.bx[1] + r.y * sy, w: r.w * sx, h: r.h * sy }; }
+  var f = function (v) { return Math.round(v * 100) / 100; }, src = D.esc(String(p.src));
+  return { defs: '<pattern id="' + id + '" patternUnits="userSpaceOnUse" x="' + f(r.x) + '" y="' + f(r.y) + '" width="' + f(r.w) + '" height="' + f(r.h) + '"><image href="' + src + '" xlink:href="' + src + '" x="0" y="0" width="' + f(r.w) + '" height="' + f(r.h) + '" preserveAspectRatio="none"' + (op < 1 ? ' opacity="' + op + '"' : '') + '/></pattern>', attr: 'fill="url(#' + id + ')"' };
+}
 /** fill / outline paint → {defs, attr} */
-function paint(p, t, what) {
+function paint(p, t, what, c) {
   if (!p || p.m === 'none' || !p.m) return { defs: '', attr: what + '="none"' };
+  if (p.m === 'pic') return what === 'fill' ? picPaint(p, t, c) : { defs: '', attr: what + '="none"' };
   if (p.m === 'grad') { var g = gradDef(p.g, t, 1); return { defs: g.def, attr: what + '="url(#' + g.id + ')"' }; }
   return { defs: '', attr: what + '="' + D.col(p.c, t) + '"' + (p.o != null && p.o < 1 ? ' ' + what + '-opacity="' + D.num(p.o, 1, 0, 1) + '"' : '') };
 }
@@ -2447,7 +2465,7 @@ D.layerSVG = function (L, t, opt) {
   if (sd) defs += sd.def;
   if (L.k === 'shape' || L.k === 'text') {
     if (L.k === 'text' && !D.hasBox(L)) return '';
-    var f = paint(L.fill, t, 'fill'), s = paint(L.ln, t, 'stroke'), sw = L.ln && L.ln.m && L.ln.m !== 'none' ? D.num(L.ln.w, 2, 0, 60) : 0;
+    var f = paint(L.fill, t, 'fill', { w: w, h: h, L: L }), s = paint(L.ln, t, 'stroke'), sw = L.ln && L.ln.m && L.ln.m !== 'none' ? D.num(L.ln.w, 2, 0, 60) : 0;
     var dash = L.ln && L.ln.d === 'dash' ? ' stroke-dasharray="' + sw * 3 + ',' + sw * 2 + '"' : L.ln && L.ln.d === 'dot' ? ' stroke-dasharray="' + sw + ',' + sw * 1.5 + '" stroke-linecap="round"' : '';
     if (L.shape === 'line') { s = paint(L.ln && L.ln.m !== 'none' ? L.ln : { m: 'solid', c: L.fill && L.fill.c || '@p' }, t, 'stroke'); sw = sw || 3; }
     defs += f.defs + s.defs;
@@ -2467,7 +2485,7 @@ D.layerSVG = function (L, t, opt) {
     body = '<g' + filt + '>' + D.chartSVG(L.ch || {}, t, w, h, { inner: true, ff: t && t.body }) + '</g>';
   } else if (L.k === 'vec') {
     var bx = (L.bx && L.bx.length === 4 ? L.bx : [0, 0, w, h]).map(function (v) { return D.num(v, 0); });
-    var fA = L.fill && L.fill.m && L.fill.m !== 'none' ? paint(L.fill, t, 'fill') : { defs: '', attr: 'fill="none"' };
+    var fA = L.fill && L.fill.m && L.fill.m !== 'none' ? paint(L.fill, t, 'fill', { w: w, h: h, L: L, bx: bx }) : { defs: '', attr: 'fill="none"' };
     var sOn = L.ln && L.ln.m && L.ln.m !== 'none', sA = sOn ? paint(L.ln, t, 'stroke') : null, sw0 = sOn ? D.num(L.ln.w, 1, 0, 60) : 0;
     var dsh = sOn && L.ln.d === 'dash' ? ' stroke-dasharray="' + sw0 * 3 + ',' + sw0 * 2 + '"' : sOn && L.ln.d === 'dot' ? ' stroke-dasharray="' + sw0 + ',' + sw0 * 1.5 + '" stroke-linecap="round"' : '';
     defs += fA.defs + (sA ? sA.defs : '');
@@ -2889,7 +2907,7 @@ D.toDocx = function (doc, opts) {
       jobs.push(D.logoPng(doc, sz, 'page').then(function (p) { if (p) arts.logoP = p; }));
     }
     // pictures for icons, pictures and charts placed on the pages
-    layers.concat(masters).forEach(function (L) { if (L.k === 'icon' || L.k === 'image' || L.k === 'chart' || L.k === 'vec') jobs.push(D.layerPng(L, t).then(function (r) { if (r) lpics[L.id] = r; })); });
+    layers.concat(masters).forEach(function (L) { if (L.k === 'icon' || L.k === 'image' || L.k === 'chart' || L.k === 'vec' || (L.fill && L.fill.m === 'pic')) jobs.push(D.layerPng(L, t).then(function (r) { if (r) lpics[L.id] = r; })); });
     if (layers.some(function (L) { return L.pg !== 'c'; }) && dz.kind !== 'single') pageOf = D.pageMap(doc);
     return Promise.all(jobs);
   }).then(function () {
@@ -2969,7 +2987,7 @@ D.toDocx = function (doc, opts) {
         CP = {};
         if (st.al) CP.al = { left: A.LEFT, center: A.CENTER, right: A.RIGHT, justify: A.JUSTIFIED }[st.al];
         if (gx.w < 1 || gx.ox > 0) CP.ind = { l: Math.round(gx.ox * cwv), r: Math.round(Math.max(0, 1 - gx.ox - gx.w) * cwv) };
-        var fc = st.fill && st.fill.m && st.fill.m !== 'none' ? (st.fill.m === 'grad' ? ((st.fill.g && st.fill.g.s && st.fill.g.s[0]) || [0, '@p'])[1] : st.fill.c) : '';
+        var fc = st.fill && st.fill.m && st.fill.m !== 'none' && st.fill.m !== 'pic' ? (st.fill.m === 'grad' ? ((st.fill.g && st.fill.g.s && st.fill.g.s[0]) || [0, '@p'])[1] : st.fill.c) : '';
         if (fc) CP.shade = { type: SH.CLEAR, fill: h(D.col(fc, t)), color: 'auto' };
         if (st.ln && st.ln.m && st.ln.m !== 'none') { var bl = { style: st.ln.d === 'dash' ? BS.DASHED : st.ln.d === 'dot' ? BS.DOTTED : BS.SINGLE, size: Math.max(2, Math.round(D.num(st.ln.w, 2, 0, 30) * 6)), color: h(D.col(st.ln.m === 'grad' ? (((st.ln.g && st.ln.g.s && st.ln.g.s[0]) || [0, '@a'])[1]) : (st.ln.c || '@a'), t)), space: 6 }; CP.border = { top: bl, bottom: bl, left: bl, right: bl }; }
         if (st.lh) CP.lh = Math.round(D.num(st.lh, 1.3, 0.6, 4) * 240);
@@ -3281,7 +3299,8 @@ D.toDocx = function (doc, opts) {
     }
     layers.forEach(function (L, i) {
       var key = anchorKey(L), run = null, z = 251660000 + i * 8;
-      if (L.k === 'shape' || L.k === 'text') run = X.ImportedXmlComponent.fromXmlString(D.layerXML(L, t, 7001 + i, z, sf));
+      var picF = L.fill && L.fill.m === 'pic' && lpics[L.id];
+      if ((L.k === 'shape' || L.k === 'text') && !picF) run = X.ImportedXmlComponent.fromXmlString(D.layerXML(L, t, 7001 + i, z, sf));
       else if (lpics[L.id]) {
         var lp = lpics[L.id], P0 = lp.P;
         run = new X.ImageRun({ type: 'png', data: lp.data, transformation: { width: D.num(L.w, 100, 1) + 2 * P0, height: D.num(L.h, 100, 1) + 2 * P0, rotation: L.rot ? D.num(L.rot, 0) : undefined },
@@ -3290,6 +3309,10 @@ D.toDocx = function (doc, opts) {
           altText: { title: L.name || L.k, description: L.k === 'chart' ? ((L.ch && L.ch.title) || 'Chart') : (L.name || L.k), name: L.name || L.k } });
       }
       if (run) (anchors[key] = anchors[key] || []).push(run);
+      if (picF && L.k === 'text' && L.tx) {   /* the words of a picture-filled text box go on top of its picture */
+        var L2 = D.clone(L); L2.fill = { m: 'none' }; L2.ln = { m: 'none' }; L2.sh = null;
+        anchors[key].push(X.ImportedXmlComponent.fromXmlString(D.layerXML(L2, t, 7601 + i, z + 1, sf)));
+      }
     });
     function masterRun(L, i) {
       var lp = lpics[L.id]; if (!lp) return null;
@@ -3318,7 +3341,7 @@ D.toDocx = function (doc, opts) {
         var lgk = D.lgK(doc, !(PS.roles && PS.roles.logo ? PS.roles.logo[0] === pi : pi === 0));
         var zk = function (z, zi, only) {
           var f = D.panelFit(doc, pi, zi) * (z.lgTop && pics.__logo ? 0.78 : 0.92), al = z.align === 'center' ? A.CENTER : z.align === 'right' ? A.RIGHT : A.LEFT, out = [];
-          (only || grp[pi + '.' + zi] || []).forEach(function (b) { out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f), cw: tw(z.w), k: (z.k || 1) * f, bc: /\bbc\b/.test(z.cls || ''), zw: z.w, zh: z.h, lgk: lgk })); });
+          (only || grp[pi + '.' + zi] || []).forEach(function (b) { var bs = D.blockSc(b); out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f * bs), cw: tw(z.w), k: (z.k || 1) * f * bs, bc: /\bbc\b/.test(z.cls || ''), zw: z.w * bs, zh: z.h * bs, lgk: lgk * bs })); });
           if (only) return out;
           if (z.lgTop && pics.__logo) out = block({ t: 's_mark', id: 'lgtop' + pi + zi }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, mk: 15, lgk: lgk, after: 40 }).concat(out);
           if (!out.length && z.auto === 'mark') out = out.concat(block({ t: 's_mark', id: 'auto' + pi + zi, text: D.initials(D.panelCompany(doc)) }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, small: true, lgk: lgk }));
@@ -3344,7 +3367,7 @@ D.toDocx = function (doc, opts) {
           /* zones beside AND above one another (cards): each zone is a small floating table at its own place on the page */
           zs.forEach(function (z, zi) {
             /* blocks moved freely on the page: each goes in its own small table where the page shows it */
-            var all0 = grp[pi + '.' + zi] || [], moved = all0.filter(function (b) { return D.num(b.dx, 0) || D.num(b.dy, 0); });
+            var all0 = grp[pi + '.' + zi] || [], moved = all0.filter(function (b) { return D.num(b.dx, 0) || D.num(b.dy, 0) || D.blockSc(b) !== 1; });
             if (moved.length) {
               grp[pi + '.' + zi] = all0.filter(function (b) { return moved.indexOf(b) < 0; });
               moved.forEach(function (b) {
@@ -3556,11 +3579,14 @@ D.toDocx = function (doc, opts) {
   };
   /* logo size on cards: doc.logo.bc = { f: front 0-100, b: back 0-100, back: 0 hides the small back logo }; 50 is the normal size */
   D.lgK = function (doc, back) { var c = doc && doc.logo && doc.logo.bc || {}, v = D.num(back ? c.b : c.f, 50); return Math.round((v <= 50 ? 0.5 + v / 100 : 1 + (v - 50) / 50) * 100) / 100; };
-  /* a block moved freely on a card page keeps its place in its zone and is shifted by b.dx, b.dy (page px) */
+  /* a block on a card page keeps its place in its zone; b.dx, b.dy shift it (page px) and b.sc makes it larger or smaller (0.3-5) */
+  D.blockSc = function (b) { return Math.round(D.num(b && b.sc, 1, 0.3, 5) * 100) / 100; };
   D.offBlock = function (html, b) {
-    var dx = D.num(b.dx, 0), dy = D.num(b.dy, 0); if (!dx && !dy) return html;
-    var tr = 'translate:' + Math.round(dx) + 'px ' + Math.round(dy) + 'px;', i = html.indexOf('>'), head = html.slice(0, i);
+    var dx = D.num(b.dx, 0), dy = D.num(b.dy, 0), sc = D.blockSc(b); if (!dx && !dy && sc === 1) return html;
+    /* zoom also enlarges the shift, so the shift is divided by it */
+    var tr = (dx || dy ? 'translate:' + Math.round(dx / sc * 100) / 100 + 'px ' + Math.round(dy / sc * 100) / 100 + 'px;' : '') + (sc !== 1 ? 'zoom:' + sc + ';' : ''), i = html.indexOf('>'), head = html.slice(0, i);
     head = /\sstyle="/.test(head) ? head.replace(/\sstyle="/, ' style="' + tr) : head + ' style="' + tr + '"';
+    if (sc !== 1) head += ' data-sc="' + sc + '"';
     return head + html.slice(i);
   };
   D.renderPanels = function (root, doc, ctx, t, dz, sz, gap) {
@@ -3602,6 +3628,7 @@ D.toDocx = function (doc, opts) {
       var res = {};
       Array.prototype.forEach.call(flow.querySelectorAll('.dsd-pz'), function (el) {
         var h = +el.getAttribute('data-h'), f = 1;
+        if (el.querySelector('.dsd-blk[data-sc]')) { res[el.getAttribute('data-pg') + '.' + el.getAttribute('data-zn')] = 1; el.style.setProperty('--fit', '1'); return; }   /* sizes set by hand are kept */
         var jc = el.style.justifyContent;
         el.style.setProperty('--fit', '1'); el.style.justifyContent = 'flex-start';
         while (el.scrollHeight > h + 1 && f > 0.42) { f = Math.round((f - 0.04) * 100) / 100; el.style.setProperty('--fit', String(f)); }

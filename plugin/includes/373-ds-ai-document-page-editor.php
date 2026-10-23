@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 19:00:00
+ * Modified   : 2026-10-23 20:30:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.6.3-cards' );
+define( 'DS_DOC_APP_VER', '1.6.4-picfill' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -585,7 +585,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     function frameCls(k) {
       var f = famOf(k), c = ' dsel-t-' + f;
       if (isC(k)) return c + ' dsel-nohd dsel-norot dsel-cmv';
-      if (isB(k)) return c + (f === 'image' || f === 'chart' ? ' dsel-corner dsel-norot' : ' dsel-wonly dsel-norot');
+      if (isB(k)) return c + (f === 'image' || f === 'chart' || dzn().kind === 'panels' ? ' dsel-corner dsel-norot' : ' dsel-wonly dsel-norot');
       if (f === 'line') c += ' dsel-wonly';
       return c;
     }
@@ -669,18 +669,18 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         if (editing) stopEdit();
         if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); select([bk], true); return; }
         var wasSel = sel.length === 1 && sel[0] === bk, ae0 = document.activeElement, typing = wasSel && ae0 && be.contains(ae0) && ae0.isContentEditable;
-        if (!wasSel) select([bk]);
+        var inMany = dzn().kind === 'panels' && sel.length > 1 && sel.indexOf(bk) >= 0;
+        if (!wasSel && !inMany) select([bk]);
         if (b.lock) e.preventDefault();
-        else if (dzn().kind === 'panels' && !typing) startFreeBlockMove(e, [bk]);   /* cards: drag a text or the logo anywhere */
+        else if (dzn().kind === 'panels' && !typing) startFreeBlockMove(e, inMany ? sel.filter(function (x) { return !isLocked(x) && !isC(x); }) : [bk]);   /* cards: drag a text or the logo anywhere */
         return;                                            /* the caret goes into the text: type straight away */
       }
       if (editing) stopEdit();
       if (e.target.closest('.dsd-logo')) { e.preventDefault(); clearSel(); logoDialog(); return; }
       if (e.target.closest('.dsd-cover-pic,[data-act],.ftb,.menu')) return;
-      if (e.target.closest('.dsd-page,.dsd-flow,.dsd-lay,.dsd-cover,.dsd-single')) startMarquee(e);
-      else clearSel();
+      startMarquee(e);   /* box-select also starts outside the pages */
     }
-    function onCanvasDown(e) { if (e.target === canvas || (e.target.id === 'dde-zoom')) { if (editing) stopEdit(); clearSel(); } }
+    function onCanvasDown(e) { if (e.button !== 0 && e.button !== undefined) return; if (e.target === canvas || (e.target.id === 'dde-zoom')) { if (editing) stopEdit(); startMarquee(e); } }
     function onOvDown(e) {
       var h = e.target.closest('[data-h]'); if (!h || e.button > 0) return;
       e.preventDefault(); e.stopPropagation();
@@ -742,7 +742,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         return;
       }
       var ks = ks0.filter(function (k) { return !isC(k); }); if (!ks.length) return;
-      if (ks.some(isB)) { if (ks.every(isB)) (dzn().kind === 'panels' ? startFreeBlockMove : startBlockMove)(e, ks); return; }
+      if (ks.some(isB)) { if (dzn().kind === 'panels') startFreeBlockMove(e, ks); else if (ks.every(isB)) startBlockMove(e, ks); return; }
       var st = toLocal(e.clientX, e.clientY), orig = ks.map(function (k) { var L = obj(k); return { L: L, x: D.num(L.x, 0), y: D.num(L.y, 0), off: pageOff(L.pg) }; }), moved = false, sx0 = e.clientX, sy0 = e.clientY;
       drag = {
         move: function (ev) {
@@ -816,7 +816,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       var sx0 = e.clientX, sy0 = e.clientY, moved = false, z = zoom() || 1;
       /* a picture (logo, QR, photo, icon) must not start the browser's own picture drag */
       if (e.preventDefault && e.target && e.target.closest && e.target.closest('img,svg,.dsd-s-ph')) e.preventDefault();
-      var items = ks.map(function (k) { var b = obj(k); return b && !b.lock ? { b: b, k: k, x: D.num(b.dx, 0), y: D.num(b.dy, 0) } : null; }).filter(Boolean);
+      var items = ks.map(function (k) { var b = obj(k); if (!b || b.lock || isC(k)) return null; return isL(k) ? { L: b, k: k, x: D.num(b.x, 0), y: D.num(b.y, 0), off: pageOff(b.pg) } : { b: b, k: k, x: D.num(b.dx, 0), y: D.num(b.dy, 0), sc: D.blockSc(b) }; }).filter(Boolean);
       if (!items.length) return;
       drag = {
         move: function (ev) {
@@ -829,20 +829,50 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           }
           var dx = (ev.clientX - sx0) / z, dy = (ev.clientY - sy0) / z;
           if (ev.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-          items.forEach(function (q) { q.b.dx = Math.round(q.x + dx); q.b.dy = Math.round(q.y + dy); var n = domOf(q.k); if (n) n.style.translate = q.b.dx + 'px ' + q.b.dy + 'px'; });
+          items.forEach(function (q) {
+            if (q.L) { q.L.x = Math.round(q.x + dx); q.L.y = Math.round(q.y + dy); var e2 = domOf(q.k); if (e2) { e2.style.left = q.L.x + 'px'; e2.style.top = (q.L.y + q.off) + 'px'; } return; }
+            q.b.dx = Math.round(q.x + dx); q.b.dy = Math.round(q.y + dy); var n = domOf(q.k); if (n) n.style.translate = Math.round(q.b.dx / q.sc * 100) / 100 + 'px ' + Math.round(q.b.dy / q.sc * 100) / 100 + 'px';
+          });
           sync();
         },
         up: function () {
           document.documentElement.classList.remove('dsel-dragging');
           if (!moved) return;
-          items.forEach(function (q) { if (!q.b.dx) delete q.b.dx; if (!q.b.dy) delete q.b.dy; });
+          items.forEach(function (q) { if (q.b) { if (!q.b.dx) delete q.b.dx; if (!q.b.dy) delete q.b.dy; } });
+          env.rerender(); done(); sync();
+        }
+      };
+    }
+    /* on card pages a text, the logo, the QR code or the photo is made larger or smaller from its corners (any size, not only the design's) */
+    function startBlockScale(e, k, h) {
+      var b = obj(k), n = domOf(k); if (!b || !n) return;
+      var r = n.getBoundingClientRect(), sc0 = D.blockSc(b), x0 = e.clientX, y0 = e.clientY, sx = /w/.test(h) ? -1 : /e/.test(h) ? 1 : 0, sy = /n/.test(h) ? -1 : /s/.test(h) ? 1 : 0;
+      var dx0 = D.num(b.dx, 0), dy0 = D.num(b.dy, 0), z = zoom() || 1, w0 = r.width / z, h0 = r.height / z;
+      begin(); document.documentElement.classList.add('dsel-dragging');
+      drag = {
+        move: function (ev) {
+          if (!ev.clientX && !ev.clientY) return;
+          var gx = sx ? sx * (ev.clientX - x0) / r.width : 0, gy = sy ? sy * (ev.clientY - y0) / r.height : 0;
+          var g = sx && sy ? Math.max(gx, gy) : (sx ? gx : gy), sc = Math.max(0.3, Math.min(5, sc0 * (1 + g)));
+          if (!ev.altKey && Math.abs(sc - 1) < 0.03) sc = 1;
+          sc = Math.round(sc * 100) / 100; b.sc = sc;
+          /* the opposite corner stays where it is */
+          var kk = sc / sc0; b.dx = Math.round(dx0 - (sx < 0 ? (kk - 1) * w0 : 0)); b.dy = Math.round(dy0 - (sy < 0 ? (kk - 1) * h0 : 0));
+          n.style.zoom = sc; n.style.translate = Math.round(b.dx / sc * 100) / 100 + 'px ' + Math.round(b.dy / sc * 100) / 100 + 'px'; n.setAttribute('data-sc', sc);
+          sync();
+          var tip = ov.querySelector('.dsel-sdt'); if (!tip) { var fr = ov.querySelector('.dsel-fr'); if (fr) { tip = el('span', 'dsel-sdt dsel-on'); fr.appendChild(tip); } }
+          if (tip) tip.textContent = 'Size ' + Math.round(sc * 100) + '%';
+        },
+        up: function () {
+          document.documentElement.classList.remove('dsel-dragging');
+          if (b.sc === 1) delete b.sc; if (!b.dx) delete b.dx; if (!b.dy) delete b.dy;
           env.rerender(); done(); sync();
         }
       };
     }
     function startHandle(e, h) {
       var k = sel[0]; if (!k || sel.length !== 1 || isLocked(k)) return;
-      if (isB(k)) { startBlockResize(e, k, h); return; }
+      if (isB(k)) { if (dzn().kind === 'panels') startBlockScale(e, k, h); else startBlockResize(e, k, h); return; }
       if (!isL(k)) return;
       var L = obj(k); begin();
       var off = pageOff(L.pg), x0 = D.num(L.x, 0), y0 = D.num(L.y, 0), w0 = D.num(L.w, 100), h0 = D.num(L.h, 100), r0 = D.num(L.rot, 0) * Math.PI / 180;
@@ -1615,14 +1645,15 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     function colorPanel(target, k) {
       var t = theme(), f = famOf(k), pk = pKey(target, k), P = pk ? (getP(k, pk) || { m: 'none' }) : null;
       if (target === 'color' && f === 'line' && (!P.m || P.m === 'none')) P = { m: 'solid', c: '@p', w: 3 };
-      var mode = target === 'color' && f !== 'line' ? 'solid' : (P.m || 'none'), canNone = target !== 'color', canGrad = !!pk;
+      var mode = target === 'color' && f !== 'line' ? 'solid' : (P.m || 'none'), canNone = target !== 'color', canGrad = !!pk, canPic = pk === 'fill';
       var cur = pk ? (P.c || '@p') : getP(k, 'tc');
       var title = ({ fill: f === 'chart' ? 'Background' : 'Fill', line: 'Outline' })[target] || (f === 'text' ? 'Text colour' : f === 'icon' ? 'Icon colour' : 'Colour');
       var gk = k + '|' + target; if (gKey !== gk) { gKey = gk; gSel = 0; }
       function seg(v, l) { return '<button type="button" data-p="fmode" data-n="' + v + '" class="' + (mode === v ? 'dsel-on' : '') + '">' + l + '</button>'; }
       var h = head(title) + '<div class="dsel-pb">';
-      if (canNone || canGrad) h += '<div class="dsel-seg">' + (canNone ? seg('none', target === 'fill' ? 'No fill' : 'None') : '') + seg('solid', 'Solid') + (canGrad ? seg('grad', 'Gradient') : '') + '</div>';
-      if (mode === 'grad') {
+      if (canNone || canGrad) h += '<div class="dsel-seg">' + (canNone ? seg('none', target === 'fill' ? 'No fill' : 'None') : '') + seg('solid', 'Solid') + (canGrad ? seg('grad', 'Gradient') : '') + (canPic ? seg('pic', 'Picture') : '') + '</div>';
+      if (mode === 'pic') h += picFillHTML(P);
+      else if (mode === 'grad') {
         var G = P.g || { t: 'linear', a: 0, s: [[0, P.c || '@p', 1], [100, '@a', 1]] }, S = G.s; if (gSel >= S.length) gSel = S.length - 1;
         var s = S[gSel], rad = G.t === 'radial';
         h += '<div class="dsel-sub">Preset gradients</div><div class="dsel-gpre">' + gPresets(t, S[0][1]).map(function (p, i) { return '<button type="button" data-p="gpre" data-n="' + i + '" style="background:' + gCss(p, t) + '"></button>'; }).join('') + '</div>';
@@ -1644,6 +1675,61 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (pk === 'ln' && mode !== 'none') h += '<div class="dsel-sub">Line</div>' + slider('Width', 'lw', 0.5, 30, 0.5, r1(D.num(P.w, 2))) +
         '<div class="dsel-row"><span class="dsel-rl">Dash type</span><select data-pc="dash"><option value="solid"' + (P.d === 'dash' || P.d === 'dot' ? '' : ' selected') + '>Solid</option><option value="dash"' + (P.d === 'dash' ? ' selected' : '') + '>Dashed</option><option value="dot"' + (P.d === 'dot' ? ' selected' : '') + '>Dotted</option></select></div>';
       return h + '</div>';
+    }
+    /* Fill > Picture: the same picture window as pictures (generate with AI, browse the store, upload) */
+    function picFillHTML(P) {
+      var has = D.picSrcOK(P.src), many = sel.filter(function (x) { return isL(x) && supports(x, 'fill'); }).length > 1;
+      var h = '<div class="dsel-sub">Picture</div>';
+      if (has) h += '<div style="height:96px;border-radius:8px;border:1px solid #CBD5E1;background:#F1F5F9 url(' + String(P.src).replace(/["\'()\\\s<>]/g, '') + ') center/cover no-repeat;margin-bottom:8px"></div>';
+      h += '<div class="dsel-grid2"><button type="button" class="dsel-pbt" data-p="pfins">' + (has ? 'Change picture...' : 'Insert picture...') + '</button>' + (has ? '<button type="button" class="dsel-pbt dsel-danger" data-p="pfdel">Remove picture</button>' : '') + '</div>';
+      if (many) h += '<label class="dsel-chk" style="margin:9px 0 2px"><input type="checkbox" data-pc="pfone"' + (!has || P.gb ? ' checked' : '') + '> One picture across all the selected shapes</label>';
+      if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.' + (many ? ' With several shapes selected, one picture is shown through all of them.' : '') + '</p>';
+      h += slider('Transparency', 'pftr', 0, 100, 1, Math.round((1 - D.num(P.o, 1, 0, 1)) * 100), '%');
+      h += '<div class="dsel-sub">Fit</div><div class="dsel-seg"><button type="button" data-p="pffit" data-n="fill" class="' + (P.st ? '' : 'dsel-on') + '">Fill shape</button><button type="button" data-p="pffit" data-n="stretch" class="' + (P.st ? 'dsel-on' : '') + '">Stretch</button></div>';
+      if (!P.st) h += slider('Zoom', 'pfz', 100, 400, 5, Math.round(D.num(P.z, 1, 1, 4) * 100), '%') + slider('Left \u2194 right', 'pfx', 0, 100, 1, Math.round(D.num(P.px, 50, 0, 100)), '%') + slider('Top \u2195 bottom', 'pfy', 0, 100, 1, Math.round(D.num(P.py, 50, 0, 100)), '%');
+      return h;
+    }
+    /* the box around the selected shapes, page by page: one picture is spread over it */
+    function picGroupBoxes() {
+      var by = {};
+      sel.forEach(function (x) { if (!isL(x) || !supports(x, 'fill')) return; var L = obj(x), pg = String(L.pg), b = by[pg]; var x0 = D.num(L.x, 0), y0 = D.num(L.y, 0), x1 = x0 + D.num(L.w, 1), y1 = y0 + D.num(L.h, 1);
+        by[pg] = b ? { x: Math.min(b.x, x0), y: Math.min(b.y, y0), r: Math.max(b.r, x1), b: Math.max(b.b, y1), n: b.n + 1 } : { x: x0, y: y0, r: x1, b: y1, n: 1 }; });
+      var out = {}; Object.keys(by).forEach(function (pg) { var b = by[pg]; if (b.n > 1) out[pg] = { x: Math.round(b.x), y: Math.round(b.y), w: Math.max(1, Math.round(b.r - b.x)), h: Math.max(1, Math.round(b.b - b.y)) }; });
+      return out;
+    }
+    function setPicGroup(on) {
+      var gbs = on ? picGroupBoxes() : {};
+      sel.forEach(function (x) { if (!isL(x) || !supports(x, 'fill')) return; var q = getP(x, 'fill'); if (!q || q.m !== 'pic') return; q = D.clone(q); var L = obj(x), g = gbs[String(L.pg)]; if (g) q.gb = { x: Math.round(g.x - D.num(L.x, 0)), y: Math.round(g.y - D.num(L.y, 0)), w: g.w, h: g.h }; else delete q.gb; setP(x, 'fill', q); });   /* kept from each shape's corner: the picture moves with the shapes */
+    }
+    /* a picked picture as a data link (at most 1600 px) with its size, so it also goes into the Word file */
+    function picData(pic, cb) {
+      var src = pic && (pic.data || pic.src || pic.url); if (!src) { cb(null); return; }
+      var im = new Image(); if (!/^data:/.test(src)) im.crossOrigin = 'anonymous';
+      im.onload = function () {
+        var w = im.naturalWidth || 1, hh = im.naturalHeight || 1;
+        if (/^data:image\/(png|jpe?g|webp);base64,/.test(src) && src.length < 700000) { cb({ src: src, iw: w, ih: hh }); return; }
+        try {
+          var k = Math.min(1, 1600 / Math.max(w, hh)), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(hh * k));
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+          var d = cv.toDataURL('image/jpeg', 0.86); if (d.length > 740000) d = cv.toDataURL('image/jpeg', 0.7);
+          cb({ src: d, iw: cv.width, ih: cv.height });
+        } catch (er) { cb(/^https:\/\//.test(src) ? { src: src, iw: w, ih: hh } : null); }
+      };
+      im.onerror = function () { cb(null); };
+      im.src = src;
+    }
+    function insertPicFill(k) {
+      var keys = sel.slice(), one = !panel || !panel.querySelector('[data-pc="pfone"]') || panel.querySelector('[data-pc="pfone"]').checked;
+      env.pickPicture(function (pic) {
+        picData(pic, function (r) {
+          if (!r) { env.toast('This picture could not be used.', 'error'); return; }
+          sel = keys.filter(function (x) { return obj(x); }); if (!sel.length) return;
+          begin();
+          sel.forEach(function (x) { if (!supports(x, 'fill')) return; var q = D.clone(getP(x, 'fill') || {}); setP(x, 'fill', { m: 'pic', src: r.src, iw: r.iw, ih: r.ih, z: 1, px: 50, py: 50, o: q.m === 'pic' && q.o != null ? q.o : 1, st: 0 }); });
+          setPicGroup(one);
+          redraw(); done(); paint(); env.toast('Picture fill added.', '', 1500);
+        });
+      });
     }
     function shadowPanel(k) {
       var s = getP(k, 'sh'), v = s || SHDEF, bx = !(famOf(k) === 'text' && isL(k) && !D.hasBox(obj(k)));
@@ -2071,6 +2157,14 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (p === 'ta') { setAll('al', n); paint(); return; }
       if (p === 'va') { begin(); sel.filter(isL).forEach(function (x) { obj(x).va = n; }); redraw(); done(); paintPanel(); return; }
       if (!k) return;
+      if (p === 'fmode' && n === 'pic') {
+        var cp = getP(k, 'fill');
+        if (cp && cp.m === 'pic') { paint(); return; }
+        insertPicFill(k); return;
+      }
+      if (p === 'pfins') { insertPicFill(k); return; }
+      if (p === 'pfdel') { editPaint(k, 'fill', function (q) { Object.keys(q).forEach(function (x) { delete q[x]; }); q.m = 'solid'; q.c = '@p'; }); done(); paint(); return; }
+      if (p === 'pffit') { editPaint(k, 'fill', function (q) { if (q.m === 'pic') q.st = n === 'stretch' ? 1 : 0; }); done(); paint(); return; }
       if (p === 'fmode') {
         editPaint(k, pmode, function (q, x) {
           q.m = n;
@@ -2100,6 +2194,13 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (!k) return;
       begin();
       if (ps === 'op') sel.forEach(function (x) { if (supports(x, 'op')) setP(x, 'op', v >= 100 ? null : v / 100); });
+      else if (/^pf(tr|z|x|y)$/.test(ps)) {
+        sel.forEach(function (x) {
+          var q = getP(x, 'fill'); if (!supports(x, 'fill') || !q || q.m !== 'pic') return; q = D.clone(q);
+          if (ps === 'pftr') q.o = Math.round(100 - v) / 100; else if (ps === 'pfz') q.z = v / 100; else if (ps === 'pfx') q.px = v; else q.py = v;
+          setP(x, 'fill', q);
+        });
+      }
       else if (ps === 'ptr' || ps === 'lw' || ps === 'gang' || ps === 'gst') {
         var pk = pKey(pmode, k);
         sel.forEach(function (x) {
@@ -2151,6 +2252,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (pc === 'gsc') { var c2 = t.value.toUpperCase(); editPaint(k, pmode, function (q) { if (q.g) q.g.s[Math.min(gSel, q.g.s.length - 1)][1] = c2; }); done(); paintPanel(); return; }
       if (pc === 'gsp') { var v2 = Math.max(0, Math.min(100, +t.value || 0)); editPaint(k, pmode, function (q) { if (q.g) q.g.s[Math.min(gSel, q.g.s.length - 1)][0] = v2; }); done(); paintPanel(); return; }
       if (pc === 'dash') { editPaint(k, pmode, function (q) { q.d = t.value; }); done(); return; }
+      if (pc === 'pfone') { var hasPic = sel.some(function (x) { var q = getP(x, 'fill'); return q && q.m === 'pic'; }); if (!hasPic) return; begin(); setPicGroup(t.checked); redraw(); done(); paint(); return; }
       if (pc === 'shon') { begin(); sel.forEach(function (x) { if (supports(x, 'sh')) setP(x, 'sh', t.checked ? D.clone(getP(x, 'sh') || SHDEF) : null); }); redraw(); done(); paint(); return; }
       if (pc === 'shc') { begin(); var c3 = t.value.toUpperCase(); sel.forEach(function (x) { var s = getP(x, 'sh'); if (s) { s = D.clone(s); s.c = c3; setP(x, 'sh', s); } }); redraw(); done(); return; }
     }
@@ -3650,6 +3752,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         if (b.t === 's_contact') h += '<button data-o="addct">+ Row</button><button data-o="delct">− Row</button>';
         if (b.t === 's_mark') h += '<button data-o="logo">🖼 Upload or change logo</button>';
         if (b.dx || b.dy) h += '<button data-o="unmove">↺ Put back in place</button>';
+        if (D.design(doc.tpl).kind === 'panels') h += '<button data-o="scdn">− Smaller</button><button data-o="scup">+ Larger</button>' + (b.sc && b.sc !== 1 ? '<button data-o="sc1">Normal size</button>' : '');
         if (b.t === 'inv') h += '<button data-o="addinv">+ Line</button><button data-o="delinv">− Line</button>';
         if (b.t === 'todo') h += '<button data-o="addtodo">+ Task</button><button data-o="deltodo">− Task</button>';
         if (b.t === 'image') h += '<button data-o="pic">🖼 Change picture</button><button data-o="w100">Full width</button><button data-o="w60">Medium</button><button data-o="w40">Small</button>';
@@ -3666,6 +3769,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           if (o === 'logo') { var lb = document.querySelector('.dsel-b[data-a="logo"]'); if (lb) lb.click(); return; }
           snapshot();
           if (o === 'unmove') { delete b.dx; delete b.dy; }
+          if (o === 'scup' || o === 'scdn') { b.sc = Math.round(Math.max(0.3, Math.min(5, D.blockSc(b) * (o === 'scup' ? 1.1 : 1 / 1.1))) * 100) / 100; if (b.sc === 1) delete b.sc; }
+          if (o === 'sc1') delete b.sc;
           if (o === 'addrow') b.rows.push((b.head || b.rows[0] || ['']).map(function () { return ''; }));
           if (o === 'delrow' && b.rows.length > 1) b.rows.pop();
           if (o === 'addcol') { (b.head || []).push('Column'); b.rows.forEach(function (r) { r.push(''); }); }

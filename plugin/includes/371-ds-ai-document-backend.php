@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 13:00:00
+ * Modified   : 2026-10-23 20:30:00
  * Load order : 371 of 374
  */
 /**
@@ -526,6 +526,9 @@ final class DS_AI_Doc {
 			}
 			$c = self::clean_value( $b );
 			unset( $c['src'] ); // pictures are added by the page, never by the AI
+			if ( isset( $b['st']['fill'] ) && is_array( $b['st']['fill'] ) && is_array( $c['st'] ?? null ) ) {
+				$c['st']['fill'] = self::paint( $b['st']['fill'] ); // a picture fill is longer than a normal text value
+			}
 			if ( 'chart' === $c['t'] ) {
 				$c = array_merge( array( 't' => 'chart', 'id' => isset( $c['id'] ) ? $c['id'] : '', 'cap' => isset( $c['cap'] ) ? self::clean( $c['cap'], 300 ) : '', 'w' => isset( $c['w'] ) ? self::fnum( $c['w'], 0.3, 1, 1 ) : 1 ), self::clean_chart( $b ) );
 			}
@@ -553,7 +556,27 @@ final class DS_AI_Doc {
 		if ( ! is_array( $p ) ) {
 			return null;
 		}
-		$m   = isset( $p['m'] ) && in_array( $p['m'], array( 'none', 'solid', 'grad' ), true ) ? $p['m'] : 'none';
+		$m   = isset( $p['m'] ) && in_array( $p['m'], array( 'none', 'solid', 'grad', 'pic' ), true ) ? $p['m'] : 'none';
+		if ( 'pic' === $m ) { // a picture fill: an https link or a small PNG / JPEG / WebP the user picked
+			$src = isset( $p['src'] ) && is_string( $p['src'] ) ? $p['src'] : '';
+			if ( preg_match( '#^https://#', $src ) ) {
+				$src = esc_url_raw( $src );
+			} elseif ( ! ( preg_match( '#^data:image/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$#', $src ) && strlen( $src ) < 750000 ) ) {
+				$src = '';
+			}
+			if ( '' === $src ) {
+				return array( 'm' => 'none' );
+			}
+			$pic = array( 'm' => 'pic', 'src' => $src, 'iw' => self::fnum( isset( $p['iw'] ) ? $p['iw'] : 0, 0, 20000, 0 ), 'ih' => self::fnum( isset( $p['ih'] ) ? $p['ih'] : 0, 0, 20000, 0 ),
+				'z' => self::fnum( isset( $p['z'] ) ? $p['z'] : 1, 1, 4, 1 ), 'px' => self::fnum( isset( $p['px'] ) ? $p['px'] : 50, 0, 100, 50 ), 'py' => self::fnum( isset( $p['py'] ) ? $p['py'] : 50, 0, 100, 50 ),
+				'o' => self::fnum( isset( $p['o'] ) ? $p['o'] : 1, 0, 1, 1 ), 'st' => empty( $p['st'] ) ? 0 : 1 );
+			if ( isset( $p['gb'] ) && is_array( $p['gb'] ) ) {
+				$gb = $p['gb'];
+				$pic['gb'] = array( 'x' => self::fnum( isset( $gb['x'] ) ? $gb['x'] : 0, -5000, 5000, 0 ), 'y' => self::fnum( isset( $gb['y'] ) ? $gb['y'] : 0, -5000, 5000, 0 ),
+					'w' => self::fnum( isset( $gb['w'] ) ? $gb['w'] : 1, 1, 10000, 1 ), 'h' => self::fnum( isset( $gb['h'] ) ? $gb['h'] : 1, 1, 10000, 1 ) );
+			}
+			return $pic;
+		}
 		$out = array( 'm' => $m, 'c' => self::color( isset( $p['c'] ) ? $p['c'] : '', '@p' ), 'o' => self::fnum( isset( $p['o'] ) ? $p['o'] : 1, 0, 1, 1 ), 'w' => self::fnum( isset( $p['w'] ) ? $p['w'] : 2, 0, 60, 2 ),
 			'd' => isset( $p['d'] ) && in_array( $p['d'], array( 'solid', 'dash', 'dot' ), true ) ? $p['d'] : 'solid' );
 		if ( isset( $p['g'] ) && is_array( $p['g'] ) ) {
