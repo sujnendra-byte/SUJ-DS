@@ -15,6 +15,8 @@
  *        Card texts, the logo, the QR code and the photo can be made any size from their corners.
  *        Box-select can start outside the page. Shapes and texts move together on cards.
  *        A selected logo shows an Upload logo / Change logo button.
+ *        Round corners for every shape, text box and picture, with a round dot on the shape to drag; a
+ *        diamond on polygons and stars: drag down for more points, up for fewer (down to a triangle).
  *   151, 265  AI Presentation and AI Document: a GROUP of shapes with Fill > Picture shows one picture across
  *        all of them (also in the PowerPoint / Word download). Several shapes selected without a group each get
  *        their own copy. Ungroup removes the group's picture. Grouping shapes that all have a picture shares the first one.

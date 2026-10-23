@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 20:30:00
+ * Modified   : 2026-10-24 05:00:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.6.3-picfill' );
+define( 'DS_DOC_ENGINE_VER', '1.6.4-corners' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -2438,11 +2438,42 @@ D.shapePoints = function (s, w, h, r) {
   }
   return '';
 };
-/** One shape as an SVG element with the given paint attributes. */
-D.shapeEl = function (s, w, h, r, attrs) {
+/* shapes whose number of points can change: a polygon's sides (L.sides) or a star's points (L.pts), 3 to 12 */
+D.SIDES0 = { triangle: 3, diamond: 4, pentagon: 5, hexagon: 6, octagon: 8 };
+D.ptsOf = function (s, L) { if (s === 'star5') return Math.round(D.num(L && L.pts, 5, 3, 12)); if (D.SIDES0[s]) return Math.round(D.num(L && L.sides, D.SIDES0[s], 3, 12)); return 0; };
+/** the corner points of a shape in its box (null for boxes, ellipses and lines) */
+D.polyPts = function (s, w, h, L) {
+  var sd = L && L.sides && D.SIDES0[s] ? Math.round(D.num(L.sides, 3, 3, 12)) : 0, sp = s === 'star5' && L && L.pts ? Math.round(D.num(L.pts, 5, 3, 12)) : 0, raw = [], i;
+  if (sd || sp) {
+    var n = sd || sp * 2, a0 = sd ? (sd % 2 ? -90 : -90 + 180 / sd) : -90, ri = sp ? (sp === 3 ? 0.3 : sp === 4 ? 0.38 : sp === 5 ? 0.382 : 0.5) : 1, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (i = 0; i < n; i++) { var a = (a0 + i * 360 / n) * Math.PI / 180, k = sp && i % 2 ? ri : 1, px = Math.cos(a) * k, py = Math.sin(a) * k; raw.push([px, py]); x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
+    return raw.map(function (p) { return [(p[0] - x0) / (x1 - x0 || 1) * w, (p[1] - y0) / (y1 - y0 || 1) * h]; });
+  }
+  if (s === 'rect' || s === 'roundRect' || s === 'ellipse' || s === 'line' || !s) return null;
+  var str = D.shapePoints(s, w, h, 0); if (!str) return null;
+  return str.split(' ').map(function (q) { var v = q.split(','); return [+v[0], +v[1]]; });
+};
+/** a closed outline through the points with every corner rounded by r */
+D.roundPath = function (P, r) {
+  var n = P.length, R = function (v) { return Math.round(v * 100) / 100; };
+  if (!(r > 0)) return 'M' + P.map(function (p) { return R(p[0]) + ' ' + R(p[1]); }).join(' L') + ' Z';
+  var cuts = P.map(function (v, i) {
+    var A = P[(i - 1 + n) % n], B = P[(i + 1) % n], ax = A[0] - v[0], ay = A[1] - v[1], bx = B[0] - v[0], by = B[1] - v[1], la = Math.sqrt(ax * ax + ay * ay) || 1, lb = Math.sqrt(bx * bx + by * by) || 1;
+    var ux = ax / la, uy = ay / la, wx = bx / lb, wy = by / lb, th = Math.acos(Math.max(-1, Math.min(1, ux * wx + uy * wy))), tn = Math.tan(th / 2) || 1e-6;
+    var t = Math.min(r / tn, la / 2, lb / 2), rr = t * tn, k = 4 / 3 * Math.tan((Math.PI - th) / 4) * rr, a = [v[0] + ux * t, v[1] + uy * t], b = [v[0] + wx * t, v[1] + wy * t];
+    return { a: a, b: b, ca: [a[0] - ux * k, a[1] - uy * k], cb: [b[0] - wx * k, b[1] - wy * k] };
+  });
+  var d = 'M' + R(cuts[0].b[0]) + ' ' + R(cuts[0].b[1]);
+  for (var i = 1; i <= n; i++) { var c = cuts[i % n]; d += ' L' + R(c.a[0]) + ' ' + R(c.a[1]) + ' C' + R(c.ca[0]) + ' ' + R(c.ca[1]) + ' ' + R(c.cb[0]) + ' ' + R(c.cb[1]) + ' ' + R(c.b[0]) + ' ' + R(c.b[1]); }
+  return d + ' Z';
+};
+/** One shape as an SVG element with the given paint attributes (L: the layer, for its number of points) */
+D.shapeEl = function (s, w, h, r, attrs, L) {
   if (s === 'ellipse') return '<ellipse cx="' + w / 2 + '" cy="' + h / 2 + '" rx="' + w / 2 + '" ry="' + h / 2 + '" ' + attrs + '/>';
   if (s === 'line') return '<line x1="0" y1="' + h / 2 + '" x2="' + w + '" y2="' + h / 2 + '" ' + attrs + '/>';
-  if (s === 'rect' || s === 'roundRect' || !s) { var rr = s === 'roundRect' ? Math.min(D.num(r, 12, 0), Math.min(w, h) / 2) : 0; return '<rect x="0" y="0" width="' + w + '" height="' + h + '"' + (rr ? ' rx="' + rr + '"' : '') + ' ' + attrs + '/>'; }
+  if (s === 'rect' || s === 'roundRect' || !s) { var rr = (s === 'roundRect' || D.num(r, 0) > 0) ? Math.min(D.num(r, 12, 0), Math.min(w, h) / 2) : 0; return '<rect x="0" y="0" width="' + w + '" height="' + h + '"' + (rr ? ' rx="' + rr + '"' : '') + ' ' + attrs + '/>'; }
+  var P = D.polyPts(s, w, h, L);
+  if (P && P.length > 2 && (D.num(r, 0) > 0 || (L && (L.sides || L.pts)))) return '<path d="' + D.roundPath(P, D.num(r, 0, 0, 2000)) + '" ' + attrs + '/>';
   return '<polygon points="' + D.shapePoints(s, w, h, r) + '" ' + attrs + '/>';
 };
 function shadowDef(sh, t) {
@@ -2469,7 +2500,7 @@ D.layerSVG = function (L, t, opt) {
     var dash = L.ln && L.ln.d === 'dash' ? ' stroke-dasharray="' + sw * 3 + ',' + sw * 2 + '"' : L.ln && L.ln.d === 'dot' ? ' stroke-dasharray="' + sw + ',' + sw * 1.5 + '" stroke-linecap="round"' : '';
     if (L.shape === 'line') { s = paint(L.ln && L.ln.m !== 'none' ? L.ln : { m: 'solid', c: L.fill && L.fill.c || '@p' }, t, 'stroke'); sw = sw || 3; }
     defs += f.defs + s.defs;
-    body = D.shapeEl(L.k === 'text' ? (L.shape || 'rect') : L.shape, w, h, L.r, f.attr + ' ' + s.attr + ' stroke-width="' + sw + '"' + dash + ' stroke-linejoin="round"' + filt);
+    body = D.shapeEl(L.k === 'text' ? (L.shape || 'rect') : L.shape, w, h, L.r, f.attr + ' ' + s.attr + ' stroke-width="' + sw + '"' + dash + ' stroke-linejoin="round"' + filt, L);
   } else if (L.k === 'icon') {
     var ic = L.ic || {}, vw = D.num(ic.vw, 24, 1), vh = D.num(ic.vh, 24, 1), sc = Math.min(w / vw, h / vh);
     body = '<g' + filt + '><g transform="translate(' + ((w - vw * sc) / 2) + ',' + ((h - vh * sc) / 2) + ') scale(' + sc + ')" color="' + D.col(L.tc, t, '#1C2333') + '" fill="currentColor">' +
@@ -2810,6 +2841,8 @@ D.pageMap = function (doc) {
   try { var api = D.render(host, doc, { edit: false, gap: 28 }); return api.blockPages ? api.blockPages() : {}; }
   catch (e) { return {}; } finally { host.remove(); }
 };
+/** a shape Word has no ready-made outline for: its own number of points, or a polygon with round corners */
+D.drawnShape = function (L) { var s = L.k === 'text' ? (L.shape || 'rect') : L.shape; return (L.k === 'shape' || L.k === 'text') && !!(L.sides || L.pts || (D.num(L.r, 0) > 0 && D.polyPts(s, 10, 10, L))); };
 /** A shape or text box as a real Word shape (DrawingML). */
 D.layerXML = function (L, t, id, z, sf) {
   var E = function (v) { return Math.round(v * 9525); }, X = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
@@ -2832,6 +2865,7 @@ D.layerXML = function (L, t, id, z, sf) {
   var w = D.num(L.w, 100, 1), h = D.num(L.h, 100, 1), x = D.num(L.x, 0), y = D.num(L.y, 0), isText = L.k === 'text';
   var prst = (isText ? (L.shape || 'rect') : L.shape) || 'rect', isLine = prst === 'line';
   if (!/^(rect|roundRect|ellipse|line|triangle|rtTriangle|diamond|pentagon|hexagon|octagon|star5|rightArrow|leftArrow|chevron|parallelogram)$/.test(prst)) prst = 'rect';
+  if (prst === 'rect' && D.num(L.r, 0) > 0) prst = 'roundRect';
   if (isLine) { y += h / 2; h = 0; }
   var av = prst === 'roundRect' ? '<a:avLst><a:gd name="adj" fmla="val ' + Math.round(Math.min(50000, D.num(L.r, 12, 0) / Math.max(1, Math.min(w, h)) * 100000)) + '"/></a:avLst>' : '<a:avLst/>';
   var fill = isLine ? '<a:noFill/>' : fillX(L.fill);
@@ -2907,7 +2941,7 @@ D.toDocx = function (doc, opts) {
       jobs.push(D.logoPng(doc, sz, 'page').then(function (p) { if (p) arts.logoP = p; }));
     }
     // pictures for icons, pictures and charts placed on the pages
-    layers.concat(masters).forEach(function (L) { if (L.k === 'icon' || L.k === 'image' || L.k === 'chart' || L.k === 'vec' || (L.fill && L.fill.m === 'pic')) jobs.push(D.layerPng(L, t).then(function (r) { if (r) lpics[L.id] = r; })); });
+    layers.concat(masters).forEach(function (L) { if (L.k === 'icon' || L.k === 'image' || L.k === 'chart' || L.k === 'vec' || (L.fill && L.fill.m === 'pic') || D.drawnShape(L)) jobs.push(D.layerPng(L, t).then(function (r) { if (r) lpics[L.id] = r; })); });
     if (layers.some(function (L) { return L.pg !== 'c'; }) && dz.kind !== 'single') pageOf = D.pageMap(doc);
     return Promise.all(jobs);
   }).then(function () {
@@ -3299,7 +3333,7 @@ D.toDocx = function (doc, opts) {
     }
     layers.forEach(function (L, i) {
       var key = anchorKey(L), run = null, z = 251660000 + i * 8;
-      var picF = L.fill && L.fill.m === 'pic' && lpics[L.id];
+      var picF = ((L.fill && L.fill.m === 'pic') || D.drawnShape(L)) && lpics[L.id];
       if ((L.k === 'shape' || L.k === 'text') && !picF) run = X.ImportedXmlComponent.fromXmlString(D.layerXML(L, t, 7001 + i, z, sf));
       else if (lpics[L.id]) {
         var lp = lpics[L.id], P0 = lp.P;

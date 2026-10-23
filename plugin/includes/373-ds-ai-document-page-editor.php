@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 21:00:00
+ * Modified   : 2026-10-24 05:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.6.6-logo' );
+define( 'DS_DOC_APP_VER', '1.6.7-corners' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -498,7 +498,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (p === 'ln') return (f === 'text' && !isC(k)) || f === 'shape' || f === 'line' || (f === 'image' && isL(k));
       if (p === 'sh') return f !== 'pb' && !isC(k);
       if (p === 'op') return f !== 'pb';
-      if (p === 'r') return f === 'shape' || (f === 'image' && isL(k)) || (isB(k) && f !== 'pb');
+      if (p === 'r') return f === 'shape' || (f === 'image' && isL(k)) || (f === 'text' && isL(k)) || (isB(k) && f !== 'pb');
       return true;
     }
     /** set a value on every selected element that has it, then redraw */
@@ -614,12 +614,14 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       sel.forEach(function (k, i) {
         var r = frameRect(k); if (!r) return;
         var lk = isLocked(k), single = sel.length === 1;
-        h += '<div class="dsel-fr' + frameCls(k) + (lk ? ' dsel-lockd' : '') + (sel.length > 1 ? ' dsel-multi' : '') + (r.w < 40 || r.h < 40 ? ' dsel-tiny' : '') + (r.w < 16 || r.h < 16 ? ' dsel-micro' : '') + '" data-k="' + esc(k) + '" style="left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px;' + (r.rot ? 'transform:rotate(' + r.rot + 'deg)' : '') + '">';
+        h += '<div class="dsel-fr' + frameCls(k) + (single && !lk && cornerOK(k) ? ' dsel-hasrc' : '') + (single && !lk && sidesOK(k) ? ' dsel-hassd' : '') + (lk ? ' dsel-lockd' : '') + (sel.length > 1 ? ' dsel-multi' : '') + (r.w < 40 || r.h < 40 ? ' dsel-tiny' : '') + (r.w < 16 || r.h < 16 ? ' dsel-micro' : '') + '" data-k="' + esc(k) + '" style="left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px;' + (r.rot ? 'transform:rotate(' + r.rot + 'deg)' : '') + '">';
         var tiny = r.w < 40 || r.h < 40;
         if (!lk && single && editing !== k && !drag) {
           if (!tiny) h += '<i class="dsel-mv" data-h="mv" style="left:0;right:0;top:-5px;height:10px"></i><i class="dsel-mv" data-h="mv" style="left:0;right:0;bottom:-5px;height:10px"></i><i class="dsel-mv" data-h="mv" style="top:0;bottom:0;left:-5px;width:10px"></i><i class="dsel-mv" data-h="mv" style="top:0;bottom:0;right:-5px;width:10px"></i>';
           h += ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(function (x) { return '<b class="dsel-h dsel-h-' + x + '" data-h="' + x + '"></b>'; }).join('');
           h += '<b class="dsel-rot" data-h="rot" title="Drag to rotate">&#8635;</b>';
+          if (cornerOK(k)) { var rp = rcPos(obj(k)); h += '<b class="dsel-rc" data-h="corner" title="Drag inward to round the corners, outward to sharpen them" style="left:' + rp[0] + '%;top:' + rp[1] + '%"></b>'; }
+          if (sidesOK(k)) h += '<b class="dsel-sd" data-h="sides" title="Drag down for more points, up for fewer (down to a triangle)"></b>';
         }
         if (i === 0 && !drag && editing !== k) {
           var cvTop = canvas.scrollTop;
@@ -872,10 +874,58 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         }
       };
     }
+    /* ---- round corners and number of points, dragged on the shape (like the AI Presentation editor) ---- */
+    function shapeOfL(L) { return L.k === 'text' ? (L.shape || 'rect') : (L.shape || 'rect'); }
+    function cornerOK(k) {
+      if (!isL(k)) return false; var L = obj(k); if (!L || L.lock) return false;
+      if (L.k === 'image') return true;
+      if (L.k !== 'shape' && !(L.k === 'text' && D.hasBox(L))) return false;
+      var s = shapeOfL(L); return s === 'rect' || s === 'roundRect' || !!D.polyPts(s, 10, 10, L);
+    }
+    function sidesOK(k) { if (!isL(k)) return false; var L = obj(k); return !!L && (L.k === 'shape' || L.k === 'text') && D.ptsOf(shapeOfL(L), L) > 0; }
+    function rcGeo(L) {
+      var w = Math.max(1, D.num(L.w, 100)), h = Math.max(1, D.num(L.h, 100)), V = [0, 0], C = [w / 2, h / 2];
+      if (L.k !== 'image') { var P = D.polyPts(shapeOfL(L), w, h, L); if (P && P.length) { V = P[0]; C = [0, 0]; P.forEach(function (p) { C[0] += p[0] / P.length; C[1] += p[1] / P.length; }); } }
+      var dx = C[0] - V[0], dy = C[1] - V[1], Ln = Math.sqrt(dx * dx + dy * dy) || 1;
+      return { w: w, h: h, V: V, u: [dx / Ln, dy / Ln], L: Ln };
+    }
+    function rcR(L) { return D.num(L.k === 'image' ? L.rr : L.r, 0); }
+    function rcPos(L) { var g = rcGeo(L), d = Math.min(g.L * 0.85, 14 + rcR(L)); return [Math.round((g.V[0] + g.u[0] * d) / g.w * 1000) / 10, Math.round((g.V[1] + g.u[1] * d) / g.h * 1000) / 10]; }
+    function dragTip(t) { var tip = ov.querySelector('.dsel-sdt'); if (!tip) { var fr = ov.querySelector('.dsel-fr'); if (fr) { tip = el('span', 'dsel-sdt dsel-on'); fr.appendChild(tip); } } if (tip) { tip.textContent = t; tip.classList.add('dsel-on'); } }
+    function cornerDrag(e, k) {
+      var L = obj(k), g = rcGeo(L), off = pageOff(L.pg), poly = L.k !== 'image' && !!D.polyPts(shapeOfL(L), 10, 10, L), mx = poly ? 400 : Math.floor(Math.min(g.w, g.h) / 2), cur = rcR(L);
+      begin(); document.documentElement.classList.add('dsel-dragging');
+      function loc(ev) {   /* the pointer in the shape's own box, turned back if the shape is turned */
+        var p = toLocal(ev.clientX, ev.clientY), cx = D.num(L.x, 0) + g.w / 2, cy = D.num(L.y, 0) + off + g.h / 2, a = -D.num(L.rot, 0) * Math.PI / 180, ux = p.x - cx, uy = p.y - cy;
+        return [cx + ux * Math.cos(a) - uy * Math.sin(a) - D.num(L.x, 0), cy + ux * Math.sin(a) + uy * Math.cos(a) - D.num(L.y, 0) - off];
+      }
+      drag = {
+        move: function (ev) {
+          var q = loc(ev), d = (q[0] - g.V[0]) * g.u[0] + (q[1] - g.V[1]) * g.u[1], r = Math.round(Math.max(0, Math.min(mx, d - 14)));
+          if (r !== cur) { cur = r; setP(k, 'r', r || null); if (L.k !== 'image' && shapeOfL(L) === 'roundRect' && !r) L.shape = 'rect'; if (api && api.drawLayers) api.drawLayers(); sync(); }
+          dragTip('Corners: ' + r);
+        },
+        up: function () { document.documentElement.classList.remove('dsel-dragging'); done(); sync(); if (pmode === 'corners') paintPanel(); }
+      };
+    }
+    function sidesDrag(e, k) {
+      var L = obj(k), s = shapeOfL(L), n0 = D.ptsOf(s, L), y0 = e.clientY, cur = n0, star = s === 'star5';
+      begin(); document.documentElement.classList.add('dsel-dragging'); dragTip((star ? 'Points: ' : 'Sides: ') + n0);
+      drag = {
+        move: function (ev) {
+          var n = Math.max(3, Math.min(12, n0 + Math.round((ev.clientY - y0) / 14)));   /* down: more points; up: fewer, down to a triangle */
+          if (n !== cur) { cur = n; if (star) L.pts = n; else L.sides = n; if (api && api.drawLayers) api.drawLayers(); sync(); }
+          dragTip((star ? 'Points: ' : 'Sides: ') + n);
+        },
+        up: function () { document.documentElement.classList.remove('dsel-dragging'); done(); sync(); paint(); }
+      };
+    }
     function startHandle(e, h) {
       var k = sel[0]; if (!k || sel.length !== 1 || isLocked(k)) return;
       if (isB(k)) { if (dzn().kind === 'panels') startBlockScale(e, k, h); else startBlockResize(e, k, h); return; }
       if (!isL(k)) return;
+      if (h === 'corner') { cornerDrag(e, k); return; }
+      if (h === 'sides') { sidesDrag(e, k); return; }
       var L = obj(k); begin();
       var off = pageOff(L.pg), x0 = D.num(L.x, 0), y0 = D.num(L.y, 0), w0 = D.num(L.w, 100), h0 = D.num(L.h, 100), r0 = D.num(L.rot, 0) * Math.PI / 180;
       var c0 = { x: x0 + w0 / 2, y: y0 + h0 / 2 + off }, st = toLocal(e.clientX, e.clientY), keep = L.k === 'icon' || L.k === 'image';
@@ -1369,11 +1419,13 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           btn('spacing', '&#8597;&#8201;T', 'Line and letter spacing', 'dsel-ic', pmode === 'spacing') + btn('opacity', IC.op, 'Transparency', 'dsel-ic', pmode === 'opacity');
         if (supports(k, 'fill')) h += btn('fill', sw(paintSw(getP(k, 'fill'))) + ' Fill', 'Fill behind the text: one colour or a gradient', '', pmode === 'fill');
         if (supports(k, 'ln')) h += btn('line', sw(paintSw(getP(k, 'ln'))) + ' Outline', 'Outline around the text: colour or gradient, and width', '', pmode === 'line');
+        if (isL(k) && cornerOK(k)) h += '<span class="dsel-lbl">Corners</span>' + stepper('r', Math.round(D.num(o.r, 0)), 'Corner roundness of the text box', 0, 400, 2);
       } else if (f === 'shape') {
         var ln = getP(k, 'ln');
         h += btn('fill', sw(paintSw(getP(k, 'fill'))) + ' Fill', 'Fill: one colour or a gradient', '', pmode === 'fill') + btn('line', sw(paintSw(ln)) + ' Outline', 'Outline: colour or gradient, and width', '', pmode === 'line') +
           (ln && ln.m && ln.m !== 'none' ? stepper('lw', r1(D.num(ln.w, 2)), 'Outline width', 0.5, 60, 0.5) : '') +
-          (/^(rect|roundRect)$/.test(o.shape) ? '<span class="dsel-lbl">Corners</span>' + stepper('r', Math.round(D.num(o.r, 0)), 'Corner roundness', 0, 400, 2) : '') +
+          (cornerOK(k) ? '<span class="dsel-lbl">Corners</span>' + stepper('r', Math.round(D.num(o.r, 0)), 'Corner roundness (or drag the round dot on the shape)', 0, 400, 2) : '') +
+          (sidesOK(k) ? '<span class="dsel-lbl">' + (o.shape === 'star5' ? 'Points' : 'Sides') + '</span>' + stepper('pts', D.ptsOf(o.shape, o), 'Number of points (or drag the diamond on the shape: down for more, up for fewer)', 3, 12, 1) : '') +
           btn('opacity', IC.op + ' Transparency', 'Transparency', '', pmode === 'opacity');
       } else if (f === 'line') {
         var l2 = getP(k, 'ln') || {};
@@ -1631,6 +1683,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (key === 'size') { setAll('fs', v); paint(); return; }
       if (key === 'lw') { begin(); sel.forEach(function (k) { if (!supports(k, 'ln')) return; var p = D.clone(getP(k, 'ln') || { m: 'solid', c: '@p' }); if (!p.m || p.m === 'none') p.m = 'solid'; p.w = v; setP(k, 'ln', p); }); redraw(); done(); paint(); return; }
       if (key === 'r') { setAll('r', v); paint(); return; }
+      if (key === 'pts') { begin(); sel.forEach(function (k) { if (!sidesOK(k)) return; var L = obj(k); if (shapeOfL(L) === 'star5') L.pts = Math.round(v); else L.sides = Math.round(v); }); redraw(); done(); paint(); return; }
     }
     function onInput(ev) {
       var t = ev.target, key = t.getAttribute('data-i'); if (!key) return;

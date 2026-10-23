@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 20:30:00
+ * Modified   : 2026-10-24 05:00:00
  * Load order : 371 of 374
  */
 /**
@@ -650,7 +650,7 @@ final class DS_AI_Doc {
 					$c[ $b ] = 1;
 				}
 			}
-			foreach ( array( 'r' => array( 0, 2000 ), 'rr' => array( 0, 2000 ), 'fs' => array( 4, 300 ), 'fw' => array( 100, 900 ), 'lh' => array( 0.6, 4 ), 'ls' => array( -10, 60 ), 'pad' => array( 0, 80 ) ) as $k => $rg ) {
+			foreach ( array( 'r' => array( 0, 2000 ), 'rr' => array( 0, 2000 ), 'fs' => array( 4, 300 ), 'fw' => array( 100, 900 ), 'lh' => array( 0.6, 4 ), 'ls' => array( -10, 60 ), 'pad' => array( 0, 80 ), 'sides' => array( 3, 12 ), 'pts' => array( 3, 12 ) ) as $k => $rg ) {
 				if ( isset( $L[ $k ] ) && is_numeric( $L[ $k ] ) ) {
 					$c[ $k ] = self::fnum( $L[ $k ], $rg[0], $rg[1] );
 				}
