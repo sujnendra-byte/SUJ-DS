@@ -863,12 +863,12 @@ function openFillPick(k){
   var i = curIdx(); if (!k || !elByKey(k)) return;
   if (typeof window.vpImgOptionOpen !== 'function') { toast('The picture window is not available here.', 'error'); return; }
   var snaps = decks().map(function(d){ var s = d.slides[i] || {}, o = {}; PICKF.forEach(function(f){ o[f] = (s[f] && typeof s[f] === 'object') ? JSON.parse(JSON.stringify(s[f])) : s[f]; }); return o; });
-  pick = {fk: k, i: i, snaps: snaps, t: Date.now(), base: (deck().slides[i] || {}).image_data || '', keys: pfKeys().length > 1 ? pfKeys() : null, one: pfOne};
+  pick = {fk: k, i: i, snaps: snaps, t: Date.now(), base: (deck().slides[i] || {}).image_data || '', keys: pfKeys().length > 1 ? pfKeys() : null, one: oneGroup()};
   window.vpImgOptionOpen(i);
 }
-/* Fill > Picture with several boxes selected: one picture across all of them. Each box keeps pimg.gb = the picture's box
-   measured from its own top left corner, so the picture moves with the boxes */
-var pfOne = true;
+/* Fill > Picture on a group: one picture across all its boxes. Each box keeps pimg.gb = the picture's box
+   measured from its own top left corner, so the picture moves with the group. Ungroup removes that picture.
+   Several boxes selected without a group: each box gets its own copy. */
 function pfKeys(){ return (sset.length > 1 ? sset : (sel ? [sel] : [])).filter(function(k){ var x = elByKey(k); return x && fam(x) === 'box' && !isLocked(k); }); }
 function pfGroup(keys){ var fr = keys.map(function(k){ return boxOf(elByKey(k)); }); return fr.length > 1 ? bboxOf(fr) : null; }
 function pfRel(G, x){ var f = boxOf(x); return {x: r1(G.x - f.x), y: r1(G.y - f.y), w: r1(G.w), h: r1(G.h)}; }
@@ -877,9 +877,13 @@ function pfEach(fn, quiet, tag){
   commit(function(L){ ks.forEach(function(k){ var x = elByKey(k); if (!x || !x.pimg) return; var np = JSON.parse(JSON.stringify(x.pimg)); fn(np, x); var o = L.m[k] || (L.m[k] = {}); o.pimg = np; }); }, quiet, tag);
   if (quiet) { rerender(); sync(); var l = bar && bar.querySelector('.dsel-left'), e2 = elByKey(sel); if (l && e2) l.innerHTML = leftHTML(e2); }
 }
-function pfSetOne(on){
-  pfOne = !!on; var ks = pfKeys(), G = on ? pfGroup(ks) : null;
-  pfEach(function(np, x){ if (G) np.gb = pfRel(G, x); else delete np.gb; });
+/* grouping boxes that all have a picture: they share the first one's picture */
+function pfOnGroup(keys){
+  var ks = keys.filter(function(k){ var x = elByKey(k); return x && fam(x) === 'box' && x.pimg && x.pimg.src; });
+  if (ks.length < 2) return;
+  var G = pfGroup(ks), first = elByKey(ks[0]).pimg;
+  commit(function(L){ ks.forEach(function(k){ var x = elByKey(k), np = JSON.parse(JSON.stringify(first)); np.gb = pfRel(G, x); var o = L.m[k] || (L.m[k] = {}); o.pimg = np; }); }, true);
+  rerender(); sync();
 }
 function picFillHTML(e){
   var p = e.pimg || {}, has = !!p.src;
@@ -887,8 +891,9 @@ function picFillHTML(e){
   if (has) h += '<div style="height:96px;border-radius:8px;border:1px solid #CBD5E1;background:#F1F5F9 url(\'' + String(p.src).replace(/['"()\\<>\s]/g, '') + '\') center/cover no-repeat;margin-bottom:8px"></div>';
   h += '<div class="dsel-grid2"><button type="button" class="dsel-pbt" data-p="pfins">' + (has ? 'Change picture...' : 'Insert...') + '</button>' + (has ? '<button type="button" class="dsel-pbt dsel-danger" data-p="pfdel">Remove picture</button>' : '') + '</div>';
   var many = pfKeys().length > 1;
-  if (many) h += '<div class="dsel-sub">Several shapes</div><div class="dsel-seg"><button type="button" data-p="pfone" data-n="1" class="' + ((has ? !!p.gb : pfOne) ? 'dsel-on' : '') + '">One picture across all</button><button type="button" data-p="pfone" data-n="0" class="' + ((has ? !p.gb : !pfOne) ? 'dsel-on' : '') + '">Each its own</button></div>';
-  if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.' + (many ? ' With several shapes selected, one picture shows through all of them.' : '') + '</p>';
+  var grp = many && oneGroup();
+  if (many) h += '<p class="dsel-note" style="margin:6px 0">' + (grp ? 'This group shows one picture across all its shapes. Ungroup removes the picture.' : 'Each selected shape gets its own copy of the picture. Group them first to show one picture across all of them.') + '</p>';
+  if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.</p>';
   h += slider('Transparency', 'pftr', 0, 100, 1, Math.round((1 - (p.op != null ? p.op : 1)) * 100), '%');
   h += '<div class="dsel-sub">Fit</div><div class="dsel-seg"><button type="button" data-p="pffit" data-n="fill" class="' + (p.st ? '' : 'dsel-on') + '">Fill shape</button><button type="button" data-p="pffit" data-n="stretch" class="' + (p.st ? 'dsel-on' : '') + '">Stretch</button></div>';
   if (!p.st) h += slider('Zoom', 'pfz', 100, 400, 5, Math.round((p.z || 1) * 100), '%') + slider('Left \u2194 right', 'pfx', 0, 100, 1, Math.round(p.px != null ? p.px : 50), '%') + slider('Top \u2195 bottom', 'pfy', 0, 100, 1, Math.round(p.py != null ? p.py : 50), '%');
@@ -910,7 +915,7 @@ function checkPick(){
         if (!src || curIdx() !== p.i || !elByKey(fk)) { rerender(); if (!src) toast('This picture could not be used.', 'error'); return; }
         var mk = p.keys && p.keys.filter(function(k){ return elByKey(k); });
         if (mk && mk.length > 1) {
-          var G = p.one !== false ? pfGroup(mk) : null;
+          var G = p.one ? pfGroup(mk) : null;
           commit(function(L){ mk.forEach(function(k){ var o = L.m[k] || (L.m[k] = {}), np = {src: src, iw: im.naturalWidth, ih: im.naturalHeight, op: 1, z: 1, px: 50, py: 50, st: 0}; if (G) np.gb = pfRel(G, elByKey(k)); o.pimg = np; o.fill = ''; delete o.grad; }); });
           pmode = 'fill'; paint(); try { if (typeof window.dspRenderThumbs === 'function') window.dspRenderThumbs(); } catch (x3) {}
           toast(G ? 'One picture across ' + mk.length + ' shapes.' : 'Picture fill added.');
@@ -1031,13 +1036,20 @@ function doGroup(){
     var z = keyOrder(), mem = z.filter(function(k){ return keys.indexOf(k) >= 0; });
     if (mem.length > 1) { var top = z.indexOf(mem[mem.length - 1]), rest = z.filter(function(k){ return keys.indexOf(k) < 0; }), at = 0; for (var i = 0; i < top; i++) if (keys.indexOf(z[i]) < 0) at++; L.z = rest.slice(0, at).concat(mem, rest.slice(at)); }
   });
+  pfOnGroup(keys);
   if (pmode !== 'layers') { pmode = 'layers'; paint(); }
   toast('Grouped. One click selects the group; click an element again to pick only that one.');
 }
 function doUngroup(){
-  var keys = sset.slice();
-  commit(function(L){ if (!L.g) return; for (var id in L.g) if (L.g[id].some(function(k){ return keys.indexOf(k) >= 0; })) delete L.g[id]; });
-  toast('Ungrouped.');
+  var keys = sset.slice(), pf = 0, acc = hex(palOf().accent) || '#3B82F6';
+  commit(function(L){
+    if (!L.g) return;
+    for (var id in L.g) if (L.g[id].some(function(k){ return keys.indexOf(k) >= 0; })) {
+      L.g[id].forEach(function(k){ var x = elByKey(k); if (x && x.pimg && x.pimg.gb) { var o = L.m[k] || (L.m[k] = {}); o.pimg = {off: 1}; o.fill = acc; pf++; } });   /* the group's picture goes with the group */
+      delete L.g[id];
+    }
+  });
+  toast(pf ? 'Ungrouped. The group picture was removed.' : 'Ungrouped.');
 }
 function commit(fn, quiet, tag){
   var s = curSlide(); if (!s) return;
@@ -3095,7 +3107,6 @@ function onPanelClick(ev){
   if (a === 'pfdel' && e) { setO(sel, {pimg: null, fill: hex(palOf().accent) || '#3B82F6', grad: null}); return; }
   if (a === 'pfreset' && e && e.pimg) { pfEach(function(nr){ nr.z = 1; nr.px = 50; nr.py = 50; nr.st = 0; }); setTimeout(pfGhost, 30); return; }
 if (a === 'pffit' && e && e.pimg) { pfEach(function(nf){ nf.st = n === 'stretch' ? 1 : 0; }); return; }
-  if (a === 'pfone') { if (e && e.pimg) pfSetOne(n === '1'); else { pfOne = n === '1'; paint(); } return; }
   if (a === 'fmode' && e && n === 'pic') { if (!e.pimg) openFillPick(sel); return; }
   if (a === 'fmode' && e) {
     if (n === 'none') { if (pmode === 'fill') setO(sel, {fill: '', grad: null, pimg: null}); else if (pmode === 'line') setO(sel, {line: '', lgrad: null}); else if (pmode === 'tline') setO(sel, {tline: '', tlgrad: null}); return; }
