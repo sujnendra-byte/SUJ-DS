@@ -2,13 +2,16 @@
 /**
  * Plugin Name: Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in
  * Description: All active DesignStager Code Snippets packaged as a single plugin. V42 = V41 (41.5.0) + AI Document: write with AI or use your own text, review, then a designed document in the AI Presentation-style editor; 784 designs in 8 categories (business, education, career, letters, meetings, finance, marketing, events) incl. 2-sided flyers, tri-fold brochures, posters, social posts, infographics, business cards, invitations, menus, certificates, tickets and folded cards; page sizes per type; Word, PDF, PNG, JPG, TIFF (96-1200 dpi) and EPS+SVG downloads + DesignStager Word add-in. Deactivate V41 before activating V42.
- * Version: 42.0.1
+ * Version: 42.0.2
  * Author: DesignStager
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
  *
  * CHANGELOG
  * ---------
+ * 42.0.2 - 2026-10-23 Security and bug review (credits, payments, downloads, uploads, sign-in, REST, AJAX).
+ *   022  Payments - FIXED: the payment check took the number of top-up credits and the plan from the browser, and the
+ *        same payment could be sent again for more credits. Now read from Razorpay's order and counted once.
  * 42.0.1 - 2026-10-23 Bug fixes found by loading every page, admin screen and REST route on a test site. 4 includes updated.
  *   058  Creator portal - FIXED: visitors who are not signed in got a fatal error (it called users_can_register(),
  *        which is not a WordPress function); they now see the sign-in screen with Sign up when registration is open.
@@ -1356,7 +1359,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DSV42_VERSION', '42.0.1' );
+define( 'DSV42_VERSION', '42.0.2' );
 define( 'DSV42_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DSV42_URL', plugin_dir_url( __FILE__ ) );
 

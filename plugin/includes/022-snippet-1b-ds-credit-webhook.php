@@ -146,6 +146,32 @@ $amount   = ($currency === 'INR') ? ($topup['price_inr'] * 100) : (int) round($t
     ));
 }
 
+// Read an order or subscription from Razorpay (GET). Returns the decoded array, or null.
+if (!function_exists('ds_rzp_api_get')) {
+function ds_rzp_api_get($path, $keys) {
+    $r = wp_remote_get('https://api.razorpay.com/v1/' . $path, array(
+        'headers' => array('Authorization' => 'Basic ' . base64_encode($keys['key_id'] . ':' . $keys['key_secret'])),
+        'timeout' => 20,
+    ));
+    if (is_wp_error($r) || (int) wp_remote_retrieve_response_code($r) !== 200) return null;
+    $d = json_decode(wp_remote_retrieve_body($r), true);
+    return is_array($d) ? $d : null;
+}
+}
+
+// True the first time it is called for $key, false ever after. A single INSERT IGNORE,
+// so two requests arriving at the same moment cannot both get true.
+if (!function_exists('ds_rzp_claim_once')) {
+function ds_rzp_claim_once($key) {
+    global $wpdb;
+    $name = 'ds_rzp_done_' . md5((string) $key);
+    return (bool) $wpdb->query($wpdb->prepare(
+        "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')",
+        $name, (string) time()
+    ));
+}
+}
+
 // =============================================
 // VERIFY PAYMENT (called after successful checkout)
 // =============================================
@@ -179,6 +205,42 @@ function ds_rest_verify_payment(WP_REST_Request $req) {
     if (!$verified) {
         error_log("DS Razorpay: signature verification FAILED for uid=$uid");
         return new WP_Error('invalid_signature', 'Payment verification failed', array('status'=>400));
+    }
+
+    // What was bought comes from Razorpay's copy of the order/subscription (its notes
+    // were written by us when it was created) - never from the browser, which could
+    // ask for any number of credits or a bigger plan than was paid for.
+    if ($type === 'topup') {
+        $order = ds_rzp_api_get('orders/' . rawurlencode($razorpay_order_id), $keys);
+        $notes = (is_array($order) && isset($order['notes']) && is_array($order['notes'])) ? $order['notes'] : array();
+        if (!$order || (int)($notes['user_id'] ?? 0) !== (int)$uid || ($notes['type'] ?? '') !== 'topup') {
+            error_log("DS Razorpay: top-up order $razorpay_order_id could not be confirmed for uid=$uid");
+            return new WP_Error('order_mismatch', 'Payment could not be confirmed. Please contact support.', array('status'=>400));
+        }
+        $credits = (int)($notes['credits'] ?? 0);
+        $once_key = 'order:' . $razorpay_order_id;
+    } else {
+        $sub   = ds_rzp_api_get('subscriptions/' . rawurlencode($razorpay_subscription_id), $keys);
+        $notes = (is_array($sub) && isset($sub['notes']) && is_array($sub['notes'])) ? $sub['notes'] : array();
+        if (!$sub || (int)($notes['user_id'] ?? 0) !== (int)$uid) {
+            error_log("DS Razorpay: subscription $razorpay_subscription_id could not be confirmed for uid=$uid");
+            return new WP_Error('order_mismatch', 'Payment could not be confirmed. Please contact support.', array('status'=>400));
+        }
+        $plan = '';
+        foreach (ds_get_razorpay_plans() as $pkey => $pdata) {
+            if (!empty($pdata['plan_id']) && isset($sub['plan_id']) && $pdata['plan_id'] === $sub['plan_id']) { $plan = $pkey; break; }
+        }
+        if (!in_array($plan, array('premium', 'pro', 'business'), true)) {
+            $plan = strtolower((string)($notes['plan'] ?? ''));
+        }
+        if (!in_array($plan, array('premium', 'pro', 'business'), true)) $plan = '';
+        $once_key = 'pay:' . $razorpay_payment_id;
+    }
+
+    // Each payment counts once. Reloading the thank-you page, or the webhook
+    // arriving for the same top-up, must not add the credits again.
+    if (!ds_rzp_claim_once($once_key)) {
+        $type = 'already_done';
     }
 
     // Payment verified!
@@ -453,8 +515,9 @@ case 'subscription.authenticated':
             break;
 
         case 'payment.captured':
-            // One-time payment captured (top-ups)
-            if ($credits_note > 0) {
+            // One-time payment captured (top-ups). Shares the once-only key with
+            // ds_rest_verify_payment(), so a top-up is never credited twice.
+            if ($credits_note > 0 && !empty($payment['order_id']) && ds_rzp_claim_once('order:' . $payment['order_id'])) {
                 ds_add_credits($uid, $credits_note);
                 update_user_meta($uid, 'ds_last_topup', array(
                     'credits' => $credits_note,
