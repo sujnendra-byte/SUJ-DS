@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 05:00:00
+ * Modified   : 2026-10-24 07:00:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.6.4-corners' );
+define( 'DS_DOC_ENGINE_VER', '1.7.0-flyers' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -2789,6 +2789,49 @@ D.dataToBytes = function (dataUri) {
   return out;
 };
 /** Any picture (data: URI or https URL) → {data, type, w, h} that Word accepts (PNG/JPEG). */
+/* the zone a photo block sits in on a panels page: its size and its shape (CSS clip-path) */
+D.photoZone = function (PS, b) {
+  if (!PS || !PS.roles || !b.role || !PS.roles[b.role]) return null;
+  var r = PS.roles[b.role], z = PS.pages[r[0]] && PS.pages[r[0]].zones[r[1]]; if (!z) return null;
+  var m = /--clip:([^;]+);/.exec(z.vars || ''); return { w: z.w, h: z.h, clip: m ? m[1].trim() : 'none' };
+};
+/* a photo drawn to fill w x h (like background-size: cover) and cut to a CSS clip-path shape, as a PNG for Word */
+D.clipPicture = function (src, w, h, clip) {
+  var S = 2, W = Math.max(2, Math.round(w * S)), H = Math.max(2, Math.round(h * S));
+  function len(v, ref) { v = String(v).trim(); if (/%$/.test(v)) return parseFloat(v) / 100 * ref; if (/px$/.test(v)) return parseFloat(v) * S; return parseFloat(v) || 0; }
+  function four(a) { a = a.length ? a : ['0']; return [a[0], a[1] != null ? a[1] : a[0], a[2] != null ? a[2] : a[0], a[3] != null ? a[3] : (a[1] != null ? a[1] : a[0])]; }
+  function shape(x) {
+    var c = String(clip || 'none').trim(), m;
+    x.beginPath();
+    if ((m = /^circle\(\s*([\d.]+)%(?:\s+at\s+([\d.]+)%\s+([\d.]+)%)?\s*\)/.exec(c))) { var R = parseFloat(m[1]) / 100 * Math.sqrt((W * W + H * H) / 2); x.arc(m[2] != null ? parseFloat(m[2]) / 100 * W : W / 2, m[3] != null ? parseFloat(m[3]) / 100 * H : H / 2, R, 0, Math.PI * 2); return true; }
+    if ((m = /^ellipse\(\s*([\d.]+)%\s+([\d.]+)%(?:\s+at\s+([\d.]+)%\s+([\d.]+)%)?\s*\)/.exec(c))) { x.ellipse(m[3] != null ? parseFloat(m[3]) / 100 * W : W / 2, m[4] != null ? parseFloat(m[4]) / 100 * H : H / 2, parseFloat(m[1]) / 100 * W, parseFloat(m[2]) / 100 * H, 0, 0, Math.PI * 2); return true; }
+    if ((m = /^polygon\((.*)\)$/.exec(c))) { m[1].split(',').forEach(function (pt, i) { var q = pt.trim().split(/\s+/), px = len(q[0], W), py = len(q[1], H); if (i) x.lineTo(px, py); else x.moveTo(px, py); }); x.closePath(); return true; }
+    if ((m = /^inset\(\s*0\s+round\s+(.+)\)$/.exec(c))) {
+      var hv = m[1].split('/'), rx = four(hv[0].trim().split(/\s+/)).map(function (v) { return len(v, W); }), ry = four((hv[1] || hv[0]).trim().split(/\s+/)).map(function (v) { return len(v, H); });
+      var k = Math.min(1, W / Math.max(1, rx[0] + rx[1]), W / Math.max(1, rx[3] + rx[2]), H / Math.max(1, ry[0] + ry[3]), H / Math.max(1, ry[1] + ry[2]));
+      rx = rx.map(function (v) { return v * k; }); ry = ry.map(function (v) { return v * k; });
+      x.moveTo(rx[0], 0); x.lineTo(W - rx[1], 0); x.ellipse(W - rx[1], ry[1], rx[1], ry[1], 0, -Math.PI / 2, 0);
+      x.lineTo(W, H - ry[2]); x.ellipse(W - rx[2], H - ry[2], rx[2], ry[2], 0, 0, Math.PI / 2);
+      x.lineTo(rx[3], H); x.ellipse(rx[3], H - ry[3], rx[3], ry[3], 0, Math.PI / 2, Math.PI);
+      x.lineTo(0, ry[0]); x.ellipse(rx[0], ry[0], rx[0], ry[0], 0, Math.PI, Math.PI * 1.5); x.closePath(); return true;
+    }
+    return false;
+  }
+  return new Promise(function (res, rej) {
+    var img = new Image(); if (!/^data:/.test(src)) img.crossOrigin = 'anonymous';
+    img.onload = function () {
+      try {
+        var c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d');
+        if (shape(x)) x.clip();
+        var iw = img.naturalWidth || 1, ih = img.naturalHeight || 1, k = Math.max(W / iw, H / ih);
+        x.drawImage(img, (W - iw * k) / 2, (H - ih * k) / 2, iw * k, ih * k);
+        res({ data: D.dataToBytes(c.toDataURL('image/png')), type: 'png', w: Math.round(w), h: Math.round(h) });
+      } catch (er) { rej(er); }
+    };
+    img.onerror = function () { rej(new Error('A picture could not be loaded.')); };
+    img.src = src;
+  });
+};
 D.loadPicture = function (src) {
   function viaCanvas(url) {
     return new Promise(function (res, rej) {
@@ -2924,7 +2967,10 @@ D.toDocx = function (doc, opts) {
         jobs.push(D.svgToPng(ic, 48, 48, 1).then(function (by) { pics[key] = { data: by, type: 'png', w: 48, h: 48 }; }).catch(function () {}));
       });
       if (b.t === 's_qr') jobs.push(D.svgToPng(D.qrSVG(b.text || ' ', '#111111', '#FFFFFF', 300), 300, 300, 1).then(function (by) { pics['qr_' + b.id] = { data: by, type: 'png', w: 300, h: 300 }; }).catch(function () {}));
-      if (b.t === 's_photo' && b.src) jobs.push(D.loadPicture(b.src).then(function (p) { if (p) pics['ph_' + b.id] = p; }).catch(function () {}));
+      if (b.t === 's_photo' && b.src) {
+        var phz = D.photoZone(arts.panelSpec, b);
+        jobs.push((phz ? D.clipPicture(b.src, phz.w, phz.h, phz.clip) : D.loadPicture(b.src)).then(function (p) { if (p) pics['ph_' + b.id] = p; }).catch(function () {}));
+      }
       if ((b.t === 's_mark' || dz.kind === 'panels') && doc.logo && doc.logo.src && !doc.logo.hide && pics.__logo === undefined) { pics.__logo = null; jobs.push(D.loadPicture(doc.logo.src).then(function (p) { if (p) pics.__logo = p; }).catch(function () {})); }
     });
     // block pictures
@@ -3233,7 +3279,7 @@ D.toDocx = function (doc, opts) {
           break;
         /* single pages */
         case 's_kicker': out.push(T(b.text, { bold: true, size: 11 * K, color: (onDark ? TAD : TA), caps: true, cs: Math.round(50 * K) }, { alignment: o.align, spacing: { after: Math.round(120 * K) } })); break;
-        case 's_title': out.push(T(b.text, { font: HF, bold: true, size: o.titlePt || 48, color: pc }, { alignment: o.align, spacing: { after: Math.round(160 * K), line: 240 } })); break;
+        case 's_title': out.push(T(b.text, { font: HF, bold: true, size: o.titlePt || 48, color: pc, caps: o.caps }, { alignment: o.align, spacing: { after: Math.round(160 * K), line: 240 } })); break;
         case 's_sub': out.push(o.bc ? T(b.text, { size: 6.6, caps: true, cs: 30, color: onDark ? TAD : TS }, { alignment: o.align, spacing: { after: 60 } }) : T(b.text, { font: HF, italics: true, size: 16 * K, color: onDark ? TAD : TS }, { alignment: o.align, spacing: { after: Math.round(160 * K) } })); break;
         case 's_text': out.push(T(b.text, { size: 11.5 * K, color: ink }, { alignment: o.align, spacing: { before: Math.round(120 * K), after: Math.round(160 * K), line: 320 } })); break;
         case 's_cta': out.push(P([new X.TextRun({ text: '  ' + (b.text || '') + '  ', bold: true, size: Math.round(24 * K), color: h(D.onColor(t.a)), shading: { type: SH.CLEAR, fill: h(t.a), color: 'auto' } })], { alignment: o.align, spacing: { before: Math.round(280 * K) } })); break;
@@ -3245,6 +3291,16 @@ D.toDocx = function (doc, opts) {
           }), [dw2, cw - dw2], { align: A.CENTER }), P([], { spacing: { after: 120 } }));
           break;
         case 's_contact':
+          if (o.row) {   /* a contact bar: all rows on one line */
+            var runsC = [];
+            (b.rows || []).forEach(function (r, ri) {
+              var ip2 = pics['ic_' + (D.ICONS[r.i] ? r.i : 'link')], px2 = Math.round(11 * K);
+              if (ip2) runsC.push(new X.ImageRun({ type: 'png', data: ip2.data, transformation: { width: px2, height: px2 }, altText: { title: r.i || 'icon', description: r.i || 'icon', name: 'icon' } }));
+              runsC.push(new X.TextRun({ text: ' ' + (r.t || '') + (ri < (b.rows || []).length - 1 ? '      ' : ''), size: sizeHp(7.4 * K), color: h(ink) }));
+            });
+            out.push(P(runsC, { alignment: o.align, spacing: { after: 0 } }));
+            break;
+          }
           var cwC = cw, icW = Math.round(15 * 15 * K);
           out.push(table((b.rows || []).map(function (r) {
             var ip = pics['ic_' + (D.ICONS[r.i] ? r.i : 'link')], px = Math.round(12 * K);
@@ -3254,13 +3310,13 @@ D.toDocx = function (doc, opts) {
           }), [icW, cwC - icW]), P([], { spacing: { after: 0, line: 20, lineRule: X.LineRuleType.EXACT } }));
           break;
         case 's_qr':
-          var qp = pics['qr_' + b.id], qs = Math.round(Math.min(o.zw || 60, o.zh || 60));
+          var qp = pics['qr_' + b.id], qs = Math.round(Math.min(o.zw || 60, o.zh || 60, o.fx ? 84 * (o.k || 1) : 9999));
           if (qp) out.push(P([new X.ImageRun({ type: 'png', data: qp.data, transformation: { width: qs, height: qs }, altText: { title: 'QR code', description: b.text || 'QR code', name: 'QR code' } })], { alignment: A.CENTER, spacing: { after: 0 } }));
           break;
         case 's_photo':
           var pp = pics['ph_' + b.id];
           if (pp) {
-            var pw = Math.round(o.zw || 120), ph = Math.round(o.zh || 120), rw = pp.w / pp.h > pw / ph ? ph * pp.w / pp.h : pw;
+            var pw = Math.round(o.zw || 120), ph = Math.round(o.zh || 120), rw = pp.type === 'png' && Math.abs(pp.w / pp.h - pw / ph) < 0.02 ? pw : pp.w / pp.h > pw / ph ? ph * pp.w / pp.h : pw;
             out.push(P([new X.ImageRun({ type: pp.type, data: pp.data, transformation: { width: Math.round(Math.min(rw, pw)), height: Math.round(Math.min(rw, pw) * pp.h / pp.w) }, altText: { title: 'Photo', description: 'Photo', name: 'Photo' } })], { alignment: A.CENTER, spacing: { after: 0 } }));
           }
           break;
@@ -3375,7 +3431,7 @@ D.toDocx = function (doc, opts) {
         var lgk = D.lgK(doc, !(PS.roles && PS.roles.logo ? PS.roles.logo[0] === pi : pi === 0));
         var zk = function (z, zi, only) {
           var f = D.panelFit(doc, pi, zi) * (z.lgTop && pics.__logo ? 0.78 : 0.92), al = z.align === 'center' ? A.CENTER : z.align === 'right' ? A.RIGHT : A.LEFT, out = [];
-          (only || grp[pi + '.' + zi] || []).forEach(function (b) { var bs = D.blockSc(b); out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f * bs), cw: tw(z.w), k: (z.k || 1) * f * bs, bc: /\bbc\b/.test(z.cls || ''), zw: z.w * bs, zh: z.h * bs, lgk: lgk * bs })); });
+          (only || grp[pi + '.' + zi] || []).forEach(function (b) { var bs = D.blockSc(b); out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f * bs), cw: tw(z.w), k: (z.k || 1) * f * bs, bc: /\bbc\b/.test(z.cls || ''), zw: z.w * bs, zh: z.h * bs, lgk: lgk * bs, fx: /\bfx\b/.test(z.cls || ''), row: /\brow\b/.test(z.cls || ''), caps: /\bup\b/.test(z.cls || '') })); });
           if (only) return out;
           if (z.lgTop && pics.__logo) out = block({ t: 's_mark', id: 'lgtop' + pi + zi }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, mk: 15, lgk: lgk, after: 40 }).concat(out);
           if (!out.length && z.auto === 'mark') out = out.concat(block({ t: 's_mark', id: 'auto' + pi + zi, text: D.initials(D.panelCompany(doc)) }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, small: true, lgk: lgk }));
@@ -3386,7 +3442,7 @@ D.toDocx = function (doc, opts) {
         var ap = anchorPara('pp' + pi); if (ap) kids.push(ap);
         var minX = Math.min.apply(null, zs.map(function (z) { return z.x; })), maxR = Math.max.apply(null, zs.map(function (z) { return z.x + z.w; }));
         /* a one-zone card page goes in a floating table, like the mixed card pages: Word lines are taller than the page's, so normal margins spill onto a blank third page */
-        var bcOne = zs.some(function (z) { return /\bbc\b/.test(z.cls || ''); });
+        var bcOne = zs.some(function (z) { return /\b(bc|fx)\b/.test(z.cls || ''); });
         if (zs.length === 1 && !bcOne) {
           var z0 = zs[0], k0 = zk(z0, 0), free = z0.h - 0;
           if (z0.v === 'bottom' || z0.v === 'center') {
@@ -3665,7 +3721,7 @@ D.toDocx = function (doc, opts) {
         if (el.querySelector('.dsd-blk[data-sc]')) { res[el.getAttribute('data-pg') + '.' + el.getAttribute('data-zn')] = 1; el.style.setProperty('--fit', '1'); return; }   /* sizes set by hand are kept */
         var jc = el.style.justifyContent;
         el.style.setProperty('--fit', '1'); el.style.justifyContent = 'flex-start';
-        while (el.scrollHeight > h + 1 && f > 0.42) { f = Math.round((f - 0.04) * 100) / 100; el.style.setProperty('--fit', String(f)); }
+        while ((el.scrollHeight > h + 1 || el.scrollWidth > el.clientWidth + 2) && f > 0.42) { f = Math.round((f - 0.04) * 100) / 100; el.style.setProperty('--fit', String(f)); }
         el.style.justifyContent = jc;
         res[el.getAttribute('data-pg') + '.' + el.getAttribute('data-zn')] = f;
       });
@@ -4233,7 +4289,7 @@ D.toDocx = function (doc, opts) {
     '.bcqr .dsd-s-qr{width:var(--qr,50px);height:var(--qr,50px);margin:0 auto}.dsd-s-qr svg{display:block;width:100%;height:100%}' +
     '.dsd-s-qu{display:none;font-size:6pt;margin-top:2px;color:#64748B;word-break:break-all;line-height:1.1}.dsd-edit .dsd-s-qu{display:block}' +
     '.bcph{padding:0!important}.bcph>.dsd-blk{margin:0!important}.dsd-s-ph{width:100%;height:var(--zh,120px);background:#CBD5E1 center/cover no-repeat;clip-path:var(--clip,none);display:flex;align-items:center;justify-content:center}' +
-    '.dsd-s-ph.empty{background:linear-gradient(135deg,#E2E8F0,#CBD5E1)}.dsd-s-ph span{display:flex;flex-direction:column;align-items:center;gap:3px}.dsd-s-ph svg{width:38%;max-width:46px;fill:#94A3B8}.dsd-s-ph em{font-style:normal;font-size:6pt;color:#475569}.dsd-edit .dsd-s-ph{cursor:pointer}' +
+    '.dsd-s-ph:not(.empty){animation:dsdph 1.3s ease-in-out infinite alternate}@keyframes dsdph{from{background-color:#E2E8F0}to{background-color:#C3CCD9}}@media print{.dsd-s-ph{animation:none!important}}.dsd-s-ph.empty{background:linear-gradient(135deg,#E2E8F0,#CBD5E1)}.dsd-s-ph span{display:flex;flex-direction:column;align-items:center;gap:3px}.dsd-s-ph svg{width:38%;max-width:46px;fill:#94A3B8}.dsd-s-ph em{font-style:normal;font-size:6pt;color:#475569}.dsd-edit .dsd-s-ph{cursor:pointer}' +
     '.bc.ond .dsd-s-ct .ic{background:var(--icb,#1B1D22)}.bc.ond .dsd-s-ct .ic svg{fill:#fff}.bc.ond:not(.dark) .dsd-s-s{color:var(--p)}.bc.ond.dark .dsd-s-s{color:rgba(255,255,255,.9)}.bc.ond.lead .dsd-s-t,.bc.ond .dsd-s-t{border-color:rgba(255,255,255,.6)}' +
     '.dsd-s-mk{display:block;width:100%;line-height:0}.dsd-s-mk2{margin-bottom:calc(6pt*var(--fit,1))}.dsd-s-mk2 img{height:calc(20pt*var(--fit,1)*var(--lgk,1))}' +
     '.dsd-s-mk img{display:inline-block;max-width:100%;height:calc(var(--mk,34pt)*var(--fit,1)*var(--lgk,1));object-fit:contain}' +
@@ -4656,6 +4712,494 @@ D.toDocx = function (doc, opts) {
       R('s_title', { text: 'Your Name' }, 'name'), R('s_sub', { text: 'Job Title' }, 'title'),
       R('s_contact', { rows: [{ i: 'phone', t: '+00 000 000 0000' }, { i: 'mail', t: 'name@yourcompany.com' }, { i: 'web', t: 'www.yourcompany.com' }, { i: 'pin', t: 'Your address, City' }] }, 'contact'),
       R('s_qr', { text: 'https://www.yourcompany.com' }, 'qr'), R('s_photo', { src: '' }, 'photo')];
+    return doc;
+  };
+})();
+
+/* =====================================================================================
+ * Flyers, A4 brochures and tri-fold brochures (2026-10-24 rebuild, from the user's samples):
+ * photo-led corporate designs - big bold titles, photos cut into circles, hexagons, diamonds,
+ * arches and slants, colour swooshes, price badges, a services list and a contact bar.
+ * Every page is a set of zones with a tag; blocks carry a role; each design decides where a role goes.
+ * Photos are s_photo blocks in "photo" zones (clip-path gives the shape); the sample photos come
+ * from the site's own marketplace (D.samplePhotos, filled by the page).
+ * ===================================================================================== */
+(function () {
+  var CL = {
+    none: 'none', circle: 'circle(50% at 50% 50%)', ellipse: 'ellipse(50% 50% at 50% 50%)',
+    hex: 'polygon(25% 2%,75% 2%,100% 50%,75% 98%,25% 98%,0 50%)', hexv: 'polygon(50% 0,98% 25%,98% 75%,50% 100%,2% 75%,2% 25%)',
+    diamond: 'polygon(50% 0,100% 50%,50% 100%,0 50%)', arch: 'inset(0 round 50% 50% 0 0 / 34% 34% 0 0)', round: 'inset(0 round 7%)',
+    leaf: 'inset(0 round 46% 0 46% 0)', leafr: 'inset(0 round 0 46% 0 46%)', capsule: 'inset(0 round 999px)',
+    slantL: 'polygon(22% 0,100% 0,100% 100%,0 100%)', slantR: 'polygon(0 0,100% 0,78% 100%,0 100%)', slantB: 'polygon(0 0,100% 0,100% 80%,0 100%)',
+    quarter: 'circle(100% at 100% 0)', cutB: 'polygon(0 0,100% 0,100% 100%,0 86%)', cutTL: 'polygon(18% 0,100% 0,100% 100%,0 100%,0 22%)'
+  };
+  CL.wave = (function () { var p = ['0 0', '100% 0']; for (var i = 20; i >= 0; i--) p.push((i * 5) + '% ' + (88 + Math.sin(i / 20 * Math.PI * 2) * 6).toFixed(2) + '%'); return 'polygon(' + p.join(',') + ')'; })();
+  D.FX_CLIP = CL;
+  function P(pts, c, op) { return poly(pts, c, op); }
+  function E(cx, cy, rx, ry, c, op) { return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + c + '"' + (op != null ? ' fill-opacity="' + op + '"' : '') + '/>'; }
+  function onDark(c) { return D.cr('#FFFFFF', c) > D.cr('#141414', c); }
+  function rr(x, y, w, h, c, r, op) { return rect(x, y, w, h, c, op, r); }
+  function hexPts(cx, cy, r, flat) { var p = []; for (var i = 0; i < 6; i++) { var a = Math.PI / 3 * i + (flat ? 0 : Math.PI / 6); p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return p; }
+  function dotsG(x, y, c, r, n, m, gp, op) { return dots(x, y, n, m, gp, r, c, op); }
+  function stripesD(x, y, w, h, n, c, op) {   /* thin diagonal stripes inside a box */
+    var s = '', gp = w / n;
+    for (var i = -n; i < n * 2; i++) s += P([[x + i * gp, y + h], [x + i * gp + gp * 0.4, y + h], [x + i * gp + gp * 0.4 + h, y], [x + i * gp + h, y]], c, op);
+    return '<svg x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" overflow="hidden"><g transform="translate(' + (-x) + ',' + (-y) + ')">' + s + '</g></svg>';
+  }
+  /* text zone / photo zone */
+  function T(tag, x, y, w, h, o) { o = o || {}; return { tag: tag, x: x, y: y, w: w, h: h, al: o.al || 'left', v: o.v || 'top', dk: !!o.dk, tf: o.tf, tmax: o.tmax, k: o.k, cls: o.cls || '' }; }
+  function PH(n, x, y, w, h, clip) { return { tag: 'p' + n, x: x, y: y, w: w, h: h, clip: CL[clip] || clip || 'none', photo: 1 }; }
+  /* a light band at the bottom with the contact row */
+  function footBand(t, W, H, c, h) { h = h || 0.085; var dk = onDark(c || t.p); return { s: rect(0, H * (1 - h), W, H * h, c || t.p), z: T('foot', W * 0.06, H * (1 - h) + H * 0.016, W * 0.88, H * h - H * 0.028, { dk: dk, v: 'center', cls: 'row' }) }; }
+  /* the white ring around a round photo, drawn under it */
+  function ringBack(cx, cy, r, c, w) { return circ(cx, cy, r + w, c); }
+
+  /* ---------------- flyer fronts: each returns { s: shapes, z: zones } for a W x H page ---------------- */
+  var F = {};
+  F.proposal = function (t, W, H) {
+    var cx = W * 0.68, cy = H * 0.57, r = W * 0.25, fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + path('M' + W * 0.56 + ' 0 C' + W * 0.44 + ' ' + H * 0.3 + ',' + W * 1.06 + ' ' + H * 0.36 + ',' + W * 0.76 + ' ' + H * 0.8 + ' L' + W + ' ' + H * 0.92 + ' L' + W + ' 0 Z', t.p) +
+      path('M' + W * 0.5 + ' 0 C' + W * 0.38 + ' ' + H * 0.3 + ',' + W * 0.98 + ' ' + H * 0.4 + ',' + W * 0.66 + ' ' + H * 0.86 + ' L' + W * 0.7 + ' ' + H * 0.86 + ' C' + W * 1.0 + ' ' + H * 0.38 + ',' + W * 0.42 + ' ' + H * 0.3 + ',' + W * 0.54 + ' 0 Z', t.a) +
+      ringBack(cx, cy, r, '#FFFFFF', W * 0.018) + ring(cx, cy, r + W * 0.03, t.a, W * 0.006) + dotsG(W * 0.07, H * 0.05, t.p, W * 0.004, 6, 3, W * 0.022, 0.5) + fb.s;
+    return { s: s, z: [T('head', W * 0.07, H * 0.1, W * 0.5, H * 0.28, { tf: 0.13, cls: 'up' }), T('body', W * 0.07, H * 0.4, W * 0.34, H * 0.42), PH(1, cx - r, cy - r, r * 2, r * 2, 'circle'), fb.z] };
+  };
+  F.hexhero = function (t, W, H) {
+    var cy = H * 0.5, r = W * 0.24, fb = footBand(t, W, H, t.tint, 0.08);
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(0, 0, W, H * 0.5, t.p) + P([[0, H * 0.42], [W * 0.3, H * 0.5], [0, H * 0.58]], t.a) + P([[W, H * 0.4], [W, H * 0.6], [W * 0.68, H * 0.5]], t.a) +
+      stripesD(W * 0.74, H * 0.04, W * 0.22, H * 0.1, 6, '#FFFFFF', 0.12) + P(hexPts(W / 2, cy, r * 1.1), '#FFFFFF') + P(hexPts(W / 2, cy, r * 1.16), t.a, 0.35) + P(hexPts(W / 2, cy, r * 1.1), '#FFFFFF') + fb.s;
+    return { s: s, z: [T('head', W * 0.08, H * 0.05, W * 0.84, H * 0.2, { al: 'center', dk: 1, tf: 0.11, cls: 'up' }), PH(1, W / 2 - r, cy - r, r * 2, r * 2, 'hexv'),
+      T('body', W * 0.07, H * 0.69, W * 0.4, H * 0.21), T('list', W * 0.53, H * 0.69, W * 0.4, H * 0.21), fb.z] };
+  };
+  F.diamonds = function (t, W, H) {
+    var fb = footBand(t, W, H), bc = t.a, bdk = onDark(bc);
+    var s = rect(0, 0, W, H, t.tint) + P([[W / 2, H * 0.16], [W * 0.82, H * 0.36], [W / 2, H * 0.56], [W * 0.18, H * 0.36]], '#FFFFFF') + circ(W * 0.84, H * 0.17, W * 0.12, bc) + ring(W * 0.84, H * 0.17, W * 0.135, bc, W * 0.004) +
+      dotsG(W * 0.86, H * 0.62, t.p, W * 0.004, 4, 4, W * 0.024, 0.4) + fb.s;
+    return { s: s, z: [T('head', W * 0.07, H * 0.025, W * 0.66, H * 0.13, { tf: 0.12, cls: 'up' }), PH(1, W * 0.31, H * 0.2, W * 0.38, W * 0.38 * 1.0, 'diamond'), PH(2, W * 0.07, H * 0.33, W * 0.3, W * 0.3, 'diamond'), PH(3, W * 0.63, H * 0.33, W * 0.3, W * 0.3, 'diamond'),
+      T('badge', W * 0.74, H * 0.11, W * 0.2, H * 0.12, { al: 'center', v: 'center', dk: bdk, tf: 0.2, cls: 'badge' }), T('body', W * 0.1, H * 0.6, W * 0.8, H * 0.27, { al: 'center' }), fb.z] };
+  };
+  F.webinar = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.07), x = W * 0.24, y = H * 0.1, w = W * 0.52, h = H * 0.44;
+    var s = rect(0, 0, W, H, t.p) + '<rect width="' + W + '" height="' + H + '" fill="url(#fxg1)"/>' + circ(W * 0.5, H * 0.33, W * 0.42, t.s, 0.55) + ring(W * 0.5, H * 0.33, W * 0.46, t.a, W * 0.006, 0.8) +
+      path('M' + (x - W * 0.02) + ' ' + (y + h + H * 0.01) + ' L' + (x - W * 0.02) + ' ' + (y + w * 0.34) + ' A ' + (w / 2 + W * 0.02) + ' ' + (w * 0.34 + W * 0.02) + ' 0 0 1 ' + (x + w + W * 0.02) + ' ' + (y + w * 0.34) + ' L' + (x + w + W * 0.02) + ' ' + (y + h + H * 0.01) + ' Z', t.a) + fb.s;
+    return { s: s, defs: grad('fxg1', t.p, D.mix(t.s, t.p, 0.4), 0, 1), z: [PH(1, x, y, w, h, 'arch'), T('head', W * 0.07, H * 0.57, W * 0.86, H * 0.2, { al: 'center', dk: 1, tf: 0.12, cls: 'up hl' }), T('body', W * 0.1, H * 0.77, W * 0.8, H * 0.14, { al: 'center', dk: 1 }), fb.z] };
+  };
+  F.estate = function (t, W, H) {
+    var fb = footBand(t, W, H, t.s, 0.075), bc = t.a, bdk = onDark(bc);
+    var s = rect(0, 0, W, H, t.p) + P([[0, H * 0.47], [W, H * 0.39], [W, H * 0.43], [0, H * 0.51]], t.a) + rr(W * 0.6, H * 0.36, W * 0.34, H * 0.11, bc, W * 0.015) + fb.s;
+    return { s: s, z: [PH(1, 0, 0, W, H * 0.49, 'slantB'), T('badge', W * 0.62, H * 0.365, W * 0.3, H * 0.1, { al: 'center', v: 'center', dk: bdk, tf: 0.2, cls: 'badge' }), T('head', W * 0.07, H * 0.53, W * 0.86, H * 0.17, { dk: 1, tf: 0.12, cls: 'up' }),
+      T('list', W * 0.07, H * 0.71, W * 0.48, H * 0.19, { dk: 1 }), T('body', W * 0.6, H * 0.71, W * 0.33, H * 0.19, { dk: 1 }), fb.z] };
+  };
+  F.circles = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + circ(W * 0.74, H * 0.27, W * 0.36, t.tint) + ringBack(W * 0.66, H * 0.27, W * 0.26, '#FFFFFF', W * 0.014) + ring(W * 0.66, H * 0.27, W * 0.3, t.a, W * 0.006) +
+      ringBack(W * 0.27, H * 0.43, W * 0.13, t.a, W * 0.012) + ringBack(W * 0.9, H * 0.5, W * 0.09, t.p, W * 0.01) + dotsG(W * 0.06, H * 0.08, t.a, W * 0.004, 5, 5, W * 0.024, 0.6) + fb.s;
+    return { s: s, z: [PH(1, W * 0.4, H * 0.27 - W * 0.26, W * 0.52, W * 0.52, 'circle'), PH(2, W * 0.14, H * 0.43 - W * 0.13, W * 0.26, W * 0.26, 'circle'), PH(3, W * 0.81, H * 0.5 - W * 0.09, W * 0.18, W * 0.18, 'circle'),
+      T('head', W * 0.07, H * 0.56, W * 0.86, H * 0.17, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.74, W * 0.48, H * 0.16), T('list', W * 0.58, H * 0.74, W * 0.36, H * 0.16), fb.z] };
+  };
+  F.leaf = function (t, W, H) {
+    var fb = footBand(t, W, H), bc = t.a, bdk = onDark(bc);
+    var s = rect(0, 0, W, H, '#FFFFFF') + rr(W * 0.42, H * 0.07, W * 0.55, H * 0.47, t.a, W * 0.25, 0.9) + circ(W * 0.2, H * 0.24, W * 0.14, bc) + E(W * 0.12, H * 0.5, W * 0.06, W * 0.03, t.s, 0.5) + E(W * 0.06, H * 0.45, W * 0.04, W * 0.02, t.a, 0.6) + fb.s;
+    return { s: s, z: [PH(1, W * 0.36, H * 0.04, W * 0.56, H * 0.47, 'leaf'), T('badge', W * 0.08, H * 0.18, W * 0.24, H * 0.12, { al: 'center', v: 'center', dk: bdk, tf: 0.2, cls: 'badge' }),
+      T('head', W * 0.07, H * 0.56, W * 0.86, H * 0.17, { tf: 0.12, cls: 'up' }), T('list', W * 0.07, H * 0.74, W * 0.46, H * 0.16), T('body', W * 0.56, H * 0.74, W * 0.38, H * 0.16), fb.z] };
+  };
+  F.splitv = function (t, W, H) {
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(0, 0, W * 0.52, H, t.p) + rect(W * 0.52, 0, W * 0.012, H * 0.8, t.a) + dotsG(W * 0.07, H * 0.92, '#FFFFFF', W * 0.004, 6, 2, W * 0.024, 0.3);
+    return { s: s, z: [PH(1, W * 0.4, 0, W * 0.6, H * 0.78, 'slantL'), T('head', W * 0.07, H * 0.07, W * 0.4, H * 0.3, { dk: 1, tf: 0.15, cls: 'up hl' }), T('body', W * 0.07, H * 0.4, W * 0.36, H * 0.32, { dk: 1 }),
+      T('foot', W * 0.07, H * 0.74, W * 0.4, H * 0.16, { dk: 1, v: 'bottom' }), T('list', W * 0.57, H * 0.8, W * 0.38, H * 0.17, { v: 'center' })] };
+  };
+  F.honey = function (t, W, H) {
+    var fb = footBand(t, W, H), sz = W * 0.3, hh = sz * 0.9;
+    var s = rect(0, 0, W, H, t.tint) + P(hexPts(W * 0.92, H * 0.05, W * 0.08, 1), t.a, 0.5) + P(hexPts(W * 0.06, H * 0.42, W * 0.06, 1), t.p, 0.25) + rect(0, H * 0.44, W, H * 0.46, '#FFFFFF') + rect(W * 0.07, H * 0.44, W * 0.2, H * 0.006, t.a) + fb.s;
+    return { s: s, z: [PH(1, W * 0.06, H * 0.03, sz, hh, 'hex'), PH(2, W * 0.35, H * 0.03 + hh * 0.52, sz, hh, 'hex'), PH(3, W * 0.64, H * 0.03, sz, hh, 'hex'),
+      T('head', W * 0.07, H * 0.47, W * 0.86, H * 0.16, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.64, W * 0.44, H * 0.24), T('list', W * 0.55, H * 0.64, W * 0.39, H * 0.24), fb.z] };
+  };
+  F.wavehero = function (t, W, H) {
+    var fb = footBand(t, W, H), y = H * 0.44;
+    var w = ''; for (var i = 0; i <= 20; i++) w += (i ? ' L' : 'M') + (W * i / 20) + ' ' + (y + Math.sin(i / 20 * Math.PI * 2) * H * 0.03 + H * 0.025);
+    var s = rect(0, 0, W, H, '#FFFFFF') + path(w + ' L' + W + ' 0 L0 0 Z', t.a) + fb.s;
+    return { s: s, z: [PH(1, 0, 0, W, H * 0.5, 'wave'), T('head', W * 0.07, H * 0.54, W * 0.86, H * 0.17, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.72, W * 0.5, H * 0.18), T('list', W * 0.6, H * 0.72, W * 0.34, H * 0.18), fb.z] };
+  };
+  F.frame = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(W * 0.16, H * 0.065, W * 0.78, H * 0.42, t.a) + dotsG(W * 0.04, H * 0.02, t.p, W * 0.004, 5, 3, W * 0.022, 0.45) + rect(W * 0.07, H * 0.69, W * 0.16, H * 0.005, t.a) + fb.s;
+    return { s: s, z: [PH(1, W * 0.1, H * 0.04, W * 0.78, H * 0.42, 'round'), T('head', W * 0.07, H * 0.51, W * 0.86, H * 0.17, { tf: 0.12, cls: 'up' }), T('list', W * 0.07, H * 0.71, W * 0.46, H * 0.18), T('body', W * 0.56, H * 0.71, W * 0.38, H * 0.18), fb.z] };
+  };
+  F.stripes = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.08);
+    var s = rect(0, 0, W, H, t.p) + stripesD(W * 0.6, 0, W * 0.4, H * 0.3, 7, t.a, 0.35) + rr(W * 0.5, H * 0.04, W * 0.44, H * 0.55, t.a, W * 0.22) + ringBack(W * 0.48, H * 0.52, W * 0.1, t.p, W * 0.012) + fb.s;
+    return { s: s, z: [PH(1, W * 0.52, H * 0.055, W * 0.4, H * 0.52, 'capsule'), PH(2, W * 0.38, H * 0.52 - W * 0.1, W * 0.2, W * 0.2, 'circle'), T('head', W * 0.07, H * 0.08, W * 0.42, H * 0.34, { dk: 1, tf: 0.15, cls: 'up hl' }),
+      T('body', W * 0.07, H * 0.62, W * 0.44, H * 0.28, { dk: 1 }), T('list', W * 0.55, H * 0.64, W * 0.39, H * 0.26, { dk: 1 }), fb.z] };
+  };
+  F.typo = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.08), bdk = onDark(t.a);
+    var s = rect(0, 0, W, H, t.p) + circ(W * 0.92, H * 0.06, W * 0.34, t.s) + circ(W * 0.04, H * 0.62, W * 0.2, t.s, 0.6) + ring(W * 0.92, H * 0.06, W * 0.42, t.a, W * 0.008) + circ(W * 0.82, H * 0.7, W * 0.12, t.a) +
+      stripesD(W * 0.06, H * 0.05, W * 0.3, H * 0.05, 6, t.a, 0.6) + fb.s;
+    return { s: s, z: [T('head', W * 0.07, H * 0.15, W * 0.86, H * 0.38, { dk: 1, tf: 0.17, cls: 'up hl' }), T('badge', W * 0.72, H * 0.7 - W * 0.1, W * 0.2, W * 0.2, { al: 'center', v: 'center', dk: bdk, tf: 0.2, cls: 'badge' }),
+      T('body', W * 0.07, H * 0.56, W * 0.56, H * 0.34, { dk: 1 }), fb.z] };
+  };
+  F.medical = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + circ(W, 0, W * 0.62, t.tint) + plus(W * 0.9, H * 0.08, W * 0.05, W * 0.016, t.a) + plus(W * 0.88, H * 0.56, W * 0.04, W * 0.012, t.p) + rect(W * 0.07, H * 0.5, W * 0.006, H * 0.32, t.a) + fb.s;
+    function plus(cx, cy, a, b, c) { return rect(cx - a / 2, cy - b / 2, a, b, c) + rect(cx - b / 2, cy - a / 2, b, a, c); }
+    return { s: s, z: [PH(1, W * 0.44, H * 0.05, W * 0.5, H * 0.4, 'round'), T('head', W * 0.07, H * 0.07, W * 0.35, H * 0.36, { tf: 0.14, cls: 'up' }), T('list', W * 0.1, H * 0.5, W * 0.46, H * 0.36), T('body', W * 0.6, H * 0.62, W * 0.33, H * 0.26), fb.z] };
+  };
+  F.event = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.08), bdk = onDark(t.a), cx = W * 0.62, cy = H * 0.24, r = W * 0.26;
+    var s = rect(0, 0, W, H, t.p) + ring(cx, cy, r + W * 0.04, t.a, W * 0.006) + ring(cx, cy, r + W * 0.08, t.s, W * 0.004) + ringBack(cx, cy, r, t.a, W * 0.012) + rr(W * 0.07, H * 0.06, W * 0.22, H * 0.13, t.a, W * 0.02) + fb.s;
+    return { s: s, z: [T('badge', W * 0.08, H * 0.065, W * 0.2, H * 0.12, { al: 'center', v: 'center', dk: bdk, tf: 0.22, cls: 'badge' }), PH(1, cx - r, cy - r, r * 2, r * 2, 'circle'),
+      T('head', W * 0.07, H * 0.47, W * 0.86, H * 0.2, { dk: 1, tf: 0.13, cls: 'up hl' }), T('body', W * 0.07, H * 0.68, W * 0.48, H * 0.22, { dk: 1 }), T('list', W * 0.58, H * 0.68, W * 0.36, H * 0.22, { dk: 1 }), fb.z] };
+  };
+  F.mosaic = function (t, W, H) {
+    var fb = footBand(t, W, H), bdk = onDark(t.a), g = W * 0.01;
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(W / 2 + g, 0, W / 2 - g, H * 0.23, t.a) + rect(0, H * 0.46, W, H * 0.008, t.p) + fb.s;
+    return { s: s, z: [PH(1, 0, 0, W / 2 - g, H * 0.23, 'none'), T('badge', W / 2 + W * 0.04, H * 0.02, W * 0.42, H * 0.19, { al: 'center', v: 'center', dk: bdk, tf: 0.12, cls: 'badge' }),
+      PH(2, 0, H * 0.23 + g, W / 2 - g, H * 0.23 - g, 'none'), PH(3, W / 2 + g, H * 0.23 + g, W / 2 - g, H * 0.23 - g, 'none'),
+      T('head', W * 0.07, H * 0.5, W * 0.86, H * 0.17, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.68, W * 0.48, H * 0.22), T('list', W * 0.58, H * 0.68, W * 0.36, H * 0.22), fb.z] };
+  };
+  F.luxury = function (t, W, H) {
+    var m = W * 0.04, x = W * 0.22, y = H * 0.08, w = W * 0.56, h = H * 0.4, lw = Math.max(1.2, W * 0.003);
+    var s = rect(0, 0, W, H, t.p) + '<rect x="' + m + '" y="' + m + '" width="' + (W - 2 * m) + '" height="' + (H - 2 * m) + '" fill="none" stroke="' + t.a + '" stroke-width="' + lw + '"/>' +
+      '<rect x="' + (m * 1.6) + '" y="' + (m * 1.6) + '" width="' + (W - 3.2 * m) + '" height="' + (H - 3.2 * m) + '" fill="none" stroke="' + t.a + '" stroke-width="' + lw * 0.6 + '" stroke-opacity="0.6"/>' +
+      path('M' + (x - W * 0.025) + ' ' + (y + h + H * 0.012) + ' L' + (x - W * 0.025) + ' ' + (y + w * 0.34) + ' A ' + (w / 2 + W * 0.025) + ' ' + (w * 0.34 + W * 0.025) + ' 0 0 1 ' + (x + w + W * 0.025) + ' ' + (y + w * 0.34) + ' L' + (x + w + W * 0.025) + ' ' + (y + h + H * 0.012), 'none', null, t.a, lw * 1.4) +
+      rect(W / 2 - W * 0.06, H * 0.68, W * 0.12, lw * 1.5, t.a);
+    return { s: s, z: [PH(1, x, y, w, h, 'arch'), T('head', W * 0.1, H * 0.51, W * 0.8, H * 0.16, { al: 'center', dk: 1, tf: 0.1 }), T('body', W * 0.12, H * 0.69, W * 0.76, H * 0.17, { al: 'center', dk: 1 }), T('foot', W * 0.1, H * 0.86, W * 0.8, H * 0.07, { al: 'center', v: 'center', dk: 1, cls: 'row ctr' })] };
+  };
+  F.angular = function (t, W, H) {
+    var fb = footBand(t, W, H), bdk = onDark(t.a);
+    var s = rect(0, 0, W, H, '#FFFFFF') + P([[W * 0.36, 0], [W, 0], [W, H * 0.55], [W * 0.66, H * 0.6]], t.p) + P([[W * 0.56, 0], [W * 0.74, 0], [W * 0.46, H * 0.5], [W * 0.32, H * 0.44]], t.a, 0.92) +
+      ringBack(W * 0.71, H * 0.27, W * 0.21, '#FFFFFF', W * 0.014) + circ(W * 0.19, H * 0.17, W * 0.12, t.a) + fb.s;
+    return { s: s, z: [PH(1, W * 0.5, H * 0.27 - W * 0.21, W * 0.42, W * 0.42, 'circle'), T('badge', W * 0.08, H * 0.17 - W * 0.1, W * 0.22, W * 0.2, { al: 'center', v: 'center', dk: bdk, tf: 0.2, cls: 'badge' }),
+      T('head', W * 0.07, H * 0.62, W * 0.86, H * 0.14, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.77, W * 0.5, H * 0.13), T('list', W * 0.6, H * 0.77, W * 0.34, H * 0.13), fb.z] };
+  };
+  F.capsules = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(0, H * 0.32, W, H * 0.6, t.tint) + rr(W * 0.06, H * 0.07, W * 0.28, H * 0.48, t.a, W * 0.14) + rr(W * 0.65, H * 0.03, W * 0.28, H * 0.48, t.p, W * 0.14) + fb.s;
+    return { s: s, z: [PH(1, W * 0.08, H * 0.08, W * 0.26, H * 0.46, 'capsule'), PH(2, W * 0.37, H * 0.13, W * 0.26, H * 0.46, 'capsule'), PH(3, W * 0.66, H * 0.04, W * 0.26, H * 0.46, 'capsule'),
+      T('head', W * 0.07, H * 0.61, W * 0.86, H * 0.14, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.76, W * 0.5, H * 0.14), T('list', W * 0.6, H * 0.76, W * 0.34, H * 0.14), fb.z] };
+  };
+  F.quarter = function (t, W, H) {
+    var fb = footBand(t, W, H), bdk = onDark(t.a), R = W * 0.66;
+    var s = rect(0, 0, W, H, '#FFFFFF') + circ(W, 0, R + W * 0.05, t.a) + circ(W, 0, R + W * 0.025, '#FFFFFF') + ring(W, 0, R + W * 0.1, t.p, W * 0.004) + circ(W * 0.17, H * 0.2, W * 0.11, t.p) + fb.s;
+    return { s: s, z: [PH(1, W - R, 0, R, R, 'quarter'), T('badge', W * 0.07, H * 0.2 - W * 0.09, W * 0.2, W * 0.18, { al: 'center', v: 'center', dk: onDark(t.p), tf: 0.2, cls: 'badge' }),
+      T('head', W * 0.07, H * 0.52, W * 0.86, H * 0.17, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.7, W * 0.5, H * 0.19), T('list', W * 0.6, H * 0.7, W * 0.34, H * 0.19), fb.z] };
+  };
+  F.sale = function (t, W, H) {
+    var fb = footBand(t, W, H), hdk = onDark(t.a);
+    var s = rect(0, 0, W, H, t.a) + rect(0, H * 0.62, W, H * 0.38, '#FFFFFF') + P([[0, H * 0.58], [W, H * 0.5], [W, H * 0.56], [0, H * 0.64]], t.p) + circ(W * 0.2, H * 0.5, W * 0.13, t.p) + ring(W * 0.2, H * 0.5, W * 0.15, t.p, W * 0.004) + fb.s;
+    return { s: s, z: [PH(1, W * 0.44, H * 0.06, W * 0.56, H * 0.46, 'slantL'), T('head', W * 0.07, H * 0.07, W * 0.4, H * 0.3, { dk: hdk, tf: 0.16, cls: 'up ona' }), T('badge', W * 0.08, H * 0.5 - W * 0.11, W * 0.24, W * 0.22, { al: 'center', v: 'center', dk: onDark(t.p), tf: 0.2, cls: 'badge' }),
+      T('body', W * 0.07, H * 0.67, W * 0.5, H * 0.22), T('list', W * 0.6, H * 0.67, W * 0.34, H * 0.22), fb.z] };
+  };
+  F.blob = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + blob(W * 0.64, H * 0.27, W * 0.34, 4, t.a, 0.9) + blob(W * 0.2, H * 0.12, W * 0.08, 9, t.p, 0.2) + ringBack(W * 0.64, H * 0.27, W * 0.24, '#FFFFFF', W * 0.012) + ringBack(W * 0.22, H * 0.43, W * 0.1, t.p, W * 0.01) +
+      dotsG(W * 0.82, H * 0.48, t.p, W * 0.004, 4, 3, W * 0.024, 0.5) + fb.s;
+    return { s: s, z: [PH(1, W * 0.4, H * 0.27 - W * 0.24, W * 0.48, W * 0.48, 'circle'), PH(2, W * 0.12, H * 0.43 - W * 0.1, W * 0.2, W * 0.2, 'circle'),
+      T('head', W * 0.07, H * 0.56, W * 0.86, H * 0.16, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.73, W * 0.5, H * 0.17), T('list', W * 0.6, H * 0.73, W * 0.34, H * 0.17), fb.z] };
+  };
+  F.food = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.07), r = W * 0.31, cx = W / 2, cy = H * 0.42;
+    var s = rect(0, 0, W, H, t.p) + circ(cx, cy, r + W * 0.06, t.s) + ring(cx, cy, r + W * 0.03, t.a, W * 0.006) + ringBack(cx, cy, r, '#FFFFFF', W * 0.008) + dotsG(W * 0.05, H * 0.6, t.a, W * 0.004, 4, 4, W * 0.022, 0.5) + fb.s;
+    return { s: s, z: [T('head', W * 0.07, H * 0.03, W * 0.86, H * 0.15, { al: 'center', dk: 1, tf: 0.12, cls: 'up hl' }), PH(1, cx - r, cy - r, r * 2, r * 2, 'circle'), T('body', W * 0.1, H * 0.7, W * 0.8, H * 0.21, { al: 'center', dk: 1 }), fb.z] };
+  };
+  F.fitness = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.08);
+    var s = rect(0, 0, W, H, t.p) + P([[0, H * 0.48], [W, H * 0.26], [W, H * 0.33], [0, H * 0.55]], t.a) + stripesD(W * 0.04, H * 0.04, W * 0.24, H * 0.08, 6, t.a, 0.7) + fb.s;
+    return { s: s, z: [PH(1, W * 0.3, H * 0.03, W * 0.7, H * 0.52, CL.cutTL), T('head', W * 0.07, H * 0.57, W * 0.86, H * 0.18, { dk: 1, tf: 0.14, cls: 'up hl' }), T('body', W * 0.07, H * 0.76, W * 0.5, H * 0.14, { dk: 1 }), T('list', W * 0.6, H * 0.76, W * 0.34, H * 0.14, { dk: 1 }), fb.z] };
+  };
+  F.corner = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + P([[0, 0], [W * 0.55, 0], [0, H * 0.4]], t.p) + P([[0, 0], [W * 0.36, 0], [0, H * 0.26]], t.a) + P([[W, H * 0.92], [W, H * 0.66], [W * 0.7, H * 0.92]], t.tint) + fb.s;
+    return { s: s, z: [PH(1, W * 0.36, H * 0.1, W * 0.58, H * 0.4, 'round'), T('kick', 0, 0, 0, 0), T('head', W * 0.07, H * 0.53, W * 0.86, H * 0.16, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.7, W * 0.5, H * 0.19), T('list', W * 0.6, H * 0.7, W * 0.34, H * 0.19), fb.z] };
+  };
+  F.edges = function (t, W, H) {   /* colour strips on both edges, round photo in the middle */
+    var fb = footBand(t, W, H), cx = W / 2, cy = H * 0.33, r = W * 0.24;
+    var s = rect(0, 0, W, H, '#FFFFFF') + P([[0, H * 0.1], [W * 0.12, H * 0.2], [W * 0.12, H * 0.7], [0, H * 0.8]], t.p) + P([[0, H * 0.18], [W * 0.06, H * 0.24], [W * 0.06, H * 0.66], [0, H * 0.72]], t.a) +
+      P([[W, H * 0.1], [W * 0.88, H * 0.2], [W * 0.88, H * 0.7], [W, H * 0.8]], t.p) + P([[W, H * 0.18], [W * 0.94, H * 0.24], [W * 0.94, H * 0.66], [W, H * 0.72]], t.a) +
+      ringBack(cx, cy, r, t.a, W * 0.016) + ring(cx, cy, r + W * 0.035, t.p, W * 0.004) + fb.s;
+    return { s: s, z: [T('head', W * 0.16, H * 0.03, W * 0.68, H * 0.1, { al: 'center', tf: 0.1, cls: 'up' }), PH(1, cx - r, cy - r, r * 2, r * 2, 'circle'), T('body', W * 0.16, H * 0.54, W * 0.68, H * 0.2, { al: 'center' }), T('list', W * 0.16, H * 0.74, W * 0.68, H * 0.14, { al: 'center' }), fb.z] };
+  };
+  F.service = function (t, W, H) {  /* colour top with a wavy edge and a photo grid */
+    var fb = footBand(t, W, H), y = H * 0.3, w = '';
+    for (var i = 0; i <= 20; i++) w += (i ? ' L' : 'M') + (W * i / 20) + ' ' + (y + Math.sin(i / 20 * Math.PI * 3) * H * 0.015);
+    var s = rect(0, 0, W, H, '#FFFFFF') + path(w + ' L' + W + ' 0 L0 0 Z', t.p) + rr(W * 0.54, H * 0.26, W * 0.4, H * 0.5, t.tint, W * 0.03) + circ(W * 0.84, H * 0.83, W * 0.08, t.a) + fb.s;
+    return { s: s, z: [T('head', W * 0.07, H * 0.05, W * 0.86, H * 0.2, { dk: 1, tf: 0.12, cls: 'up hl' }), PH(1, W * 0.56, H * 0.28, W * 0.36, H * 0.22, 'round'), PH(2, W * 0.56, H * 0.52, W * 0.17, H * 0.22, 'round'), PH(3, W * 0.75, H * 0.52, W * 0.17, H * 0.22, 'round'),
+      T('body', W * 0.07, H * 0.36, W * 0.43, H * 0.24), T('list', W * 0.07, H * 0.61, W * 0.43, H * 0.26), T('badge', W * 0.76, H * 0.83 - W * 0.07, W * 0.16, W * 0.14, { al: 'center', v: 'center', dk: onDark(t.a), tf: 0.2, cls: 'badge' }), fb.z] };
+  };
+  F.travel = function (t, W, H) {   /* big round photo in segments, three price circles */
+    var fb = footBand(t, W, H, t.a, 0.07), cx = W / 2, cy = H * 0.5, r = W * 0.28;
+    var s = rect(0, 0, W, H, t.p) + '<rect width="' + W + '" height="' + H + '" fill="url(#fxg2)"/>' + ring(cx, cy, r + W * 0.04, '#FFFFFF', W * 0.006, 0.6) + ringBack(cx, cy, r, '#FFFFFF', W * 0.012) +
+      circ(W * 0.2, H * 0.8, W * 0.09, t.a) + ring(W * 0.2, H * 0.8, W * 0.105, '#FFFFFF', W * 0.004, 0.7) + fb.s;
+    return { s: s, defs: grad('fxg2', t.p, t.s, 0, 1), z: [T('head', W * 0.07, H * 0.025, W * 0.86, H * 0.21, { al: 'center', dk: 1, tf: 0.11, cls: 'up hl' }), PH(1, cx - r, cy - r, r * 2, r * 2, 'circle'),
+      T('badge', W * 0.12, H * 0.8 - W * 0.075, W * 0.16, W * 0.15, { al: 'center', v: 'center', dk: onDark(t.a), tf: 0.2, cls: 'badge' }), T('body', W * 0.36, H * 0.72, W * 0.34, H * 0.17, { dk: 1, v: 'center' }), T('list', W * 0.72, H * 0.72, W * 0.25, H * 0.17, { dk: 1, v: 'center' }), fb.z] };
+  };
+  F.cityband = function (t, W, H) {  /* photo top with a colour block cut into it */
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(0, H * 0.24, W * 0.64, H * 0.22, t.p) + rect(W * 0.64, H * 0.44, W * 0.36, H * 0.02, t.a) + rect(0, H * 0.46, W, H * 0.008, t.a) + fb.s;
+    return { s: s, z: [PH(1, 0, 0, W, H * 0.46, 'polygon(0 0,100% 0,100% 95.6%,64% 95.6%,64% 52%,0 52%)'), T('head', W * 0.06, H * 0.255, W * 0.55, H * 0.19, { dk: 1, tf: 0.11, cls: 'up', v: 'center' }),
+      T('body', W * 0.07, H * 0.5, W * 0.86, H * 0.16), T('list', W * 0.07, H * 0.67, W * 0.86, H * 0.22), fb.z] };
+  };
+  F.portrait = function (t, W, H) {  /* tall photo on a colour curve, text on the left */
+    var fb = footBand(t, W, H, t.p, 0.08);
+    var s = rect(0, 0, W, H, t.tint) + path('M' + W * 0.45 + ' ' + H + ' C' + W * 0.4 + ' ' + H * 0.5 + ',' + W * 0.7 + ' ' + H * 0.2 + ',' + W + ' ' + H * 0.12 + ' L' + W + ' ' + H + ' Z', t.p) +
+      path('M' + W * 0.4 + ' ' + H + ' C' + W * 0.36 + ' ' + H * 0.5 + ',' + W * 0.66 + ' ' + H * 0.18 + ',' + W + ' ' + H * 0.08 + ' L' + W + ' ' + H * 0.1 + ' C' + W * 0.7 + ' ' + H * 0.2 + ',' + W * 0.42 + ' ' + H * 0.5 + ',' + W * 0.46 + ' ' + H + ' Z', t.a) + fb.s;
+    return { s: s, z: [PH(1, W * 0.5, H * 0.2, W * 0.46, H * 0.72, CL.arch), T('head', W * 0.07, H * 0.06, W * 0.5, H * 0.3, { tf: 0.14, cls: 'up' }), T('body', W * 0.07, H * 0.38, W * 0.4, H * 0.24), T('list', W * 0.07, H * 0.63, W * 0.38, H * 0.26), fb.z] };
+  };
+  F.stacked = function (t, W, H) {   /* two photos on the left, text on the right */
+    var fb = footBand(t, W, H);
+    var s = rect(0, 0, W, H, '#FFFFFF') + rect(0, 0, W * 0.46, H * 0.92, t.p) + rect(W * 0.46, H * 0.08, W * 0.012, H * 0.3, t.a) + fb.s;
+    return { s: s, z: [PH(1, W * 0.04, H * 0.04, W * 0.38, H * 0.4, 'round'), PH(2, W * 0.04, H * 0.47, W * 0.38, H * 0.4, 'round'), T('head', W * 0.52, H * 0.07, W * 0.42, H * 0.3, { tf: 0.14, cls: 'up' }),
+      T('body', W * 0.52, H * 0.4, W * 0.42, H * 0.22), T('list', W * 0.52, H * 0.63, W * 0.42, H * 0.25), fb.z] };
+  };
+  F.halfcircle = function (t, W, H) { /* half circle photo cut by the left edge */
+    var fb = footBand(t, W, H), r = W * 0.5;
+    var s = rect(0, 0, W, H, '#FFFFFF') + circ(0, H * 0.32, r + W * 0.05, t.a) + circ(0, H * 0.32, r + W * 0.025, '#FFFFFF') + dotsG(W * 0.7, H * 0.06, t.p, W * 0.004, 6, 4, W * 0.024, 0.5) + fb.s;
+    return { s: s, z: [PH(1, -r, H * 0.32 - r, r * 2, r * 2, 'circle'), T('head', W * 0.56, H * 0.17, W * 0.38, H * 0.3, { tf: 0.14, cls: 'up' }), T('body', W * 0.07, H * 0.72, W * 0.48, H * 0.17), T('list', W * 0.6, H * 0.56, W * 0.34, H * 0.32), fb.z] };
+  };
+  F.ticket = function (t, W, H) {    /* event ticket look */
+    var fb = footBand(t, W, H, t.a, 0.07);
+    var s = rect(0, 0, W, H, t.p) + rr(W * 0.06, H * 0.05, W * 0.88, H * 0.82, '#FFFFFF', W * 0.03) + circ(W * 0.06, H * 0.5, W * 0.04, t.p) + circ(W * 0.94, H * 0.5, W * 0.04, t.p) +
+      line(W * 0.12, H * 0.5, W * 0.88, H * 0.5, t.line || '#CBD5E1', 2) + fb.s;
+    return { s: s, z: [PH(1, W * 0.1, H * 0.08, W * 0.8, H * 0.24, 'round'), T('head', W * 0.1, H * 0.33, W * 0.8, H * 0.16, { al: 'center', tf: 0.11, cls: 'up' }), T('badge', W * 0.1, H * 0.52, W * 0.3, H * 0.12, { al: 'center', v: 'center', tf: 0.14, cls: 'badge' }),
+      T('body', W * 0.42, H * 0.52, W * 0.48, H * 0.14), T('list', W * 0.1, H * 0.67, W * 0.8, H * 0.18), fb.z] };
+  };
+  F.zigzag = function (t, W, H) {    /* photo with a zigzag bottom edge */
+    var fb = footBand(t, W, H), p = ['0 0', '100% 0']; for (var i = 16; i >= 0; i--) p.push((i * 6.25) + '% ' + (i % 2 ? 92 : 100) + '%');
+    var s = rect(0, 0, W, H, t.tint) + rect(0, H * 0.48, W, H * 0.44, '#FFFFFF') + fb.s;
+    return { s: s, z: [PH(1, 0, 0, W, H * 0.48, 'polygon(' + p.join(',') + ')'), T('head', W * 0.07, H * 0.52, W * 0.86, H * 0.16, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.69, W * 0.5, H * 0.2), T('list', W * 0.6, H * 0.69, W * 0.34, H * 0.2), fb.z] };
+  };
+  F.diagonal2 = function (t, W, H) { /* two photos in diagonal slices */
+    var fb = footBand(t, W, H, t.p, 0.08);
+    var s = rect(0, 0, W, H, '#FFFFFF') + P([[0, H * 0.42], [W, H * 0.3], [W, H * 0.36], [0, H * 0.48]], t.a) + fb.s;
+    return { s: s, z: [PH(1, 0, 0, W * 0.56, H * 0.44, 'polygon(0 0,100% 0,82% 100%,0 100%)'), PH(2, W * 0.46, 0, W * 0.54, H * 0.34, 'polygon(18% 0,100% 0,100% 100%,0 100%)'),
+      T('head', W * 0.07, H * 0.52, W * 0.86, H * 0.16, { tf: 0.12, cls: 'up' }), T('body', W * 0.07, H * 0.69, W * 0.5, H * 0.2), T('list', W * 0.6, H * 0.69, W * 0.34, H * 0.2), fb.z] };
+  };
+  /* ---------------- flyer backs ---------------- */
+  var B = {};
+  B.clean = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    return { s: rect(0, 0, W, H, '#FFFFFF') + rect(0, H * 0.3, W, H * 0.012, t.a) + rect(W * 0.5, H * 0.36, 1, H * 0.48, t.line || '#E5E7EB') + fb.s,
+      z: [PH(1, 0, 0, W, H * 0.3, 'none'), T('c1', W * 0.07, H * 0.35, W * 0.38, H * 0.5), T('c2', W * 0.55, H * 0.35, W * 0.38, H * 0.5), fb.z] };
+  };
+  B.side = function (t, W, H) {
+    var fb = footBand(t, W, H, t.p, 0.11);
+    return { s: rect(0, 0, W, H, '#FFFFFF') + rect(W * 0.38, 0, W * 0.012, H * 0.89, t.a) + fb.s,
+      z: [PH(1, 0, 0, W * 0.38, H * 0.89, 'none'), T('c1', W * 0.45, H * 0.05, W * 0.49, H * 0.4), T('c2', W * 0.45, H * 0.47, W * 0.49, H * 0.4), fb.z] };
+  };
+  B.cards = function (t, W, H) {
+    var fb = footBand(t, W, H);
+    return { s: rect(0, 0, W, H, t.tint) + rr(W * 0.06, H * 0.05, W * 0.88, H * 0.36, '#FFFFFF', W * 0.02) + rr(W * 0.06, H * 0.44, W * 0.88, H * 0.4, '#FFFFFF', W * 0.02) + rect(W * 0.06, H * 0.05, W * 0.012, H * 0.36, t.a) + fb.s,
+      z: [T('c1', W * 0.1, H * 0.07, W * 0.46, H * 0.32), PH(1, W * 0.6, H * 0.07, W * 0.32, H * 0.32, 'round'), T('c2', W * 0.1, H * 0.46, W * 0.8, H * 0.36), fb.z] };
+  };
+  B.wave = function (t, W, H) {
+    var fb = footBand(t, W, H), w = ''; for (var i = 0; i <= 20; i++) w += (i ? ' L' : 'M') + (W * i / 20) + ' ' + (H * 0.12 + Math.sin(i / 20 * Math.PI * 2) * H * 0.02);
+    return { s: rect(0, 0, W, H, '#FFFFFF') + path(w + ' L' + W + ' 0 L0 0 Z', t.p) + ringBack(W * 0.75, H * 0.33, W * 0.17, t.a, W * 0.012) + fb.s,
+      z: [T('c1', W * 0.07, H * 0.17, W * 0.48, H * 0.36), PH(1, W * 0.58, H * 0.33 - W * 0.17, W * 0.34, W * 0.34, 'circle'), T('c2', W * 0.07, H * 0.55, W * 0.86, H * 0.33), fb.z] };
+  };
+  B.dark = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.08);
+    return { s: rect(0, 0, W, H, t.p) + P(hexPts(W * 0.73, H * 0.2, W * 0.21), t.a, 0.35) + fb.s,
+      z: [T('c1', W * 0.07, H * 0.06, W * 0.46, H * 0.4, { dk: 1 }), PH(1, W * 0.73 - W * 0.19, H * 0.2 - W * 0.19, W * 0.38, W * 0.38, 'hexv'), T('c2', W * 0.07, H * 0.48, W * 0.86, H * 0.4, { dk: 1 }), fb.z] };
+  };
+  B.split = function (t, W, H) {
+    var fb = footBand(t, W, H, t.a, 0.08);
+    return { s: rect(0, 0, W, H, '#FFFFFF') + rect(0, H * 0.48, W, H * 0.44, t.p) + rect(W * 0.07, H * 0.04, W * 0.16, H * 0.006, t.a) + fb.s,
+      z: [T('c1', W * 0.07, H * 0.06, W * 0.5, H * 0.4), PH(1, W * 0.6, H * 0.06, W * 0.34, H * 0.38, 'arch'), T('c2', W * 0.07, H * 0.51, W * 0.86, H * 0.38, { dk: 1 }), fb.z] };
+  };
+
+  /* ---------------- tri-fold (landscape page, three panels per side) ---------------- */
+  /* d = { deco, cov (cover photo shape), ph (inside photo shape), dark (cover panel colour) } */
+  function triOut(t, W, H, d) {
+    var pw = W / 3, s = rect(0, 0, W, H, '#FFFFFF'), z = [], cdk = d.dark, cf = cdk ? t.p : '#FFFFFF';
+    s += rect(0, 0, pw, H, t.tint) + rect(pw, 0, pw, H, '#FFFFFF') + rect(pw * 2, 0, pw, H, cf);
+    s += decoOut(t, W, H, pw, d);
+    /* flap (left): text and a small photo */
+    z.push(PH(4, pw * 0.1, H * 0.06, pw * 0.8, H * 0.3, d.ph), T('fl', pw * 0.1, H * 0.4, pw * 0.8, H * 0.5));
+    /* back (middle): photo and contact */
+    z.push(PH(5, pw * 1.12, H * 0.08, pw * 0.76, H * 0.34, d.ph === 'none' ? 'round' : d.ph), T('bk', pw * 1.1, H * 0.48, pw * 0.8, H * 0.42, { v: 'center', al: 'center' }));
+    /* front cover (right) */
+    var cv = coverPh(pw, H, d.cov);
+    z.push(PH(1, pw * 2 + cv.x, cv.y, cv.w, cv.h, d.cov), T('cv', pw * 2.1, cv.ty, pw * 0.8, cv.th, { dk: cdk, tf: 0.14, cls: 'up' + (cdk ? ' hl' : ''), al: cv.al }));
+    return { s: s, z: z };
+  }
+  function coverPh(pw, H, shape) {
+    if (shape === 'circle' || shape === 'hexv' || shape === 'diamond') return { x: pw * 0.15, y: H * 0.08, w: pw * 0.7, h: pw * 0.7, ty: H * 0.08 + pw * 0.75, th: H * 0.9 - (H * 0.08 + pw * 0.75), al: 'center' };
+    if (shape === 'arch') return { x: pw * 0.14, y: H * 0.07, w: pw * 0.72, h: H * 0.5, ty: H * 0.6, th: H * 0.32, al: 'center' };
+    return { x: 0, y: 0, w: pw, h: H * 0.54, ty: H * 0.6, th: H * 0.32, al: 'left' };
+  }
+  function triIn(t, W, H, d) {
+    var pw = W / 3, s = rect(0, 0, W, H, '#FFFFFF') + rect(pw, 0, pw, H, t.tint), z = [];
+    s += decoIn(t, W, H, pw, d);
+    for (var i = 0; i < 3; i++) {
+      var x = pw * i, top = i !== 1;   /* middle panel: photo at the bottom */
+      if (top) { z.push(PH(6 + i, x + pw * 0.1, H * 0.07, pw * 0.8, H * 0.3, d.ph)); z.push(T('i' + (i + 1), x + pw * 0.1, H * 0.41, pw * 0.8, H * 0.5)); }
+      else { z.push(T('i2', x + pw * 0.1, H * 0.07, pw * 0.8, H * 0.5)); z.push(PH(7, x + pw * 0.1, H * 0.6, pw * 0.8, H * 0.3, d.ph)); }
+    }
+    return { s: s, z: z };
+  }
+  function decoOut(t, W, H, pw, d) {
+    var s = '';
+    if (d.deco === 'wave') { var w = ''; for (var i = 0; i <= 30; i++) w += (i ? ' L' : 'M') + (W * i / 30) + ' ' + (H * 0.93 + Math.sin(i / 30 * Math.PI * 4) * H * 0.02); s += path(w + ' L' + W + ' ' + H + ' L0 ' + H + ' Z', t.a) + path(w.replace(/ (\d+(\.\d+)?)$/, '') + '', 'none'); }
+    if (d.deco === 'diag') s += P([[0, H], [0, H * 0.975], [W, H * 0.93], [W, H]], t.a);
+    if (d.deco === 'band') s += rect(0, H * 0.94, W, H * 0.06, t.p) + rect(0, H * 0.935, W, H * 0.008, t.a);
+    if (d.deco === 'arc') s += circ(pw * 2, H, H * 0.22, t.a, 0.9) + ring(pw * 2, H, H * 0.28, t.p, H * 0.006);
+    if (d.deco === 'corner') s += P([[W, H], [W - pw * 0.5, H], [W, H - pw * 0.5]], t.a) + P([[0, 0], [pw * 0.3, 0], [0, pw * 0.3]], t.a);
+    if (d.deco === 'stripe') s += stripesD(pw * 1.05, H * 0.9, pw * 0.9, H * 0.06, 8, t.a, 0.7);
+    return s;
+  }
+  function decoIn(t, W, H, pw, d) {
+    var s = '';
+    if (d.deco === 'wave') { var w = ''; for (var i = 0; i <= 30; i++) w += (i ? ' L' : 'M') + (W * i / 30) + ' ' + (H * 0.95 + Math.sin(i / 30 * Math.PI * 4 + 1) * H * 0.018); s += path(w + ' L' + W + ' ' + H + ' L0 ' + H + ' Z', t.p); }
+    if (d.deco === 'diag') s += P([[0, H * 0.96], [W, H * 0.9], [W, H], [0, H]], t.p);
+    if (d.deco === 'band') s += rect(0, 0, W, H * 0.025, t.p) + rect(0, H * 0.975, W, H * 0.025, t.a);
+    if (d.deco === 'arc') s += circ(pw, 0, H * 0.08, t.a, 0.9) + circ(pw * 2, H, H * 0.08, t.a, 0.9);
+    if (d.deco === 'corner') s += P([[0, H], [pw * 0.3, H], [0, H - pw * 0.3]], t.a) + P([[W, 0], [W - pw * 0.3, 0], [W, pw * 0.3]], t.p);
+    if (d.deco === 'stripe') s += rect(0, 0, W, H * 0.02, t.a);
+    return s;
+  }
+
+  /* ---------------- zones -> panel zones, roles ---------------- */
+  function kOf(sz) { var key = sz.key || 'A4'; return Math.max(0.62, Math.min(1.5, Math.sqrt(sz.w * sz.h) / 944)) * (/^A5/.test(key) ? 0.92 : 1); }
+  function Zs(list, sz, k0) {
+    return list.filter(function (z) { return z.w > 0 && z.h > 0; }).map(function (z) {
+      if (z.photo) return { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: 'center', v: 'top', dark: false, k: 1, cls: 'bcph', vars: '--zh:' + Math.round(z.h) + 'px;--clip:' + z.clip + ';' };
+      var o = { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: z.al, v: z.v, dark: z.dk, k: (z.k || 1) * (k0 || kOf(sz)), cls: 'fx' + (z.dk ? ' dark' : '') + (z.cls ? ' ' + z.cls : '') };
+      o.titlePt = Math.round(Math.max(10, Math.min(z.tmax || 96, z.w * (z.tf || 0.1))));
+      if (/badge/.test(z.cls || '')) o.titlePt = Math.round(Math.max(9, Math.min(o.titlePt, z.h * 0.3, z.w * 0.17)));
+      return o;
+    });
+  }
+  function at(pages, p, tags) {
+    tags = [].concat(tags);
+    for (var j = 0; j < tags.length; j++) { var zs = pages[p] && pages[p].zones || []; for (var i = 0; i < zs.length; i++) if (zs[i].tag === tags[j]) return [p, i]; }
+    return null;
+  }
+  function roleMap(pages, spec) { var r = {}; Object.keys(spec).forEach(function (k) { r[k] = at(pages, spec[k][0], spec[k][1]); }); return r; }
+  var FRONT_ROLES = { kicker: [0, 'head'], title: [0, 'head'], sub: [0, 'head'], text: [0, ['body', 'head']], cta: [0, ['body', 'list', 'head']], list: [0, ['list', 'body', 'head']],
+    contact: [0, ['foot', 'body', 'list']], photo1: [0, 'p1'], photo2: [0, 'p2'], photo3: [0, 'p3'], badgeK: [0, 'badge'], badgeT: [0, 'badge'], stats: [0, ['list', 'body']] };
+  var BACK_ROLES = { bh1: [1, 'c1'], blist: [1, 'c1'], bh2: [1, ['c2', 'c1']], btext: [1, ['c2', 'c1']], bdet: [1, ['c2', 'c1']], btext2: [1, ['c2', 'c1']], bstats: [1, ['c2', 'c1']], bcontact: [1, ['foot', 'c2', 'c1']], bcta: [1, ['c2', 'c1']], bphoto: [1, 'p1'] };
+  function merge(a, b) { var o = {}, k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
+
+  D.PANEL.fx = function (doc, t, W, H, dz, sz) {
+    var pages = [];
+    if (dz.fx === 'tri') {
+      var d = { deco: dz.deco, cov: dz.cov, ph: dz.ph, dark: !!dz.dark }, o = triOut(t, W, H, d), i = triIn(t, W, H, d), k = kOf(sz) * 0.92;
+      pages.push({ svg: svg(W, H, o.s), zones: Zs(o.z, sz, k) }, { svg: svg(W, H, i.s), zones: Zs(i.z, sz, k) });
+      pages.forEach(function (p) { p.zones.forEach(function (z) { if (z.titlePt) z.titlePt = Math.min(z.titlePt, z.tag === 'cv' ? 44 : 22); }); });
+      return { pages: pages, ownLogo: false, roles: roleMap(pages, { cvk: [0, 'cv'], cvt: [0, 'cv'], cvs: [0, 'cv'], cvx: [0, 'cv'], cvp: [0, 'p1'], fh: [0, 'fl'], ft: [0, 'fl'], fl: [0, 'fl'], flp: [0, 'p4'],
+        bkh: [0, 'bk'], bkc: [0, 'bk'], bkq: [0, 'bk'], bkp: [0, 'p5'], i1h: [1, 'i1'], i1t: [1, 'i1'], i1s: [1, 'i1'], i1p: [1, 'p6'], i2h: [1, 'i2'], i2l: [1, 'i2'], i2p: [1, 'p7'], i3h: [1, 'i3'], i3l: [1, 'i3'], i3c: [1, 'i3'], i3p: [1, 'p8'] }) };
+    }
+    var f = F[dz.front] ? F[dz.front](t, W, H) : F.proposal(t, W, H), b = B[dz.backd] ? B[dz.backd](t, W, H) : B.clean(t, W, H);
+    pages.push({ svg: svg(W, H, f.s, f.defs), zones: Zs(f.z, sz) }, { svg: svg(W, H, b.s), zones: Zs(b.z, sz) });
+    pages[1].zones.forEach(function (z) { if (z.titlePt) z.titlePt = Math.min(z.titlePt, 30); });
+    return { pages: pages, ownLogo: false, roles: roleMap(pages, merge(FRONT_ROLES, BACK_ROLES)) };
+  };
+
+  /* ---------------- type, palettes, designs ---------------- */
+  D.CSS += '.fx .dsd-s-k{letter-spacing:.2em;font-size:calc(10pt*var(--k,1)*var(--fit,1));margin:0 0 calc(4pt*var(--k,1)*var(--fit,1))}' +
+    '.fx .dsd-s-t{font-weight:800;line-height:.98;letter-spacing:-.01em;margin:calc(2pt*var(--k,1)*var(--fit,1)) 0 calc(6pt*var(--k,1)*var(--fit,1))}.fx.up .dsd-s-t{text-transform:uppercase}.fx.hl .dsd-s-t{color:var(--at)}' +
+    '.fx .dsd-s-s{font-style:normal;font-weight:600;font-family:var(--bodyf);font-size:calc(13pt*var(--k,1)*var(--fit,1));letter-spacing:.03em;margin:0}' +
+    '.fx .dsd-s-x{font-size:calc(10.5pt*var(--k,1)*var(--fit,1));line-height:1.45;margin-top:calc(6pt*var(--k,1)*var(--fit,1))}' +
+    '.fx .dsd-h2{font-size:calc(15pt*var(--k,1)*var(--fit,1));margin:0 0 calc(5pt*var(--k,1)*var(--fit,1));color:var(--p);text-transform:uppercase;letter-spacing:.04em}.fx.dark .dsd-h2{color:#fff}.fx .dsd-blk+.dsd-blk>.dsd-h2{margin-top:calc(10pt*var(--k,1)*var(--fit,1))}' +
+    '.fx .dsd-ul{list-style:none;padding-left:0;margin:calc(4pt*var(--k,1)*var(--fit,1)) 0;display:inline-block;text-align:left;max-width:100%}.fx .dsd-ul li{position:relative;padding-left:calc(17pt*var(--k,1)*var(--fit,1));font-size:calc(10.5pt*var(--k,1)*var(--fit,1));margin:0 0 calc(4pt*var(--k,1)*var(--fit,1));line-height:1.3}' +
+    '.fx .dsd-ul li::before{content:"\\2713";position:absolute;left:0;top:.1em;width:calc(11.5pt*var(--k,1)*var(--fit,1));height:calc(11.5pt*var(--k,1)*var(--fit,1));border-radius:50%;background:var(--a);color:var(--ona);font-size:calc(7.5pt*var(--k,1)*var(--fit,1));font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}' +
+    '.fx .dsd-s-c{border-radius:999px;margin-top:calc(10pt*var(--k,1)*var(--fit,1))}' +
+    '.fx .dsd-s-ct{gap:calc(4pt*var(--k,1)*var(--fit,1))}.fx .dsd-s-ct .r{font-size:calc(9.5pt*var(--k,1)*var(--fit,1))}.fx .dsd-s-ct .ic{width:calc(15pt*var(--k,1)*var(--fit,1));height:calc(15pt*var(--k,1)*var(--fit,1))}.fx.dark .dsd-s-ct .r{color:#fff}' +
+    '.fx.row .dsd-s-ct{flex-direction:row;flex-wrap:wrap;column-gap:calc(16pt*var(--k,1)*var(--fit,1));row-gap:calc(3pt*var(--k,1)*var(--fit,1))}.fx.row.ctr .dsd-s-ct{justify-content:center}' +
+    '.fx.badge .dsd-s-k,.fx.ona .dsd-s-k,.fx.ona .dsd-s-s{color:var(--ink)}.fx.badge .dsd-s-k{letter-spacing:.1em;font-size:calc(8.5pt*var(--k,1)*var(--fit,1));margin:0}.fx.badge .dsd-s-t{margin:0;line-height:.95}' +
+    '.fx .dsd-stats{margin:calc(6pt*var(--k,1)*var(--fit,1)) 0}.fx .dsd-stats .v{font-size:calc(18pt*var(--k,1)*var(--fit,1));font-weight:800;color:var(--p)}.fx .dsd-stats .l{font-size:calc(9pt*var(--k,1)*var(--fit,1))}.fx.dark .dsd-stats>div{background:rgba(255,255,255,.1)}.fx.dark .dsd-stats .v{color:#fff}' +
+    '.fx .dsd-s-qr{width:calc(62pt*var(--k,1)*var(--fit,1));height:calc(62pt*var(--k,1)*var(--fit,1));margin:calc(8pt*var(--k,1)*var(--fit,1)) auto 0}' +
+    '.fx .dsd-s-d{margin-top:calc(6pt*var(--k,1)*var(--fit,1))}.fx .dsd-s-d .r{font-size:calc(9.5pt*var(--k,1)*var(--fit,1))}';
+
+  function fp(id, name, p, s, a, head, body) { var ink = D.mix(p, '#15171C', 0.8), x = th(id, name, p, s, a, ink, D.mix(ink, '#FFFFFF', 0.38), D.mix(p, '#FFFFFF', 0.92), D.mix(p, '#FFFFFF', 0.8), head, body); x.hide = 1; return x; }
+  var FP = [
+    fp('fx01', 'Navy Orange', '#0F2A4A', '#1F4E79', '#F28C28', 'Montserrat', 'Aptos'), fp('fx02', 'Crimson Gold', '#9E1B22', '#5C0B10', '#F5B700', 'Montserrat', 'Aptos'),
+    fp('fx03', 'Emerald Lime', '#0B4D3B', '#127A5C', '#A7D129', 'Bahnschrift', 'Aptos'), fp('fx04', 'Royal Purple', '#3C096C', '#5A189A', '#FF9E00', 'Montserrat', 'Aptos'),
+    fp('fx05', 'Teal Gold', '#005F73', '#0A9396', '#EE9B00', 'Century Gothic', 'Calibri'), fp('fx06', 'Black Yellow', '#151515', '#2E2E2E', '#FFC300', 'Bahnschrift', 'Aptos'),
+    fp('fx07', 'Blue Sky', '#0B3D91', '#1565C0', '#4FC3F7', 'Segoe UI', 'Segoe UI'), fp('fx08', 'Maroon Gold', '#5E0B15', '#90323D', '#D9B44A', 'Georgia', 'Calibri'),
+    fp('fx09', 'Forest Orange', '#1B4332', '#2D6A4F', '#F77F00', 'Montserrat', 'Aptos'), fp('fx10', 'Indigo Pink', '#22223B', '#4A4E69', '#F72585', 'Century Gothic', 'Century Gothic'),
+    fp('fx11', 'Ocean Coral', '#023047', '#126782', '#FB8500', 'Bahnschrift', 'Aptos'), fp('fx12', 'Wine Peach', '#4C1D3D', '#852E4E', '#FFB4A2', 'Georgia', 'Calibri')
+  ];
+  FP.forEach(function (x) { D.THEMES.push(x); });
+
+  /* the A4 brochure: a cover and an inside page */
+  var bi = 0; D.TYPES.forEach(function (x, i) { if (x.id === 'brochure') bi = i; });
+  D.TYPES.splice(bi, 0, { id: 'brochure_a4', name: 'Brochure (A4 cover + inside)', group: 'Marketing & Advertising', ai: 1, pages: 2, fixed: 1 });
+  D.TYPE_SIZES.brochure_a4 = ['A4', 'Letter'];
+
+  D.DESIGNS = D.DESIGNS.filter(function (d) { return d.types.indexOf('flyer') < 0 && d.types.indexOf('brochure') < 0; });
+  var FR = [['proposal', 'Proposal'], ['hexhero', 'Agency'], ['diamonds', 'Voyage'], ['webinar', 'Webinar'], ['estate', 'Estate'], ['circles', 'Circle'], ['leaf', 'Leaf'], ['splitv', 'Split'],
+    ['honey', 'Honeycomb'], ['wavehero', 'Tide'], ['frame', 'Frame'], ['stripes', 'Stripe'], ['typo', 'Bold'], ['medical', 'Care'], ['event', 'Event'], ['mosaic', 'Mosaic'], ['luxury', 'Luxe'], ['angular', 'Angle'],
+    ['capsules', 'Capsule'], ['quarter', 'Quarter'], ['sale', 'Sale'], ['blob', 'Bloom'], ['food', 'Taste'], ['fitness', 'Power'], ['corner', 'Corner'], ['edges', 'Edges'], ['service', 'Service'], ['travel', 'Travel'],
+    ['cityband', 'City'], ['portrait', 'Portrait'], ['stacked', 'Stacked'], ['halfcircle', 'Half moon'], ['ticket', 'Ticket'], ['zigzag', 'Zigzag'], ['diagonal2', 'Slices']];
+  var FDESC = { proposal: 'Colour swoosh, round photo', hexhero: 'Hexagon photo', diamonds: 'Three diamond photos', webinar: 'Arch portrait', estate: 'Big photo, price tag', circles: 'Circle photo collage', leaf: 'Leaf photo',
+    splitv: 'Colour side, slanted photo', honey: 'Hexagon photos', wavehero: 'Wave-cut photo', frame: 'Framed photo', stripes: 'Capsule photo, stripes', typo: 'Bold type', medical: 'Clean, rounded photo', event: 'Date badge, round photo',
+    mosaic: 'Photo grid', luxury: 'Gold frame, arch photo', angular: 'Angled shapes', capsules: 'Three capsule photos', quarter: 'Quarter-circle photo', sale: 'Sale badge', blob: 'Organic shapes', food: 'Round food photo', fitness: 'Dark, angled photo', corner: 'Corner triangles',
+    edges: 'Colour edges, round photo', service: 'Wavy top, photo grid', travel: 'Big round photo, price circles', cityband: 'Photo with colour block', portrait: 'Tall arch portrait', stacked: 'Two photos, text side', halfcircle: 'Half-circle photo', ticket: 'Ticket style', zigzag: 'Zigzag photo edge', diagonal2: 'Two photo slices' };
+  var BKS = ['clean', 'cards', 'wave', 'dark', 'side', 'split'], ROMAN = ['', ' II', ' III', ' IV'];
+  /* flyers: every layout in 3 colour sets, each with another back */
+  var nF = 0;
+  [0, 1, 2].forEach(function (v) { FR.forEach(function (x, i) {
+    var pal = FP[(i * 5 + v * 4 + 1) % FP.length];
+    D.DESIGNS.push(des('ma-flyer-' + (++nF), x[1] + ROMAN[v], 'panels', ['flyer'], pal.id, { layout: 'fx', front: x[0], backd: BKS[(i + v * 2) % BKS.length], vi: nF, coll: 'marketing', desc: FDESC[x[0]] + ' · 2-sided · ' + pal.name }));
+  }); });
+  /* A4 brochures: every layout in 2 colour sets, cover + inside */
+  var nB = 0;
+  [0, 1].forEach(function (v) { FR.forEach(function (x, i) {
+    var pal = FP[(i * 7 + v * 5 + 3) % FP.length];
+    D.DESIGNS.push(des('ma-brochurea4-' + (++nB), x[1] + ROMAN[v], 'panels', ['brochure_a4'], pal.id, { layout: 'fx', front: x[0], backd: BKS[(i + v * 3 + 1) % BKS.length], vi: nB, coll: 'marketing', desc: FDESC[x[0]] + ' · cover + inside · ' + pal.name }));
+  }); });
+  /* tri-folds: decoration x cover photo shape x colour */
+  var DECOS = ['wave', 'diag', 'band', 'arc', 'corner', 'stripe'], COVS = ['circle', 'none', 'arch', 'hexv', 'diamond'], PHS = { circle: 'circle', none: 'none', arch: 'round', hexv: 'hexv', diamond: 'round' };
+  var DN = { wave: 'Wave', diag: 'Diagonal', band: 'Band', arc: 'Arc', corner: 'Corner', stripe: 'Stripe' }, CN = { circle: 'Circle', none: 'Photo', arch: 'Arch', hexv: 'Hexa', diamond: 'Prism' }, nT = 0;
+  [0, 1].forEach(function (v) { DECOS.forEach(function (dc, i) { COVS.forEach(function (cv, j) {
+    var pal = FP[(i * 3 + j * 5 + v * 7) % FP.length], dark = (i + j + v) % 2 === 0;
+    D.DESIGNS.push(des('ma-brochure-' + (++nT), DN[dc] + ' ' + CN[cv] + ROMAN[v], 'panels', ['brochure'], pal.id, { layout: 'fx', fx: 'tri', deco: dc, cov: cv, ph: v ? 'round' : PHS[cv], dark: dark, vi: nT, orient: 'landscape', coll: 'marketing',
+      desc: 'Tri-fold · ' + ({ wave: 'waves', diag: 'diagonal band', band: 'colour bands', arc: 'arcs', corner: 'corner shapes', stripe: 'stripes' })[dc] + ' · ' + pal.name }));
+  }); }); });
+
+  /* ---------------- sample text, with roles ---------------- */
+  D.samplePhotos = D.samplePhotos || [];
+  function ph(i) { var a = D.samplePhotos; return a.length ? String(a[i % a.length]) : ''; }
+  var sample2 = D.sample;
+  D.sample = function (type) {
+    var doc = sample2(type), R = function (t, o, role) { var b = D.B(t, o); b.role = role; return b; };
+    var contact = { rows: [{ i: 'phone', t: '+00 123 456 7890' }, { i: 'mail', t: 'hello@yourcompany.com' }, { i: 'web', t: 'www.yourcompany.com' }, { i: 'pin', t: '123 Street, City' }] };
+    if (type === 'flyer') {
+      doc.title = 'Flyer'; doc.org = 'Your Company';
+      doc.blocks = [R('s_kicker', { text: 'Creative agency' }, 'kicker'), R('s_title', { text: 'Grow your business' }, 'title'), R('s_sub', { text: 'Marketing · Design · Strategy' }, 'sub'),
+        R('s_text', { text: 'We help growing companies reach more customers with clear plans, strong design and campaigns that work.' }, 'text'),
+        R('ul', { items: ['Brand strategy', 'Social media marketing', 'Website design', 'Online advertising'] }, 'list'), R('s_cta', { text: 'Book a free call' }, 'cta'),
+        R('s_kicker', { text: 'Save up to' }, 'badgeK'), R('s_title', { text: '50% OFF' }, 'badgeT'),
+        R('s_contact', D.clone(contact), 'contact'), R('s_photo', { src: ph(0) }, 'photo1'), R('s_photo', { src: ph(1) }, 'photo2'), R('s_photo', { src: ph(2) }, 'photo3'),
+        R('h2', { text: 'Our services' }, 'bh1'), R('ul', { items: ['Brand strategy and identity', 'Social media campaigns', 'Websites and online shops', 'Search and online ads'] }, 'blist'),
+        R('h2', { text: 'Why choose us' }, 'bh2'), R('s_text', { text: 'A small, friendly team with ten years of experience and hundreds of happy clients.' }, 'btext'),
+        R('s_details', { rows: [['Experience', '10+ years'], ['Clients', '500+'], ['Support', '7 days a week']] }, 'bdet'), R('s_cta', { text: 'Get a free quote' }, 'bcta'),
+        R('s_contact', D.clone(contact), 'bcontact'), R('s_photo', { src: ph(3) }, 'bphoto')];
+    }
+    if (type === 'brochure_a4') {
+      doc.title = 'Brochure'; doc.org = 'Your Company';
+      doc.blocks = [R('s_kicker', { text: 'Your Company' }, 'kicker'), R('s_title', { text: 'Annual Report 2030' }, 'title'), R('s_sub', { text: 'Business growth and results' }, 'sub'),
+        R('s_text', { text: 'A clear look at the year: what we did, what we learned and where we are going next.' }, 'text'),
+        R('stats', { items: [{ v: '01', l: 'Growth' }, { v: '02', l: 'Target' }, { v: '03', l: 'Global' }] }, 'stats'),
+        R('s_kicker', { text: 'Edition' }, 'badgeK'), R('s_title', { text: '2030' }, 'badgeT'), R('s_contact', D.clone(contact), 'contact'),
+        R('s_photo', { src: ph(1) }, 'photo1'), R('s_photo', { src: ph(2) }, 'photo2'), R('s_photo', { src: ph(0) }, 'photo3'),
+        R('h2', { text: 'About us' }, 'bh1'), R('s_text', { text: 'We are a team of [Number] people in [City], helping clients plan, build and grow since [Year]. We work closely with every client, from the first idea to the final result.' }, 'blist'),
+        R('ul', { items: ['Clear goals and plans', 'Strong, friendly team', 'Fixed prices, no surprises', 'Results you can measure'] }, 'blist'),
+        R('h2', { text: 'Our mission' }, 'bh2'), R('s_text', { text: 'To make growth simple for every business we work with: honest advice, great design and steady support.' }, 'btext2'),
+        R('stats', { items: [{ v: '25+', l: 'Years' }, { v: '1,200', l: 'Clients' }, { v: '98%', l: 'Happy' }] }, 'bstats'), R('s_cta', { text: 'Contact us today' }, 'bcta'),
+        R('s_contact', D.clone(contact), 'bcontact'), R('s_photo', { src: ph(3) }, 'bphoto')];
+    }
+    if (type === 'brochure') {
+      doc.title = 'Brochure'; doc.org = 'Your Company';
+      doc.blocks = [R('s_kicker', { text: 'Your Company' }, 'cvk'), R('s_title', { text: 'Business Solutions' }, 'cvt'), R('s_sub', { text: 'Strategy · Design · Growth' }, 'cvs'),
+        R('s_photo', { src: ph(0) }, 'cvp'),
+        R('h2', { text: 'Who we are' }, 'fh'), R('s_text', { text: 'A team of experts helping businesses grow with clear plans and friendly support.' }, 'ft'), R('ul', { items: ['Founded in [Year]', '[Number] happy clients', 'Based in [City]'] }, 'fl'), R('s_photo', { src: ph(1) }, 'flp'),
+        R('h2', { text: 'Contact us' }, 'bkh'), R('s_contact', D.clone(contact), 'bkc'), R('s_qr', { text: 'https://www.yourcompany.com' }, 'bkq'), R('s_photo', { src: ph(2) }, 'bkp'),
+        R('h2', { text: 'About us' }, 'i1h'), R('s_text', { text: 'We plan, design and run the things that help you win customers and keep them.' }, 'i1t'),
+        R('stats', { items: [{ v: '10+', l: 'Years' }, { v: '500+', l: 'Clients' }] }, 'i1s'), R('s_photo', { src: ph(3) }, 'i1p'),
+        R('h2', { text: 'Our services' }, 'i2h'), R('ul', { items: ['Strategy and planning', 'Design and branding', 'Websites and online shops', 'Marketing campaigns'] }, 'i2l'), R('s_photo', { src: ph(4) }, 'i2p'),
+        R('h2', { text: 'Why choose us' }, 'i3h'), R('ul', { items: ['Fixed prices, no surprises', 'One contact from start to finish', 'Results you can measure'] }, 'i3l'), R('s_cta', { text: 'Book a call' }, 'i3c'), R('s_photo', { src: ph(5) }, 'i3p')];
+    }
     return doc;
   };
 })();

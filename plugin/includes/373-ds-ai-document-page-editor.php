@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 05:00:00
+ * Modified   : 2026-10-24 07:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.6.7-corners' );
+define( 'DS_DOC_APP_VER', '1.7.0-flyers' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2575,6 +2575,43 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     };
     if (io && !opts.now) { box.__draw = draw; io.observe(box); } else draw();
   }
+  /** Design thumbnails as mockups: the page (and the page behind it) on a soft colour background with a shadow; they lift on hover. */
+  function mockup(box, doc, dz) {
+    var draw = function () {
+      box.innerHTML = ''; box.classList.add('dd-mk');
+      var t = D.look(doc), sz = D.size(doc), bw = box.clientWidth || 200, bh = box.clientHeight || 150, n = 1;
+      box.style.background = 'linear-gradient(135deg,' + D.mix(t.p, '#FFFFFF', 0.86) + ',' + D.mix(t.a || t.p, '#FFFFFF', 0.7) + ')';
+      try { if (dz.kind === 'panels') n = Math.min(2, D.panelSpec(doc, t, dz, sz).pages.length); else if (dz.cover || D.type(doc.type).pages > 1) n = 2; } catch (er) { n = 1; }
+      var land = sz.w > sz.h * 1.05, pw, ph;
+      if (n > 1 && land) { ph = bh * 0.42; pw = ph * sz.w / sz.h; if (pw > bw * 0.74) { pw = bw * 0.74; ph = pw * sz.h / sz.w; } }
+      else { ph = bh * (n > 1 ? 0.8 : 0.86); pw = ph * sz.w / sz.h; var mx = bw * (n > 1 ? 0.46 : 0.8); if (pw > mx) { pw = mx; ph = pw * sz.h / sz.w; } }
+      var k = pw / sz.w, front = null;
+      for (var i = 0; i < n; i++) {
+        var pg = el('div', 'mkp' + (i ? ' mkb' : '')); pg.style.width = pw + 'px'; pg.style.height = ph + 'px';
+        if (n === 1) { pg.style.left = (bw - pw) / 2 + 'px'; pg.style.top = (bh - ph) / 2 + 'px'; }
+        else if (land) { pg.style.left = ((bw - pw) / 2 + (i ? pw * 0.07 : -pw * 0.07)) + 'px'; pg.style.top = (i ? bh * 0.52 : bh * 0.07) + 'px'; }
+        else { pg.style.left = (i ? bw / 2 - pw * 0.08 : bw / 2 - pw * 0.92) + 'px'; pg.style.top = ((bh - ph) / 2 + (i ? -5 : 5)) + 'px'; }
+        var inner;
+        if (!front) { inner = el('div'); pg.appendChild(inner); box.appendChild(pg); D.render(inner, doc, { edit: false, gap: 0 }); front = inner; }
+        else { inner = front.cloneNode(true); pg.appendChild(inner); box.insertBefore(pg, box.firstChild); }
+        inner.style.cssText = 'position:absolute;left:0;top:0;width:' + sz.w + 'px;transform-origin:0 0;transform:scale(' + k + ') translateY(' + (-i * sz.h) + 'px)';
+      }
+    };
+    if (io) { box.__draw = draw; io.observe(box); } else draw();
+  }
+  /* sample photos for the design thumbnails: free pictures from the marketplace (like the AI Presentation templates) */
+  var photoPool = null;
+  function loadPhotoPool() {
+    if (photoPool) return photoPool;
+    var qs = ['business', 'office team', 'businessman', 'travel'];
+    photoPool = Promise.all(qs.map(function (q) { return api('GET', 'ds/v1/mkt-slide-images?s=' + encodeURIComponent(q) + '&cat=images&per_page=12&page=1').then(function (r) { return r.items || []; }).catch(function () { return []; }); })).then(function (all) {
+      var seen = {}, out = [];
+      all.forEach(function (list) { list.forEach(function (it) { if (it && (it.thumb || it.full) && (!it.tier || it.tier === 'free') && !seen[it.id]) { seen[it.id] = 1; out.push(it.thumb || it.full); } }); });
+      if (out.length) { D.samplePhotos = out; try { drawDesigns(); drawPreview(); } catch (er) { /* the start view is not shown */ } }
+      return out;
+    });
+    return photoPool;
+  }
   function sampleFor(type, tpl, theme) {
     var d = D.sample(type); d.tpl = tpl; d.theme = theme || ''; d.size = S.size; d.lang = S.lang;
     return d;
@@ -2704,7 +2741,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       b.appendChild(el('b', '', esc(dz.name))); b.appendChild(el('span', '', esc(dz.desc || '')));
       box.appendChild(b);
       var t = dz.types.indexOf(S.type) >= 0 ? S.type : dz.types[0];
-      preview(pv, sampleFor(t, dz.id, S.theme), 0);
+      mockup(pv, sampleFor(t, dz.id, S.theme), dz);
     });
   }
   var drawPreview = debounce(function () {
@@ -2852,7 +2889,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       });
     }
     (doc.blocks || []).forEach(function (b) {
-      if (b.t !== 'image' || b.src) return;
+      if ((b.t !== 'image' && !(b.t === 's_photo' && doc.type !== 'business_card')) || b.src) return;
       jobs.push(function () {
         var p = b.pid ? sharpPhoto(b.pid, b.url).then(function (x) { return { pid: b.pid, url: b.url, data: x.data }; }) : findPhoto(b.q || doc.title);
         return p.then(function (x) { if (x) { b.pid = x.pid; b.url = x.url; b.src = x.data; } }).catch(function () {}).then(function () { if (onEach) onEach(); });
@@ -3787,9 +3824,9 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           var b = el('button', d.id === doc.tpl ? 'on' : ''); b.type = 'button'; b.dataset.d = d.id;
           var pv = el('div', 'pv'); b.appendChild(pv); b.appendChild(el('b', '', esc(d.name)));
           box.appendChild(b);
-          var mini = D.clone(doc); mini.tpl = d.id; mini.blocks = mini.blocks.slice(0, 14);
+          var mini = D.clone(doc); mini.tpl = d.id; mini.blocks = mini.blocks.slice(0, 30);
           if (mini.cover) mini.cover = { src: doc.cover && doc.cover.src };
-          preview(pv, mini, 0);
+          mockup(pv, mini, d);
         });
         $('#dde-dsall', pane).onchange = function (e) { self._dsAll = e.target.value === 'kind'; drawPane(); };
         box.onclick = function (e) { var b = e.target.closest('[data-d]'); if (!b) return; snapshot(); doc.tpl = b.dataset.d; changed(); render(true); drawPane(); fillPictures(doc).then(function () { render(true); }); };
@@ -4228,6 +4265,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   fillPages();
   setMode('ai');
   refreshAll();
+  loadPhotoPool();
   loadDocs(true);
   // ?doc=123 opens a saved document straight in the editor (used by the Word add-in's "Edit on DesignStager")
   var qd = /[?&]doc=(\d+)/.exec(location.search);
@@ -4309,6 +4347,11 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-ds b{display:block;font-size:14px;font-weight:600;margin:10px 2px 0;color:var(--tx)}
 #dsdoc-app .dd-ds span{display:block;font-size:11.5px;color:var(--mut);margin:2px 2px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #dsdoc-app .dd-ds.on{border-color:var(--blue2);box-shadow:0 0 0 1px var(--blue2)}
+.dd-mk{position:relative!important;overflow:hidden!important;border-radius:9px}
+.dd-mk>.mkp{position:absolute!important;overflow:hidden;background:#fff;border-radius:2px;box-shadow:0 6px 16px rgba(15,23,42,.28),0 1px 3px rgba(15,23,42,.18);transition:transform .25s ease,box-shadow .25s ease;transform-origin:50% 60%!important}
+.dd-mk>.mkb{transform:rotate(3deg)}
+button:hover>.dd-mk>.mkp,.on>.dd-mk>.mkp{transform:translateY(-4px) scale(1.04);box-shadow:0 16px 32px rgba(15,23,42,.36),0 2px 6px rgba(15,23,42,.2)}
+button:hover>.dd-mk>.mkb,.on>.dd-mk>.mkb{transform:rotate(5deg) translate(5px,-7px) scale(1.02)}
 #dsdoc-app .dd-pvbox{margin-top:18px;border:1px solid var(--bd);background:var(--card2);border-radius:14px;padding:14px}
 #dsdoc-app .dd-pvbox .hd{display:flex;align-items:center;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--lab);margin-bottom:12px}
 #dsdoc-app .dd-pvbox .hd span{margin-left:auto;color:var(--link);text-transform:none;letter-spacing:0;font-size:13px}
