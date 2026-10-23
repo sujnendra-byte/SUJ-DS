@@ -102,6 +102,14 @@ function ds_get_refund_window_info($uid) {
     $used = ds_credits_used_since($uid, $cycle_start_ts);
     if ($used > 0) { $info['reason'] = 'credits_used'; return $info; }
 
+    // Not every feature writes to the logs above (AI Document, charts, diagrams, doc
+    // import ...), but every spend takes subscription credits first - so a balance
+    // below what this payment granted means credits were used.
+    if (metadata_exists('user', $uid, 'ds_subscription_credits')
+        && (int) get_user_meta($uid, 'ds_subscription_credits', true) < (int) $entry['credits']) {
+        $info['reason'] = 'credits_used'; return $info;
+    }
+
     $info['eligible'] = true;
     return $info;
 }

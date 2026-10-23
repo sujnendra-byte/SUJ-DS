@@ -14,6 +14,7 @@ NEW IN 42.0.2
  - includes/001 (fixed): two requests at the same moment can no longer both spend the\nsame credits.
  - includes/072 080 082 085 092 104 123 139 143 259 (fixed): AI images, video, audio, voice clone, extend audio and\n   template / design downloads no longer hand over the result when the credits could\n   not be taken (several requests started at once used to get it free).
  - includes/092 (fixed): a failed AI image now refunds exactly what was charged for it\n   (it used to trust the browser for the amount, and refunded free images too).
+ - includes/115 (fixed): the 24-hour refund is refused when any of the plan's credits\n   were used (credits spent on AI Document, charts, diagrams and doc import were missed).
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to
