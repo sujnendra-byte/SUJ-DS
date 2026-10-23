@@ -16,6 +16,7 @@ NEW IN 42.0.2
  - includes/092 (fixed): a failed AI image now refunds exactly what was charged for it\n   (it used to trust the browser for the amount, and refunded free images too).
  - includes/115 (fixed): the 24-hour refund is refused when any of the plan's credits\n   were used (credits spent on AI Document, charts, diagrams and doc import were missed).
  - includes/048 (fixed): the public copyright-claim form only saves real JPG, PNG and\n   PDF files (a script or web page could be uploaded under a fake type).
+ - includes/090 (fixed): the one-time repair address fix-submitted is admin-only.
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to

@@ -61,7 +61,8 @@ return rest_ensure_response(array('success' => true));
 	// One-time migration
 register_rest_route('ds/v1', '/fix-submitted', array(
     'methods'             => 'GET',
-    'permission_callback' => function() { return is_user_logged_in(); },
+    // Walks every user on the site - admin only (any signed-in user could run it).
+    'permission_callback' => function() { return current_user_can('manage_options'); },
     'callback'            => function() {
         global $wpdb;
         $users = get_users(array('fields' => array('ID')));
