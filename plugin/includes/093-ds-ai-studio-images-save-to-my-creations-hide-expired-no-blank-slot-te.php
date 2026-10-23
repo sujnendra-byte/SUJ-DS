@@ -1285,7 +1285,8 @@ add_action('rest_api_init', function () {
 			$after = $wpdb->get_row("SELECT id, active FROM {$table} WHERE id = 578", ARRAY_A);
 			return rest_ensure_response(array('before' => $before, 'update_result' => $upd, 'after' => $after, 'db_error' => $wpdb->last_error));
 		},
-		'permission_callback' => '__return_true',
+		// Debug tools: they change / read the database, so site admins only.
+		'permission_callback' => function () { return current_user_can('manage_options'); },
 	));
 	register_rest_route('ds/v1', '/dbg-check-active', array(
 		'methods' => 'GET',
@@ -1295,6 +1296,6 @@ add_action('rest_api_init', function () {
 			$rows = $wpdb->get_results("SELECT id, active FROM {$table} WHERE id IN (572,576,578,579,580)", ARRAY_A);
 			return rest_ensure_response(array('rows' => $rows));
 		},
-		'permission_callback' => '__return_true',
+		'permission_callback' => function () { return current_user_can('manage_options'); },
 	));
 });

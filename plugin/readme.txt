@@ -10,6 +10,7 @@ Deactivate V41 before activating V42 (never both).
 NEW IN 42.0.2
  - includes/022 (fixed): a payment can only be counted once, and the credits or
    plan it gives come from Razorpay's record of the order, not from the browser.
+ - includes/093 (fixed): two leftover debug addresses could be used by anyone to change\nthe database; they now need an admin login.
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to
