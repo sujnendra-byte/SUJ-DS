@@ -550,7 +550,7 @@ if(gbl) gbl.textContent='Generate ('+c+' cr)';
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-	setTimeout(function(){dsSTab('img');},100);
+	setTimeout(function(){if(typeof dsSTab==='function')dsSTab('img');},100);
   q('dsModel').addEventListener('change',function(){dsCalc();dsUpdateSizeBtns(this.value);window.dsModelChanged();});
   q('dsRatio').addEventListener('change',function(){dsCalc();dsSizeInfo();});
   q('dsPmt').addEventListener('input',function(){var cc=q('dsCC');if(cc)cc.textContent=Math.min(this.value.length,500)+'/500';});

@@ -612,7 +612,7 @@ Delete
 <h3>Submit to Marketplace</h3>
 <p>Share your design and earn credits on approval.</p>
 <p style="font-size:12px;color:#94a3b8;margin:0 0 8px;line-height:1.5;">Your design will be submitted using the original prompt as the title.</p>
-<div class="dsmy-cashback-note">Earn <strong id="dsmy-cb-amt"><?php echo $cashback_pct; ?>%</strong> (1 credit) back when admin approves.</div>
+<div class="dsmy-cashback-note">Earn <strong id="dsmy-cb-amt"><?php echo isset( $cashback_pct ) ? (int) $cashback_pct : 50; ?>%</strong> (1 credit) back when admin approves.</div>
 <label>
 <input type="checkbox" id="dsmy-mkt-consent" style="margin-top:2px;flex-shrink:0;cursor:pointer;"/>
 <span>I confirm I have the right to submit this AI-generated image to the Designstager Marketplace and grant Designstager a license to display and distribute it.</span>

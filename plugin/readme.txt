@@ -1,11 +1,19 @@
 === Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in ===
 Requires PHP: 7.4
-Stable tag: 42.0.0
+Stable tag: 42.0.1
 
 All active DesignStager Code Snippets packaged as a single plugin.
 
 V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
+
+NEW IN 42.0.1
+ - includes/058 (fixed): the creator portal no longer gives a fatal error to
+   visitors who are not signed in.
+ - includes/093 (fixed): no "dsSTab is not defined" error on AI Images.
+ - includes/108 (fixed): the marketplace page no longer crashes if the download
+   categories cannot be read.
+ - includes/124 (fixed): no PHP warning on My Creations for users with no images.
 
 NEW IN 42.0.0
  - includes/371-373 (new): AI Document. Write with AI or use your own text, check

@@ -101,7 +101,7 @@ function ds_portal_ui_login_gate() {
     wp_enqueue_style('ds-portal-ui-fonts');
     $current_url = esc_url( home_url( add_query_arg( null, null ) ) );
     $login_url   = esc_url( wp_login_url( $current_url ) );
-    $reg_url     = users_can_register() ? esc_url( wp_registration_url() ) : '';
+    $reg_url     = get_option( 'users_can_register' ) ? esc_url( wp_registration_url() ) : '';
     ob_start();
     ?>
 <div class="dsx" style="min-height:60vh;">

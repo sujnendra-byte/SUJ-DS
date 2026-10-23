@@ -251,6 +251,7 @@ if (empty($found)) {
     $dl_prev_url = esc_url(add_query_arg($dl_prev_args));
     $dl_next_url = esc_url(add_query_arg($dl_next_args));
     $all_cats  = get_terms(array('taxonomy'=>'dlm_download_category','hide_empty'=>false,'orderby'=>'name','order'=>'ASC'));
+    if ( is_wp_error( $all_cats ) || ! is_array( $all_cats ) ) { $all_cats = array(); }
 
     // Build product data
     $products = array();

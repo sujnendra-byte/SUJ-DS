@@ -2,13 +2,20 @@
 /**
  * Plugin Name: Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in
  * Description: All active DesignStager Code Snippets packaged as a single plugin. V42 = V41 (41.5.0) + AI Document: write with AI or use your own text, review, then a designed document in the AI Presentation-style editor; 784 designs in 8 categories (business, education, career, letters, meetings, finance, marketing, events) incl. 2-sided flyers, tri-fold brochures, posters, social posts, infographics, business cards, invitations, menus, certificates, tickets and folded cards; page sizes per type; Word, PDF, PNG, JPG, TIFF (96-1200 dpi) and EPS+SVG downloads + DesignStager Word add-in. Deactivate V41 before activating V42.
- * Version: 42.0.0
+ * Version: 42.0.1
  * Author: DesignStager
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
  *
  * CHANGELOG
  * ---------
+ * 42.0.1 - 2026-10-23 Bug fixes found by loading every page, admin screen and REST route on a test site. 4 includes updated.
+ *   058  Creator portal - FIXED: visitors who are not signed in got a fatal error (it called users_can_register(),
+ *        which is not a WordPress function); they now see the sign-in screen with Sign up when registration is open.
+ *   093  AI Images - FIXED: on a page with only [ds_ai_images] (no AI Studio tabs) it threw "dsSTab is not defined".
+ *   108  Marketplace - FIXED: a fatal error when the download categories cannot be read (for example while
+ *        Download Monitor is off or updating); the page now shows without categories instead.
+ *   124  My Creations - FIXED: PHP warning "Undefined variable \$cashback_pct" when the user has no images yet.
  * 42.0.0 - 2026-10-23 AI Document and the Word add-in. 1 include updated (353), 4 added (371-374).
  *   353  DS Vector Export (staging id 1191) - UPDATED: EPS + SVG download also loads on the AI Document page.
  *   371  DS AI Document - Backend (staging id 1256) - NEW: AI writing (no invented facts, [placeholders]), credits,
@@ -1349,7 +1356,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DSV42_VERSION', '42.0.0' );
+define( 'DSV42_VERSION', '42.0.1' );
 define( 'DSV42_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DSV42_URL', plugin_dir_url( __FILE__ ) );
 
