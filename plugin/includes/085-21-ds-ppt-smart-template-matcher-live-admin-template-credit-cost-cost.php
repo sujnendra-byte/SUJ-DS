@@ -706,7 +706,7 @@ add_action('rest_api_init', function () {
     register_rest_route('ds/v1', '/tpl-debug', array(
         'methods'             => 'GET',
         'callback'            => 'ds_tpl_rest_debug',
-        'permission_callback' => function () { return is_user_logged_in(); },
+        'permission_callback' => function () { return current_user_can('manage_options'); }, // server details: admin only
     ));
 });
 
