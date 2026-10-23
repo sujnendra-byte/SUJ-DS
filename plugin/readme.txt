@@ -20,6 +20,7 @@ NEW IN 42.0.2
  - includes/085 (fixed): the set-up check address tpl-debug is admin-only.
  - includes/041 (fixed): the sign-up email-code addresses only work for new accounts\n   waiting for their code (they could be used to guess a code for any account,\n   including the admin, and sign in as it).
  - includes/023 (fixed): AJAX requests from customers and visitors work again (they were\n   redirected to the home page, so e.g. review feedback was never saved).
+ - includes/022 (fixed): only staff can see and change the credits / plan box on a user\n   profile (customers could have edited their own if they reached wp-admin).
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to

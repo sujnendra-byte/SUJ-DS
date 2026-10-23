@@ -622,6 +622,7 @@ add_action('ds_check_subscriptions', function() {
 add_action('show_user_profile', 'ds_show_user_plan_profile');
 add_action('edit_user_profile', 'ds_show_user_plan_profile');
 function ds_show_user_plan_profile($user) {
+    if (!current_user_can('edit_users')) return;
     $uid  = $user->ID;
     $plan = ds_get_user_plan($uid);
     $log  = get_user_meta($uid, 'ds_plan_history', true) ?: array();
@@ -643,7 +644,9 @@ function ds_show_user_plan_profile($user) {
 add_action('personal_options_update',  'ds_save_user_plan_profile');
 add_action('edit_user_profile_update', 'ds_save_user_plan_profile');
 function ds_save_user_plan_profile($uid) {
-    if (!current_user_can('edit_user',$uid)) return;
+    // Credits and plan are changed by staff only. Users can edit their own
+    // profile, so 'edit_user' alone would let a customer give themselves credits.
+    if (!current_user_can('edit_user',$uid) || !current_user_can('edit_users')) return;
     if (!isset($_POST['ds_plan_nonce'])||!wp_verify_nonce($_POST['ds_plan_nonce'],'ds_save_plan')) return;
     if (isset($_POST['ds_ai_credits'])) {
         $new_credits = (int)$_POST['ds_ai_credits'];
