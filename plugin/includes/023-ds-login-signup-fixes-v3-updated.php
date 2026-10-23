@@ -87,8 +87,10 @@ add_filter( 'login_redirect', function( $redirect_to, $request, $user ) {
 // 5. BLOCK REGULAR USERS FROM ACCESSING WP-ADMIN
 // =============================================
 add_action( 'admin_init', function() {
-    // If not in admin, skip
-    if ( ! is_admin() ) {
+    // If not in admin, skip. admin-ajax.php also runs admin_init: AJAX handlers
+    // check their own permissions, and redirecting them broke every AJAX call
+    // made by customers and visitors (e.g. the review popup).
+    if ( ! is_admin() || wp_doing_ajax() ) {
         return;
     }
 
@@ -98,7 +100,6 @@ add_action( 'admin_init', function() {
     }
 
     // Block everyone else from wp-admin
-    wp_safe_remote_post( home_url( '/' ) );
     wp_redirect( home_url( '/' ) );
     exit;
 } );
