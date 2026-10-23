@@ -431,8 +431,16 @@ final class DS_AI_Doc {
 		if ( 'h1' !== $blocks[0]['t'] ) {
 			array_unshift( $blocks, array( 't' => 'h1', 'text' => $sec['heading'] ) );
 		}
-		$job['ok'][ $i ] = 1;
-		set_transient( 'ds_doc_job_' . preg_replace( '/[^A-Za-z0-9]/', '', (string) $req->get_param( 'job' ) ), $job, self::JOB_TTL );
+		// Mark this section done on the job as it is NOW: other sections may have finished
+		// meanwhile (saving the old copy lost their marks), and if the document was already
+		// finished and refunded, this section is not handed out and the job is not re-created.
+		$jid = preg_replace( '/[^A-Za-z0-9]/', '', (string) $req->get_param( 'job' ) );
+		$now = self::get_job( $jid, $uid );
+		if ( ! $now ) {
+			return self::err( 'job', 'This document session has ended. Please start again.', 410 );
+		}
+		$now['ok'][ $i ] = 1;
+		set_transient( 'ds_doc_job_' . $jid, $now, self::JOB_TTL );
 		return rest_ensure_response( array( 'success' => true, 'index' => $i, 'blocks' => $blocks ) );
 	}
 
@@ -445,6 +453,10 @@ final class DS_AI_Doc {
 		}
 		delete_transient( 'ds_doc_job_' . $id );
 		$refund = 0;
+		// A document is settled once: a second finish (sent at the same moment) refunds nothing.
+		if ( function_exists( 'ds_rzp_claim_once' ) && ! ds_rzp_claim_once( 'docfin:' . $id ) ) {
+			return rest_ensure_response( array( 'success' => true, 'refund' => 0, 'credits_balance' => self::balance( $uid ) ) );
+		}
 		$total  = count( $job['sections'] );
 		if ( $total ) {
 			$ok = count( $job['ok'] );

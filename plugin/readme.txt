@@ -23,6 +23,7 @@ NEW IN 42.0.2
  - includes/022 (fixed): only staff can see and change the credits / plan box on a user\n   profile (customers could have edited their own if they reached wp-admin).
  - includes/033 (fixed): a shared presentation link can no longer carry hidden script\n   in a slide picture.
  - includes/076 (fixed): "Add slide with AI" always makes exactly one slide (a whole deck\n   could be made for the one-slide price).
+ - includes/371 (fixed): an AI Document is refunded only once and only for pages that\n   were not delivered (it could be refunded several times).
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to
