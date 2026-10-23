@@ -356,7 +356,7 @@ register_rest_route('ds/v1', '/generate-image', array(
 			// don't rely on the client's follow-up save-generation call, which
 			// can be lost if the page is refreshed before it fires.
 			$now_async = current_time('Y-m-d H:i:s');
-			ds_ai_gens_update($uid, function($gens_async) use ($result, $prompt, $model, $ratio, $cost_each, $now_async) {
+			ds_ai_gens_update($uid, function($gens_async) use ($result, $prompt, $model, $ratio, $cost_each, $now_async, $free_tier) {
 				foreach ($result['prediction_ids'] as $async_pid) {
 					array_unshift($gens_async, array(
 						'prediction_id' => $async_pid,
@@ -365,6 +365,8 @@ register_rest_route('ds/v1', '/generate-image', array(
 						'ratio' => $ratio,
 						'count' => 1,
 						'credits' => $cost_each,
+						'paid' => $free_tier ? 0 : $cost_each, // what was really charged; a failed job refunds this
+
 						'date' => $now_async,
 						'status' => 'pending',
 						'url' => '',
@@ -385,7 +387,7 @@ register_rest_route('ds/v1', '/generate-image', array(
 			// closes the refresh-loses-everything window down to this one
 			// fast dispatch call instead of depending on the client's
 			// follow-up save-generation request surviving a refresh.
-			ds_ai_gens_update($uid, function($gens_async2) use ($result, $prompt, $model, $ratio, $count, $cost_each) {
+			ds_ai_gens_update($uid, function($gens_async2) use ($result, $prompt, $model, $ratio, $count, $cost_each, $total_cost) {
 				array_unshift($gens_async2, array(
 					'prediction_id' => $result['prediction_id'],
 					'prompt' => $prompt,
@@ -393,6 +395,8 @@ register_rest_route('ds/v1', '/generate-image', array(
 					'ratio' => $ratio,
 					'count' => $count,
 					'credits' => $cost_each,
+					'paid' => (int) $total_cost, // what was really charged; a failed job refunds this
+
 					'date' => current_time('Y-m-d H:i:s'),
 					'status' => 'pending',
 					'url' => '',
@@ -524,14 +528,19 @@ register_rest_route('ds/v1', '/poll-image', array(
 			// add_option() is atomic — option_name has a UNIQUE index, so this
 			// returns false if the key exists. Reloads, extra tabs and concurrent
 			// polls therefore cannot refund the same prediction twice.
-			if ( add_option( $lock, time(), '', 'no' ) ) {
-				$model = sanitize_text_field($req->get_param('model') ?: '');
-				$count = max(1, min(4, (int)($req->get_param('count') ?: 1)));
-				if (in_array($model, array('qwen-image','qwen-edit','nanobana'), true)) $count = 1;
-				$psize = sanitize_text_field($req->get_param('image_size') ?: 'HD');
-				$costs = function_exists('ds_get_model_costs') ? ds_get_model_costs() : array();
-				$cost_each = function_exists('ds_get_model_cost_each') ? ds_get_model_cost_each($model, $psize) : ($costs[$model] ?? 4);
-				$refund = $cost_each * $count;
+			// Refund what this user was really charged for this job, read from the
+			// pending entry saved when it started. Never from the request: the model /
+			// count sent by the browser could ask for more than was paid (or a refund
+			// for a free image, or for someone else's job).
+			$refund = 0;
+			foreach ( (array) get_user_meta($uid, 'ds_ai_generations', true) as $pg ) {
+				if ( is_array($pg) && ($pg['prediction_id'] ?? '') === $pid && ($pg['status'] ?? '') !== 'succeeded' ) {
+					$refund = max(0, (int) ($pg['paid'] ?? 0));
+					break;
+				}
+			}
+			$claimed = function_exists('ds_rzp_claim_once') ? ds_rzp_claim_once($lock) : add_option( $lock, time(), '', 'no' );
+			if ( $refund > 0 && $claimed ) {
 				if ($refund > 0 && function_exists('ds_add_credits')) {
 					ds_add_credits($uid, $refund);
 					error_log("DS: refunded $refund credits to uid=$uid pid=$pid (failed prediction)");
