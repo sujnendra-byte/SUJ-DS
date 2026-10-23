@@ -37,6 +37,14 @@ function ds_otp_send($user_id) {
 }
 }
 
+// True only for a new sign-up that has not entered its code yet.
+if (!function_exists('ds_otp_pending')) {
+function ds_otp_pending($user_id) {
+    return (int) get_user_meta($user_id, 'ds_otp_flow_v1', true) === 1
+        && !get_user_meta($user_id, 'ds_email_verified', true);
+}
+}
+
 // 1. New registrations require OTP (existing users are untouched: this flag only gets
 //    set going forward, and the login-gate below only checks accounts that have it).
 add_action('user_register', function($user_id){
@@ -135,12 +143,17 @@ add_action('rest_api_init', function(){
             $uid = (int) $req->get_param('user_id');
             $code = trim((string) $req->get_param('otp'));
             $user = get_userdata($uid);
-            if (!$user) return new WP_Error('ds_bad_user','Invalid request.', array('status'=>400));
+            // Only a new sign-up still waiting for its code. A correct code signs the
+            // account in, so this must never work for verified / older accounts (admin).
+            if (!$user || !ds_otp_pending($uid)) return new WP_Error('ds_bad_user','Invalid request.', array('status'=>400));
 
             $attempts = (int) get_user_meta($uid, 'ds_otp_attempts', true);
             if ($attempts >= DS_OTP_MAX_ATTEMPTS) {
                 return new WP_Error('ds_too_many','Too many attempts. Please request a new code.', array('status'=>429));
             }
+            // Count the attempt before checking it, so a burst of guesses sent at
+            // the same moment cannot all slip in under the limit.
+            update_user_meta($uid, 'ds_otp_attempts', $attempts + 1);
 
             $expires = (int) get_user_meta($uid, 'ds_otp_expires', true);
             $hash = get_user_meta($uid, 'ds_otp_code', true);
@@ -149,7 +162,6 @@ add_action('rest_api_init', function(){
             }
 
             if (!wp_check_password($code, $hash)) {
-                update_user_meta($uid, 'ds_otp_attempts', $attempts + 1);
                 return new WP_Error('ds_wrong','Incorrect code. Please try again.', array('status'=>400));
             }
 
@@ -174,7 +186,7 @@ add_action('rest_api_init', function(){
         'callback' => function(WP_REST_Request $req){
             $uid = (int) $req->get_param('user_id');
             $user = get_userdata($uid);
-            if (!$user) return new WP_Error('ds_bad_user','Invalid request.', array('status'=>400));
+            if (!$user || !ds_otp_pending($uid)) return new WP_Error('ds_bad_user','Invalid request.', array('status'=>400));
 
             $last = (int) get_user_meta($uid, 'ds_otp_last_sent', true);
             if (time() - $last < DS_OTP_RESEND_COOLDOWN) {

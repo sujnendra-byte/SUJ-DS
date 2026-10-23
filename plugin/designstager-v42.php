@@ -20,6 +20,7 @@
  *   048  Copyright claim form - FIXED: the public form saved attachments with the sender's own file\nextension and claimed type, so a .php script or .html page could be stored in uploads. Files are now\nchecked by their real content and saved only as .jpg, .png or .pdf.
  *   090  Mark submitted - FIXED: the one-time repair /ds/v1/fix-submitted (goes through every user) could be\nrun by any signed-in user, again and again. Now site admins only.
  *   085  Smart template matcher - FIXED: the set-up check /ds/v1/tpl-debug (shows server programs and\npaths, can re-run a program search) was open to every signed-in user. Now site admins only.
+ *   041  Email code (sign-up) - FIXED: the public verify / resend addresses worked for ANY account, and a\ncorrect code signs that account in. Anyone could have codes sent to the admin and guess them (many\nguesses at once got past the 5-try limit). They now only work for new sign-ups still waiting for\ntheir code, and each guess is counted before it is checked.
  * 42.0.1 - 2026-10-23 Bug fixes found by loading every page, admin screen and REST route on a test site. 4 includes updated.
  *   058  Creator portal - FIXED: visitors who are not signed in got a fatal error (it called users_can_register(),
  *        which is not a WordPress function); they now see the sign-in screen with Sign up when registration is open.
