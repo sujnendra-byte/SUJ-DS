@@ -164,10 +164,34 @@ function ds_get_credits($uid) {
 }
 }
 
+// One credit change at a time per user (MySQL named lock), so two requests arriving
+// together cannot both spend the same credits. The cached meta is dropped once the
+// lock is held so the balance is read fresh from the database.
+if (!function_exists('ds_credit_lock')) {
+function ds_credit_lock($uid) {
+    global $wpdb;
+    $ok = (bool) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 10)', 'ds_credits_' . (int) $uid));
+    wp_cache_delete((int) $uid, 'user_meta');
+    return $ok;
+}
+function ds_credit_unlock($uid) {
+    global $wpdb;
+    $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', 'ds_credits_' . (int) $uid));
+}
+}
+
 if (!function_exists('ds_deduct_credits')) {
 function ds_deduct_credits($uid, $amount) {
     $amount = (int)$amount;
     if ($amount <= 0) return true;
+    if (!ds_credit_lock($uid)) return false;    // busy: refuse rather than risk overspending
+    try {
+        return ds_deduct_credits_locked($uid, $amount);
+    } finally {
+        ds_credit_unlock($uid);
+    }
+}
+function ds_deduct_credits_locked($uid, $amount) {
     $bal = ds_get_credits($uid);
     if ($bal < $amount) return false;           // HARD refuse — never overspend
 
@@ -204,10 +228,12 @@ if (!function_exists('ds_add_credits')) {
 function ds_add_credits($uid, $amount) {
     $amount = (int)$amount;
     if ($amount <= 0) return true;
+    $locked = ds_credit_lock($uid);             // credits are added even if the lock times out
     $topup = (int)get_user_meta($uid,'ds_topup_credits',true);
     update_user_meta($uid,'ds_topup_credits', $topup + $amount);
     update_user_meta($uid,'ds_topup_credits_expiry', ds_add_one_month());
     update_user_meta($uid,'ds_ai_credits', ds_get_credits($uid));
+    if ($locked) ds_credit_unlock($uid);
     return true;
 }
 }
@@ -217,10 +243,12 @@ if (!function_exists('ds_add_creditback_credits')) {
 function ds_add_creditback_credits($uid, $amount) {
     $amount = (int)$amount;
     if ($amount <= 0) return true;
+    $locked = ds_credit_lock($uid);
     $cb = (int)get_user_meta($uid,'ds_creditback_credits',true);
     update_user_meta($uid,'ds_creditback_credits', $cb + $amount);
     update_user_meta($uid,'ds_creditback_credits_expiry', ds_add_one_month());
     update_user_meta($uid,'ds_ai_credits', ds_get_credits($uid));
+    if ($locked) ds_credit_unlock($uid);
     return true;
 }
 }

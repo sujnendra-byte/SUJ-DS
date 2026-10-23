@@ -13,6 +13,7 @@
  *   022  Payments - FIXED: the payment check took the number of top-up credits and the plan from the browser, and the
  *        same payment could be sent again for more credits. Now read from Razorpay's order and counted once.
  *   093  AI Images - FIXED: two leftover debug addresses (/ds/v1/dbg-force-active, /dbg-check-active) could be\nopened by anyone and switched a database row on. Now site admins only.
+ *   001  Credits - FIXED: two requests at the same moment could both spend the same credits (the balance\nwas read and written without a lock). Taking / adding credits now happens one request at a time per user.
  * 42.0.1 - 2026-10-23 Bug fixes found by loading every page, admin screen and REST route on a test site. 4 includes updated.
  *   058  Creator portal - FIXED: visitors who are not signed in got a fatal error (it called users_can_register(),
  *        which is not a WordPress function); they now see the sign-in screen with Sign up when registration is open.

@@ -11,6 +11,7 @@ NEW IN 42.0.2
  - includes/022 (fixed): a payment can only be counted once, and the credits or
    plan it gives come from Razorpay's record of the order, not from the browser.
  - includes/093 (fixed): two leftover debug addresses could be used by anyone to change\nthe database; they now need an admin login.
+ - includes/001 (fixed): two requests at the same moment can no longer both spend the\nsame credits.
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to
