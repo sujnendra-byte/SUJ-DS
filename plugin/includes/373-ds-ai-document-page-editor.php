@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 07:35:58
+ * Modified   : 2026-10-23 13:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.6.0-print' );
+define( 'DS_DOC_APP_VER', '1.6.1-cards' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2760,7 +2760,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   var RV_LABEL = { h2: 'Subheading', h3: 'Small heading', p: 'Paragraph', ul: 'Bullet list', ol: 'Numbered list', check: 'Checklist', quote: 'Quote', callout: 'Callout box', stats: 'Key numbers',
     table: 'Table', chart: 'Chart', timeline: 'Timeline', cols: 'Columns', kv: 'Details', image: 'Picture', pb: 'Page break', toc: 'Contents', lh: 'Letterhead', title: 'Title', addr: 'Address',
     sign: 'Sign-off', inv: 'Invoice lines', todo: 'Tasks', week: 'Week', cal: 'Calendar', sigs: 'Signatures', r_head: 'Name & contacts', r_sec: 'Resume section', r_entry: 'Job / education',
-    r_skills: 'Skills', s_kicker: 'Small line', s_title: 'Big title', s_sub: 'Subtitle', s_text: 'Text', s_cta: 'Button text', s_details: 'Details', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate', h1: 'Section heading' };
+    r_skills: 'Skills', s_kicker: 'Small line', s_title: 'Big title', s_sub: 'Subtitle', s_text: 'Text', s_cta: 'Button text', s_details: 'Details', s_contact: 'Contact details', s_mark: 'Logo', s_qr: 'QR code', s_photo: 'Photo', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate', h1: 'Section heading' };
   var RV_KEYS = { text: 'Text', title: 'Title', sub: 'Subtitle', by: 'Said by', cap: 'Caption', q: 'Picture search words', name: 'Name', role: 'Role', lines: 'Lines', items: 'Items', v: 'Number', l: 'Label', d: 'When',
     org: 'Organisation', date: 'Dates', contacts: 'Contacts', close: 'Closing', rows: 'Rows', head: 'Columns', task: 'Task', due: 'Due', pr: 'Priority', q2: 'Qty', r: 'Rate', days: 'Days', n: 'Dish', p: 'Price',
     event: 'Event', place: 'Place', price: 'Price', pre: 'Line above the name', reason: 'Reason', sections: 'Menu sections', unit: 'Unit' };
@@ -3401,7 +3401,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       var top = r.top - cr.top + canvas.scrollTop - 42, left = r.left - cr.left + canvas.scrollLeft;
       tb.style.top = Math.max(canvas.scrollTop + 4, top) + 'px'; tb.style.left = Math.max(4, left) + 'px';
     }
-    var TYPE_LABEL = { chart: 'Chart', h1: 'Heading', h2: 'Subheading', h3: 'Small heading', p: 'Paragraph', ul: 'Bullets', ol: 'Numbered', check: 'Checklist', quote: 'Quote', callout: 'Callout', stats: 'Stats', table: 'Table', timeline: 'Timeline', cols: 'Columns', kv: 'Details', image: 'Picture', pb: 'Page break', toc: 'Contents', lh: 'Letterhead', title: 'Title', addr: 'Address', sign: 'Sign-off', inv: 'Invoice items', todo: 'To-do table', week: 'Week', cal: 'Calendar', sigs: 'Signatures', r_head: 'Name', r_sec: 'Section', r_entry: 'Entry', r_skills: 'Skills', s_kicker: 'Small line', s_title: 'Big title', s_sub: 'Subtitle', s_text: 'Text', s_cta: 'Button', s_details: 'Details', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate' };
+    var TYPE_LABEL = { chart: 'Chart', h1: 'Heading', h2: 'Subheading', h3: 'Small heading', p: 'Paragraph', ul: 'Bullets', ol: 'Numbered', check: 'Checklist', quote: 'Quote', callout: 'Callout', stats: 'Stats', table: 'Table', timeline: 'Timeline', cols: 'Columns', kv: 'Details', image: 'Picture', pb: 'Page break', toc: 'Contents', lh: 'Letterhead', title: 'Title', addr: 'Address', sign: 'Sign-off', inv: 'Invoice items', todo: 'To-do table', week: 'Week', cal: 'Calendar', sigs: 'Signatures', r_head: 'Name', r_sec: 'Section', r_entry: 'Entry', r_skills: 'Skills', s_kicker: 'Small line', s_title: 'Big title', s_sub: 'Subtitle', s_text: 'Text', s_cta: 'Button', s_details: 'Details', s_contact: 'Contact details', s_mark: 'Logo', s_qr: 'QR code', s_photo: 'Photo', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate' };
     var RICH = { p: 1, ul: 1, ol: 1, check: 1, quote: 1, callout: 1, cols: 1, timeline: 1, table: 1, r_entry: 1, s_text: 1, h1: 1, h2: 1, h3: 1, kv: 1, addr: 0 };
     var CONVERT = ['h1', 'h2', 'h3', 'p', 'ul', 'ol', 'check', 'quote', 'callout'];
     function blockText(b) {
@@ -3506,7 +3506,10 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     docBox.addEventListener('click', function (e) {
       var act = e.target.closest('[data-act="cover-pic"]');
       if (act) { pickPicture(function (p) { snapshot(); doc.cover = doc.cover || {}; doc.cover.src = p.data || p.src; doc.cover.pid = p.pid || 0; doc.cover.url = p.url || ''; changed(); render(true); }); return; }
+      var icn = e.target.closest('.dsd-s-ct .ic[data-ic]');
+      if (icn) { var cb = doc.blocks[blockOf(icn.closest('.dsd-blk').dataset.id)], ri = +icn.dataset.ic; if (cb && cb.rows && cb.rows[ri]) { var ord = D.ICON_ORDER || ['phone', 'mail', 'web', 'pin']; snapshot(); cb.rows[ri].i = ord[(ord.indexOf(cb.rows[ri].i) + 1) % ord.length]; changed(); render(true); } return; }
       var b = e.target.closest('.dsd-blk');
+      if (b && b.dataset.t === 's_photo' && e.target.closest('.dsd-s-ph')) { pickPicture(function (p) { var bb = doc.blocks[blockOf(b.dataset.id)]; snapshot(); bb.src = p.data || p.src; bb.pid = p.pid || 0; bb.url = p.url || ''; changed(); render(true); }); return; }
       if (b) { if (b.dataset.t === 'image' && e.target.closest('.ph')) pickPicture(function (p) { var bb = doc.blocks[blockOf(b.dataset.id)]; snapshot(); bb.src = p.data || p.src; bb.pid = p.pid || 0; bb.url = p.url || ''; changed(); render(true); }); }
     });
     docBox.addEventListener('keydown', function (e) {
@@ -3603,6 +3606,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         if (b.t === 'table') h += '<button data-o="addrow">+ Row</button><button data-o="delrow">− Row</button><button data-o="addcol">+ Column</button><button data-o="delcol">− Column</button>';
         if (b.t === 'stats' || b.t === 'timeline' || b.t === 'cols' || b.t === 'sigs') h += '<button data-o="additem">+ Item</button><button data-o="delitem">− Item</button>';
         if (b.t === 'kv' || b.t === 's_details') h += '<button data-o="addkv">+ Row</button><button data-o="delkv">− Row</button>';
+        if (b.t === 's_contact') h += '<button data-o="addct">+ Row</button><button data-o="delct">− Row</button>';
         if (b.t === 'inv') h += '<button data-o="addinv">+ Line</button><button data-o="delinv">− Line</button>';
         if (b.t === 'todo') h += '<button data-o="addtodo">+ Task</button><button data-o="deltodo">− Task</button>';
         if (b.t === 'image') h += '<button data-o="pic">🖼 Change picture</button><button data-o="w100">Full width</button><button data-o="w60">Medium</button><button data-o="w40">Small</button>';
@@ -3623,6 +3627,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           if (o === 'additem') b.items.push(D.clone(b.items[b.items.length - 1] || {}));
           if (o === 'delitem' && b.items.length > 1) b.items.pop();
           if (o === 'addkv') b.rows.push(['Label', '']);
+          if (o === 'addct') b.rows.push({ i: 'link', t: '' });
+          if (o === 'delct' && b.rows.length > 1) b.rows.pop();
           if (o === 'delkv' && b.rows.length > 1) b.rows.pop();
           if (o === 'addinv') b.rows.push({ d: 'Item', q: 1, r: 0 });
           if (o === 'delinv' && b.rows.length > 1) b.rows.pop();

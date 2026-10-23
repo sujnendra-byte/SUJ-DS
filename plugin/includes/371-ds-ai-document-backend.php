@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-23 07:37:05
+ * Modified   : 2026-10-23 13:00:00
  * Load order : 371 of 374
  */
 /**
@@ -35,7 +35,7 @@ final class DS_AI_Doc {
 	const OPT     = 'ds_doc_settings';
 	const CPT     = 'ds_ai_doc';
 	const JOB_TTL = 7200;
-	const BLOCKS  = 'h1,h2,h3,p,ul,ol,check,quote,callout,stats,table,timeline,cols,kv,image,chart,pb,toc,lh,title,addr,sign,inv,todo,week,cal,sigs,r_head,r_sec,r_entry,r_skills,s_kicker,s_title,s_sub,s_text,s_cta,s_details,s_menu,s_tickets,s_cert';
+	const BLOCKS  = 'h1,h2,h3,p,ul,ol,check,quote,callout,stats,table,timeline,cols,kv,image,chart,pb,toc,lh,title,addr,sign,inv,todo,week,cal,sigs,r_head,r_sec,r_entry,r_skills,s_kicker,s_title,s_sub,s_text,s_cta,s_details,s_contact,s_mark,s_qr,s_photo,s_menu,s_tickets,s_cert';
 
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_cpt' ) );
@@ -622,7 +622,7 @@ final class DS_AI_Doc {
 					$c['bx'] = array( self::fnum( $bx[0], -5000, 5000, 0 ), self::fnum( $bx[1], -5000, 5000, 0 ), self::fnum( $bx[2], 0.01, 10000, 1 ), self::fnum( $bx[3], 0.01, 10000, 1 ) );
 				}
 			}
-			foreach ( array( 'hide', 'lock', 'behind', 'it', 'ul', 'st', 'caps', 'art' ) as $b ) {
+			foreach ( array( 'hide', 'lock', 'behind', 'it', 'ul', 'st', 'caps', 'art', 'clip' ) as $b ) {
 				if ( ! empty( $L[ $b ] ) ) {
 					$c[ $b ] = 1;
 				}
@@ -791,7 +791,7 @@ final class DS_AI_Doc {
 		$clean['blocks'] = self::clean_blocks( isset( $doc['blocks'] ) ? $doc['blocks'] : array() );
 		// pictures: keep links and marketplace ids, never large embedded data
 		foreach ( $clean['blocks'] as &$b ) {
-			if ( 'image' === $b['t'] && isset( $doc['blocks'] ) ) {
+			if ( ( 'image' === $b['t'] || 's_photo' === $b['t'] ) && isset( $doc['blocks'] ) ) {
 				foreach ( $doc['blocks'] as $ob ) {
 					if ( is_array( $ob ) && isset( $ob['id'], $b['id'] ) && $ob['id'] === $b['id'] && ! empty( $ob['src'] ) && is_string( $ob['src'] ) ) {
 						if ( preg_match( '#^https://#', $ob['src'] ) ) {
