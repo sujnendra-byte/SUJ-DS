@@ -10,20 +10,34 @@ Deactivate V41 before activating V42 (never both).
 NEW IN 42.0.2
  - includes/022 (fixed): a payment can only be counted once, and the credits or
    plan it gives come from Razorpay's record of the order, not from the browser.
- - includes/093 (fixed): two leftover debug addresses could be used by anyone to change\nthe database; they now need an admin login.
- - includes/001 (fixed): two requests at the same moment can no longer both spend the\nsame credits.
- - includes/072 080 082 085 092 104 123 139 143 259 (fixed): AI images, video, audio, voice clone, extend audio and\n   template / design downloads no longer hand over the result when the credits could\n   not be taken (several requests started at once used to get it free).
- - includes/092 (fixed): a failed AI image now refunds exactly what was charged for it\n   (it used to trust the browser for the amount, and refunded free images too).
- - includes/115 (fixed): the 24-hour refund is refused when any of the plan's credits\n   were used (credits spent on AI Document, charts, diagrams and doc import were missed).
- - includes/048 (fixed): the public copyright-claim form only saves real JPG, PNG and\n   PDF files (a script or web page could be uploaded under a fake type).
+ - includes/093 (fixed): two leftover debug addresses could be used by anyone to change
+   the database; they now need an admin login.
+ - includes/001 (fixed): two requests at the same moment can no longer both spend the
+   same credits.
+ - includes/072 080 082 085 092 104 123 139 143 259 (fixed): AI images, video, audio, voice clone, extend audio and
+   template / design downloads no longer hand over the result when the credits could
+   not be taken (several requests started at once used to get it free).
+ - includes/092 (fixed): a failed AI image now refunds exactly what was charged for it
+   (it used to trust the browser for the amount, and refunded free images too).
+ - includes/115 (fixed): the 24-hour refund is refused when any of the plan's credits
+   were used (credits spent on AI Document, charts, diagrams and doc import were missed).
+ - includes/048 (fixed): the public copyright-claim form only saves real JPG, PNG and
+   PDF files (a script or web page could be uploaded under a fake type).
  - includes/090 (fixed): the one-time repair address fix-submitted is admin-only.
  - includes/085 (fixed): the set-up check address tpl-debug is admin-only.
- - includes/041 (fixed): the sign-up email-code addresses only work for new accounts\n   waiting for their code (they could be used to guess a code for any account,\n   including the admin, and sign in as it).
- - includes/023 (fixed): AJAX requests from customers and visitors work again (they were\n   redirected to the home page, so e.g. review feedback was never saved).
- - includes/022 (fixed): only staff can see and change the credits / plan box on a user\n   profile (customers could have edited their own if they reached wp-admin).
- - includes/033 (fixed): a shared presentation link can no longer carry hidden script\n   in a slide picture.
- - includes/076 (fixed): "Add slide with AI" always makes exactly one slide (a whole deck\n   could be made for the one-slide price).
- - includes/371 (fixed): an AI Document is refunded only once and only for pages that\n   were not delivered (it could be refunded several times).
+ - includes/041 (fixed): the sign-up email-code addresses only work for new accounts
+   waiting for their code (they could be used to guess a code for any account,
+   including the admin, and sign in as it).
+ - includes/023 (fixed): AJAX requests from customers and visitors work again (they were
+   redirected to the home page, so e.g. review feedback was never saved).
+ - includes/022 (fixed): only staff can see and change the credits / plan box on a user
+   profile (customers could have edited their own if they reached wp-admin).
+ - includes/033 (fixed): a shared presentation link can no longer carry hidden script
+   in a slide picture.
+ - includes/076 (fixed): "Add slide with AI" always makes exactly one slide (a whole deck
+   could be made for the one-slide price).
+ - includes/371 (fixed): an AI Document is refunded only once and only for pages that
+   were not delivered (it could be refunded several times).
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to

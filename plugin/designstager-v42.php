@@ -12,20 +12,46 @@
  * 42.0.2 - 2026-10-23 Security and bug review (credits, payments, downloads, uploads, sign-in, REST, AJAX).
  *   022  Payments - FIXED: the payment check took the number of top-up credits and the plan from the browser, and the
  *        same payment could be sent again for more credits. Now read from Razorpay's order and counted once.
- *   093  AI Images - FIXED: two leftover debug addresses (/ds/v1/dbg-force-active, /dbg-check-active) could be\nopened by anyone and switched a database row on. Now site admins only.
- *   001  Credits - FIXED: two requests at the same moment could both spend the same credits (the balance\nwas read and written without a lock). Taking / adding credits now happens one request at a time per user.
- *   072 080 082 085 092 104 123 139 143 259  AI image / video / audio / voice clone / extend audio, template and design downloads - FIXED:\ncredits were taken after the work without checking it worked, so several requests started together\ngot results for the price of one. When the credits cannot be taken the result is no longer given.
- *   092  AI Images - FIXED: a failed image refunded an amount worked out from what the browser sent (model,\nnumber of images), so it could refund more than was paid, refund free-plan images, or someone else's job.\nIt now refunds exactly what this user was charged for that job.
- *   115  Refunds - FIXED: the 24-hour refund only counted credits spent on images, video, audio and\npresentations, so credits spent on AI Document, charts, diagrams or doc import still allowed a full refund.\nIt now also refuses when the plan's credit balance is lower than the payment gave.
- *   048  Copyright claim form - FIXED: the public form saved attachments with the sender's own file\nextension and claimed type, so a .php script or .html page could be stored in uploads. Files are now\nchecked by their real content and saved only as .jpg, .png or .pdf.
- *   090  Mark submitted - FIXED: the one-time repair /ds/v1/fix-submitted (goes through every user) could be\nrun by any signed-in user, again and again. Now site admins only.
- *   085  Smart template matcher - FIXED: the set-up check /ds/v1/tpl-debug (shows server programs and\npaths, can re-run a program search) was open to every signed-in user. Now site admins only.
- *   041  Email code (sign-up) - FIXED: the public verify / resend addresses worked for ANY account, and a\ncorrect code signs that account in. Anyone could have codes sent to the admin and guess them (many\nguesses at once got past the 5-try limit). They now only work for new sign-ups still waiting for\ntheir code, and each guess is counted before it is checked.
- *   023  Login / sign-up fixes - FIXED: the "keep customers out of wp-admin" rule also caught admin-ajax.php,\nso every AJAX request from customers and visitors was redirected to the home page (the review popup's\nfeedback was never saved). AJAX is now let through (each handler checks its own permission). The rule\nalso no longer makes the server send a request to its own home page each time.
- *   022  User profile - FIXED: the AI Studio Account box (credits, plan, end date) was also on each user's own\nprofile and saved for anyone who may edit that profile - i.e. the user. Only the wp-admin block stopped\ncustomers giving themselves credits. Now it shows and saves for staff (edit_users) only.
- *   033  Shared presentation link - FIXED: a slide picture value was put into the page's HTML without any\nchecks, so a shared deck could carry hidden script that runs for whoever opens the link (including an\nadmin). The viewer now only accepts a real image (base64 data or a plain web address).
- *   076  AI Presentation - FIXED: "Add slide with AI" is charged as one slide, but the number of slides came\nfrom the request, so a full 20-slide deck could be made for the one-slide price. It now always makes one.
- *   371  AI Document - FIXED: "finish" could be sent while sections were still being written: it refunded\nthem, the sections still arrived and re-opened the job, so finish could refund again (more than was\npaid). Sections written side by side also overwrote each other's "done" mark, refunding delivered\npages. A document is now refunded once, and a section that ends after finish is not handed out.
+ *   093  AI Images - FIXED: two leftover debug addresses (/ds/v1/dbg-force-active, /dbg-check-active) could be
+ *        opened by anyone and switched a database row on. Now site admins only.
+ *   001  Credits - FIXED: two requests at the same moment could both spend the same credits (the balance
+ *        was read and written without a lock). Taking / adding credits now happens one request at a time per user.
+ *   072 080 082 085 092 104 123 139 143 259  AI image / video / audio / voice clone / extend audio, template and design downloads - FIXED:
+ *        credits were taken after the work without checking it worked, so several requests started together
+ *        got results for the price of one. When the credits cannot be taken the result is no longer given.
+ *   092  AI Images - FIXED: a failed image refunded an amount worked out from what the browser sent (model,
+ *        number of images), so it could refund more than was paid, refund free-plan images, or someone else's job.
+ *        It now refunds exactly what this user was charged for that job.
+ *   115  Refunds - FIXED: the 24-hour refund only counted credits spent on images, video, audio and
+ *        presentations, so credits spent on AI Document, charts, diagrams or doc import still allowed a full refund.
+ *        It now also refuses when the plan's credit balance is lower than the payment gave.
+ *   048  Copyright claim form - FIXED: the public form saved attachments with the sender's own file
+ *        extension and claimed type, so a .php script or .html page could be stored in uploads. Files are now
+ *        checked by their real content and saved only as .jpg, .png or .pdf.
+ *   090  Mark submitted - FIXED: the one-time repair /ds/v1/fix-submitted (goes through every user) could be
+ *        run by any signed-in user, again and again. Now site admins only.
+ *   085  Smart template matcher - FIXED: the set-up check /ds/v1/tpl-debug (shows server programs and
+ *        paths, can re-run a program search) was open to every signed-in user. Now site admins only.
+ *   041  Email code (sign-up) - FIXED: the public verify / resend addresses worked for ANY account, and a
+ *        correct code signs that account in. Anyone could have codes sent to the admin and guess them (many
+ *        guesses at once got past the 5-try limit). They now only work for new sign-ups still waiting for
+ *        their code, and each guess is counted before it is checked.
+ *   023  Login / sign-up fixes - FIXED: the "keep customers out of wp-admin" rule also caught admin-ajax.php,
+ *        so every AJAX request from customers and visitors was redirected to the home page (the review popup's
+ *        feedback was never saved). AJAX is now let through (each handler checks its own permission). The rule
+ *        also no longer makes the server send a request to its own home page each time.
+ *   022  User profile - FIXED: the AI Studio Account box (credits, plan, end date) was also on each user's own
+ *        profile and saved for anyone who may edit that profile - i.e. the user. Only the wp-admin block stopped
+ *        customers giving themselves credits. Now it shows and saves for staff (edit_users) only.
+ *   033  Shared presentation link - FIXED: a slide picture value was put into the page's HTML without any
+ *        checks, so a shared deck could carry hidden script that runs for whoever opens the link (including an
+ *        admin). The viewer now only accepts a real image (base64 data or a plain web address).
+ *   076  AI Presentation - FIXED: "Add slide with AI" is charged as one slide, but the number of slides came
+ *        from the request, so a full 20-slide deck could be made for the one-slide price. It now always makes one.
+ *   371  AI Document - FIXED: "finish" could be sent while sections were still being written: it refunded
+ *        them, the sections still arrived and re-opened the job, so finish could refund again (more than was
+ *        paid). Sections written side by side also overwrote each other's "done" mark, refunding delivered
+ *        pages. A document is now refunded once, and a section that ends after finish is not handed out.
  * 42.0.1 - 2026-10-23 Bug fixes found by loading every page, admin screen and REST route on a test site. 4 includes updated.
  *   058  Creator portal - FIXED: visitors who are not signed in got a fatal error (it called users_can_register(),
  *        which is not a WordPress function); they now see the sign-in screen with Sign up when registration is open.
