@@ -113,7 +113,22 @@ function ds_copyright_handle_claim( WP_REST_Request $req ) {
             $max_mb = apply_filters('ds_cr_max_file_size', 5);
             if ( ! $binary || strlen($binary) > $max_mb * 1024 * 1024 ) continue;
 
-            $ext   = pathinfo($filename, PATHINFO_EXTENSION) ?: 'bin';
+            // The type and name above come from the sender. Check the real bytes and
+            // take the extension from them, so a script or web page can't be saved
+            // as .php / .html under a claimed "image/png".
+            $real = '';
+            if ( function_exists('finfo_open') ) {
+                $fi_h = finfo_open(FILEINFO_MIME_TYPE);
+                $real = $fi_h ? (string) finfo_buffer($fi_h, $binary) : '';
+                if ( $fi_h ) finfo_close($fi_h);
+            } elseif ( strncmp($binary, '%PDF-', 5) === 0 ) {
+                $real = 'application/pdf';
+            } elseif ( ( $gi = @getimagesizefromstring($binary) ) && ! empty($gi['mime']) ) {
+                $real = $gi['mime'];
+            }
+            $ext_map = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'application/pdf' => 'pdf');
+            if ( ! isset($ext_map[$real]) ) continue;
+            $ext   = $ext_map[$real];
             $fname = 'claim-' . time() . '-' . wp_generate_password(6, false, false) . '.' . $ext;
             $fpath = trailingslashit($claim_dir) . $fname;
 
