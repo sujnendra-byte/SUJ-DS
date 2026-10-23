@@ -798,7 +798,19 @@ function ds_tpl_pfill_pic( $zip, $sn, &$pf_n, &$sid, $e, &$rels ) {
 	$rid = 'rId' . ( 960 + $pf_n );
 	$rels[] = '<Relationship Id="' . $rid . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/slidefill' . $sn . '_' . $pf_n . '.' . $ext . '"/>';
 	$zw = max(1, (float)$e['w']); $zh = max(1, (float)$e['h']);
-	if ( ! empty($pg['st']) || ! $iw || ! $ih ) {
+	$gb = ( isset($pg['gb']) && is_array($pg['gb']) && isset($pg['gb']['w'], $pg['gb']['h']) && (float)$pg['gb']['w'] > 0 && (float)$pg['gb']['h'] > 0 ) ? $pg['gb'] : null;
+	if ( $gb ) { /* one picture across several shapes: this shape gets its own part of the picture */
+		$bx = isset($gb['x']) ? (float)$gb['x'] : 0; $by = isset($gb['y']) ? (float)$gb['y'] : 0; $bw = (float)$gb['w']; $bh = (float)$gb['h'];
+		$dw = $bw; $dh = $bh; $ix = $bx; $iy = $by;
+		if ( empty($pg['st']) && $iw && $ih ) {
+			$z  = isset($pg['z'])  && is_numeric($pg['z'])  ? max(1, min(4, (float)$pg['z'])) : 1;
+			$px = isset($pg['px']) && is_numeric($pg['px']) ? max(0, min(100, (float)$pg['px'])) : 50;
+			$py = isset($pg['py']) && is_numeric($pg['py']) ? max(0, min(100, (float)$pg['py'])) : 50;
+			$k = max($bw / $iw, $bh / $ih) * $z; $dw = $iw * $k; $dh = $ih * $k; $ix = $bx + ($bw - $dw) * $px / 100; $iy = $by + ($bh - $dh) * $py / 100;
+		}
+		$f = function($v){ return (int) round($v * 100000); };
+		$crop = '<a:srcRect l="' . $f(-$ix / $dw) . '" t="' . $f(-$iy / $dh) . '" r="' . $f(($ix + $dw - $zw) / $dw) . '" b="' . $f(($iy + $dh - $zh) / $dh) . '"/><a:stretch><a:fillRect/></a:stretch>';
+	} elseif ( ! empty($pg['st']) || ! $iw || ! $ih ) {
 		$crop = '<a:stretch><a:fillRect/></a:stretch>';
 	} else {
 		$z  = isset($pg['z'])  && is_numeric($pg['z'])  ? max(1, min(4, (float)$pg['z'])) : 1;
@@ -2468,8 +2480,9 @@ DSTE.toHTML = function(page, idx, opts){
   else if (e.fill) sfill = hx(e.fill);
   var spd = pathD(e.pd), sbody = '<path d="' + spd + '" fill="' + sfill + '"' + (sfill.charAt(0) === '#' && sop < 1 ? ' fill-opacity="' + sop + '"' : '') + '/>';
   if (e.pimg && e.pimg.src) {
-    var pq = e.pimg, iw0 = +pq.iw || 0, ih0 = +pq.ih || 0, ix = 0, iy = 0, iW = sw0, iH = sh0;
-    if (!pq.st && iw0 > 0 && ih0 > 0) { var ksc = Math.max(sw0 / iw0, sh0 / ih0) * Math.max(1, +pq.z || 1); iW = iw0 * ksc; iH = ih0 * ksc; ix = (sw0 - iW) * (pq.px != null ? +pq.px : 50) / 100; iy = (sh0 - iH) * (pq.py != null ? +pq.py : 50) / 100; }
+    var pq = e.pimg, iw0 = +pq.iw || 0, ih0 = +pq.ih || 0, gbq = pq.gb && +pq.gb.w > 0 && +pq.gb.h > 0 ? pq.gb : null; /* gb: one picture across several shapes, its box from this shape's corner */
+    var bX = gbq ? +gbq.x || 0 : 0, bY = gbq ? +gbq.y || 0 : 0, bW = gbq ? +gbq.w : sw0, bH = gbq ? +gbq.h : sh0, ix = bX, iy = bY, iW = bW, iH = bH;
+    if (!pq.st && iw0 > 0 && ih0 > 0) { var ksc = Math.max(bW / iw0, bH / ih0) * Math.max(1, +pq.z || 1); iW = iw0 * ksc; iH = ih0 * ksc; ix = bX + (bW - iW) * (pq.px != null ? +pq.px : 50) / 100; iy = bY + (bH - iH) * (pq.py != null ? +pq.py : 50) / 100; }
     sdf += '<clipPath id="' + sid + 'c"><path d="' + spd + '"/></clipPath>';
     sbody += '<image href="' + String(pq.src).replace(/["<>\s]/g, '') + '" x="' + ix + '" y="' + iy + '" width="' + iW + '" height="' + iH + '" preserveAspectRatio="none" clip-path="url(#' + sid + 'c)" opacity="' + (pq.op != null ? Math.max(0, Math.min(1, +pq.op)) : 1) + '"/>';
   }
@@ -2491,7 +2504,7 @@ if (e.t==='rect' || e.t==='ell' || e.t==='shape') {
       if (e.rot) s += 'transform:rotate('+e.rot+'deg);';
       if (e.shadow) s += 'box-shadow:0 '+cq(8)+' '+cq(24)+' rgba(0,0,0,'+(typeof e.shadow==='number'?e.shadow:0.18)+');';
       var pin = ''; /* DS Template Element Editor: Fill > Picture */
-if (e.pimg && e.pimg.src) { var pg0 = e.pimg, bs = '100% 100%'; if (!pg0.st) { var piw = +pg0.iw || 0, pih = +pg0.ih || 0; if (piw > 0 && pih > 0 && e.w > 0 && e.h > 0) { var psc = Math.max(e.w / piw, e.h / pih) * Math.max(1, +pg0.z || 1); bs = (piw * psc / e.w * 100).toFixed(3) + '% ' + (pih * psc / e.h * 100).toFixed(3) + '%'; } else bs = 'cover'; } s += 'overflow:hidden;'; pin = '<div style="position:absolute;inset:0;background-image:url(\'' + String(pg0.src).replace(/[\'"()\\<>\s]/g, '') + '\');background-repeat:no-repeat;background-size:' + bs + ';background-position:' + (pg0.px != null ? +pg0.px : 50) + '% ' + (pg0.py != null ? +pg0.py : 50) + '%;opacity:' + (pg0.op != null ? Math.max(0, Math.min(1, +pg0.op)) : 1) + ';pointer-events:none;"></div>'; }
+if (e.pimg && e.pimg.src) { var pg0 = e.pimg, bs = '100% 100%', bpos = (pg0.px != null ? +pg0.px : 50) + '% ' + (pg0.py != null ? +pg0.py : 50) + '%', gb0 = pg0.gb && +pg0.gb.w > 0 && +pg0.gb.h > 0 && e.w > 0 && e.h > 0 ? pg0.gb : null; if (gb0) { /* one picture across several shapes: this shape shows its own part of it */ var gW = +gb0.w, gH = +gb0.h, gX = +gb0.x || 0, gY = +gb0.y || 0, dW = gW, dH = gH, dX = gX, dY = gY, giw = +pg0.iw || 0, gih = +pg0.ih || 0; if (!pg0.st && giw > 0 && gih > 0) { var gk = Math.max(gW / giw, gH / gih) * Math.max(1, +pg0.z || 1); dW = giw * gk; dH = gih * gk; dX = gX + (gW - dW) * (pg0.px != null ? +pg0.px : 50) / 100; dY = gY + (gH - dH) * (pg0.py != null ? +pg0.py : 50) / 100; } bs = (dW / e.w * 100).toFixed(3) + '% ' + (dH / e.h * 100).toFixed(3) + '%'; bpos = (Math.abs(e.w - dW) > 0.01 ? dX / (e.w - dW) * 100 : 0).toFixed(3) + '% ' + (Math.abs(e.h - dH) > 0.01 ? dY / (e.h - dH) * 100 : 0).toFixed(3) + '%'; } else if (!pg0.st) { var piw = +pg0.iw || 0, pih = +pg0.ih || 0; if (piw > 0 && pih > 0 && e.w > 0 && e.h > 0) { var psc = Math.max(e.w / piw, e.h / pih) * Math.max(1, +pg0.z || 1); bs = (piw * psc / e.w * 100).toFixed(3) + '% ' + (pih * psc / e.h * 100).toFixed(3) + '%'; } else bs = 'cover'; } s += 'overflow:hidden;'; pin = '<div style="position:absolute;inset:0;background-image:url(\'' + String(pg0.src).replace(/[\'"()\\<>\s]/g, '') + '\');background-repeat:no-repeat;background-size:' + bs + ';background-position:' + bpos + ';opacity:' + (pg0.op != null ? Math.max(0, Math.min(1, +pg0.op)) : 1) + ';pointer-events:none;"></div>'; }
 h += '<div style="'+s+'pointer-events:none;">'+pin+'</div>';
     } else if (e.t==='line') {
       h += svgWrap('<line x1="'+e.x1+'" y1="'+e.y1+'" x2="'+e.x2+'" y2="'+e.y2+'" stroke="'+hx(e.color)+'" stroke-opacity="'+(e.op!=null?e.op:1)+'" stroke-width="'+(e.lw||1)+'"'+(e.dash?' stroke-dasharray="6 5"':'')+'/>');

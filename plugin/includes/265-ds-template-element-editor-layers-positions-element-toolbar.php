@@ -273,7 +273,7 @@ X.style = function(e, o, T){
   }
   if (e.t === 'rect' || e.t === 'ell' || e.t === 'shape') {
     /* picture fill: a picture (PNG / JPEG) inside the box, circle or shape */
-    if (o.pimg !== undefined) { if (!o.pimg || o.pimg.off) delete e.pimg; else if (typeof o.pimg.src === 'string' && /^data:image\/(png|jpeg);base64,/.test(o.pimg.src)) { var pi = o.pimg, nn = function(q, d, a, b){ var r0 = num(q, a, b); return r0 == null ? d : r0; }; e.pimg = {src: pi.src, iw: nn(pi.iw, 0, 0, 20000), ih: nn(pi.ih, 0, 0, 20000), op: nn(pi.op, 1, 0, 1), z: nn(pi.z, 1, 1, 4), px: nn(pi.px, 50, 0, 100), py: nn(pi.py, 50, 0, 100), st: pi.st ? 1 : 0}; } }
+    if (o.pimg !== undefined) { if (!o.pimg || o.pimg.off) delete e.pimg; else if (typeof o.pimg.src === 'string' && /^data:image\/(png|jpeg);base64,/.test(o.pimg.src)) { var pi = o.pimg, nn = function(q, d, a, b){ var r0 = num(q, a, b); return r0 == null ? d : r0; }; e.pimg = {src: pi.src, iw: nn(pi.iw, 0, 0, 20000), ih: nn(pi.ih, 0, 0, 20000), op: nn(pi.op, 1, 0, 1), z: nn(pi.z, 1, 1, 4), px: nn(pi.px, 50, 0, 100), py: nn(pi.py, 50, 0, 100), st: pi.st ? 1 : 0}; if (pi.gb && num(pi.gb.w, 1, 50000) != null && num(pi.gb.h, 1, 50000) != null) e.pimg.gb = {x: nn(pi.gb.x, 0, -50000, 50000), y: nn(pi.gb.y, 0, -50000, 50000), w: num(pi.gb.w, 1, 50000), h: num(pi.gb.h, 1, 50000)}; } }
     if (o.fill !== undefined) { if (o.fill === '') { delete e.fill; delete e.grad; } else if (hex(o.fill)) { e.fill = hex(o.fill); delete e.grad; } }
     if (o.grad && (v = cleanGrad(o.grad))) { e.grad = v; }
     if (o.lgrad && (v = cleanGrad(o.lgrad))) { e.lgrad = v; if (!e.line) e.line = v.stops[0][1]; if (!e.lw) e.lw = 2; }
@@ -863,15 +863,32 @@ function openFillPick(k){
   var i = curIdx(); if (!k || !elByKey(k)) return;
   if (typeof window.vpImgOptionOpen !== 'function') { toast('The picture window is not available here.', 'error'); return; }
   var snaps = decks().map(function(d){ var s = d.slides[i] || {}, o = {}; PICKF.forEach(function(f){ o[f] = (s[f] && typeof s[f] === 'object') ? JSON.parse(JSON.stringify(s[f])) : s[f]; }); return o; });
-  pick = {fk: k, i: i, snaps: snaps, t: Date.now(), base: (deck().slides[i] || {}).image_data || ''};
+  pick = {fk: k, i: i, snaps: snaps, t: Date.now(), base: (deck().slides[i] || {}).image_data || '', keys: pfKeys().length > 1 ? pfKeys() : null, one: pfOne};
   window.vpImgOptionOpen(i);
+}
+/* Fill > Picture with several boxes selected: one picture across all of them. Each box keeps pimg.gb = the picture's box
+   measured from its own top left corner, so the picture moves with the boxes */
+var pfOne = true;
+function pfKeys(){ return (sset.length > 1 ? sset : (sel ? [sel] : [])).filter(function(k){ var x = elByKey(k); return x && fam(x) === 'box' && !isLocked(k); }); }
+function pfGroup(keys){ var fr = keys.map(function(k){ return boxOf(elByKey(k)); }); return fr.length > 1 ? bboxOf(fr) : null; }
+function pfRel(G, x){ var f = boxOf(x); return {x: r1(G.x - f.x), y: r1(G.y - f.y), w: r1(G.w), h: r1(G.h)}; }
+function pfEach(fn, quiet, tag){
+  var ks = pfKeys();
+  commit(function(L){ ks.forEach(function(k){ var x = elByKey(k); if (!x || !x.pimg) return; var np = JSON.parse(JSON.stringify(x.pimg)); fn(np, x); var o = L.m[k] || (L.m[k] = {}); o.pimg = np; }); }, quiet, tag);
+  if (quiet) { rerender(); sync(); var l = bar && bar.querySelector('.dsel-left'), e2 = elByKey(sel); if (l && e2) l.innerHTML = leftHTML(e2); }
+}
+function pfSetOne(on){
+  pfOne = !!on; var ks = pfKeys(), G = on ? pfGroup(ks) : null;
+  pfEach(function(np, x){ if (G) np.gb = pfRel(G, x); else delete np.gb; });
 }
 function picFillHTML(e){
   var p = e.pimg || {}, has = !!p.src;
   var h = '<div class="dsel-sub">Picture source</div>';
   if (has) h += '<div style="height:96px;border-radius:8px;border:1px solid #CBD5E1;background:#F1F5F9 url(\'' + String(p.src).replace(/['"()\\<>\s]/g, '') + '\') center/cover no-repeat;margin-bottom:8px"></div>';
   h += '<div class="dsel-grid2"><button type="button" class="dsel-pbt" data-p="pfins">' + (has ? 'Change picture...' : 'Insert...') + '</button>' + (has ? '<button type="button" class="dsel-pbt dsel-danger" data-p="pfdel">Remove picture</button>' : '') + '</div>';
-  if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.</p>';
+  var many = pfKeys().length > 1;
+  if (many) h += '<div class="dsel-sub">Several shapes</div><div class="dsel-seg"><button type="button" data-p="pfone" data-n="1" class="' + ((has ? !!p.gb : pfOne) ? 'dsel-on' : '') + '">One picture across all</button><button type="button" data-p="pfone" data-n="0" class="' + ((has ? !p.gb : !pfOne) ? 'dsel-on' : '') + '">Each its own</button></div>';
+  if (!has) return h + '<p class="dsel-note">Insert opens the picture window: generate with AI, browse the store or upload from your device.' + (many ? ' With several shapes selected, one picture shows through all of them.' : '') + '</p>';
   h += slider('Transparency', 'pftr', 0, 100, 1, Math.round((1 - (p.op != null ? p.op : 1)) * 100), '%');
   h += '<div class="dsel-sub">Fit</div><div class="dsel-seg"><button type="button" data-p="pffit" data-n="fill" class="' + (p.st ? '' : 'dsel-on') + '">Fill shape</button><button type="button" data-p="pffit" data-n="stretch" class="' + (p.st ? 'dsel-on' : '') + '">Stretch</button></div>';
   if (!p.st) h += slider('Zoom', 'pfz', 100, 400, 5, Math.round((p.z || 1) * 100), '%') + slider('Left \u2194 right', 'pfx', 0, 100, 1, Math.round(p.px != null ? p.px : 50), '%') + slider('Top \u2195 bottom', 'pfy', 0, 100, 1, Math.round(p.py != null ? p.py : 50), '%');
@@ -891,6 +908,14 @@ function checkPick(){
       im.onload = function(){
         if (!/^data:image\/(png|jpeg);base64,/.test(src)) { try { var cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight; cv.getContext('2d').drawImage(im, 0, 0); src = cv.toDataURL('image/jpeg', 0.9); } catch (x) { src = ''; } }
         if (!src || curIdx() !== p.i || !elByKey(fk)) { rerender(); if (!src) toast('This picture could not be used.', 'error'); return; }
+        var mk = p.keys && p.keys.filter(function(k){ return elByKey(k); });
+        if (mk && mk.length > 1) {
+          var G = p.one !== false ? pfGroup(mk) : null;
+          commit(function(L){ mk.forEach(function(k){ var o = L.m[k] || (L.m[k] = {}), np = {src: src, iw: im.naturalWidth, ih: im.naturalHeight, op: 1, z: 1, px: 50, py: 50, st: 0}; if (G) np.gb = pfRel(G, elByKey(k)); o.pimg = np; o.fill = ''; delete o.grad; }); });
+          pmode = 'fill'; paint(); try { if (typeof window.dspRenderThumbs === 'function') window.dspRenderThumbs(); } catch (x3) {}
+          toast(G ? 'One picture across ' + mk.length + ' shapes.' : 'Picture fill added.');
+          return;
+        }
         if (sel !== fk) select(fk);
         setO(fk, {pimg: {src: src, iw: im.naturalWidth, ih: im.naturalHeight, op: 1, z: 1, px: 50, py: 50, st: 0}, fill: '', grad: null});
         pmode = 'fill'; paint(); try { if (typeof window.dspRenderThumbs === 'function') window.dspRenderThumbs(); } catch (x2) {}
@@ -1426,7 +1451,7 @@ function pfGeo(e){
   var px = p.px != null ? +p.px : 50, py = p.py != null ? +p.py : 50;
   return {f: f, sw: sw, sh: sh, ox: sw - f.w, oy: sh - f.h, ix: (f.w - sw) * px / 100, iy: (f.h - sh) * py / 100};
 }
-function pfCropOn(){ var e = sel && sset.length === 1 ? elByKey(sel) : null; return pmode === 'pfcrop' && hasPicFill(e) && !e.pimg.st ? e : null; }
+function pfCropOn(){ var e = sel && sset.length === 1 ? elByKey(sel) : null; return pmode === 'pfcrop' && hasPicFill(e) && !e.pimg.st && !e.pimg.gb ? e : null; }
 function pfGhost(){
   if (!ov) return;
   var g = ov.querySelector('.dsel-pfg'), e = pfCropOn(), q = e && pfGeo(e);
@@ -2110,7 +2135,7 @@ function fsizeHTML(e){ var v = Math.round(e.size || 16); return '<span class="ds
 function stepper(key, val, title, min, max, stepv){ return '<span class="dsel-num" title="' + esc(title) + '"><button type="button" data-a="st-" data-k="' + key + '" data-s="' + stepv + '">&minus;</button><input type="number" data-i="' + key + '" min="' + min + '" max="' + max + '" step="' + stepv + '" value="' + val + '"><button type="button" data-a="st+" data-k="' + key + '" data-s="' + stepv + '">+</button></span>'; }
 function fillOf(e){ return e.grad ? (e.grad.stops && e.grad.stops[0] && e.grad.stops[0][1]) || '' : (e.fill || ''); }
 function opOf(e){ if (e.t === 'path') return e.fill ? (e.op != null ? e.op : 1) : (e.lop != null ? e.lop : 1); return e.op != null ? e.op : 1; }
-function leftHTML(e){ return leftHTML0(e) + (hasPicFill(e) && sset.length <= 1 ? btn('chgpic', IC.pic + ' Change image', 'Change the picture inside this shape') + (!e.pimg.st ? btn('pfcrop', IC.crop + ' Crop', 'Move and zoom the picture inside this shape', '', pmode === 'pfcrop') : '') : '') + ptsBtn(e); }
+function leftHTML(e){ return leftHTML0(e) + (hasPicFill(e) && sset.length <= 1 ? btn('chgpic', IC.pic + ' Change image', 'Change the picture inside this shape') + (!e.pimg.st && !e.pimg.gb ? btn('pfcrop', IC.crop + ' Crop', 'Move and zoom the picture inside this shape', '', pmode === 'pfcrop') : '') : '') + ptsBtn(e); }
 function leftHTML0(e){
   if (!e) return '<span class="dsel-hint">Click an element to edit it. Shift + click, or drag a box around elements, to select several. Ctrl + A selects all.</span>';
   var h = '<span class="dsel-kind">' + esc(kindName(e)) + '</span>';
@@ -3068,8 +3093,9 @@ function onPanelClick(ev){
   }
   if (a === 'pfins' && e) { openFillPick(sel); return; }
   if (a === 'pfdel' && e) { setO(sel, {pimg: null, fill: hex(palOf().accent) || '#3B82F6', grad: null}); return; }
-  if (a === 'pfreset' && e && e.pimg) { var nr = JSON.parse(JSON.stringify(e.pimg)); nr.z = 1; nr.px = 50; nr.py = 50; nr.st = 0; setO(sel, {pimg: nr}); setTimeout(pfGhost, 30); return; }
-if (a === 'pffit' && e && e.pimg) { var nf = JSON.parse(JSON.stringify(e.pimg)); nf.st = n === 'stretch' ? 1 : 0; setO(sel, {pimg: nf}); return; }
+  if (a === 'pfreset' && e && e.pimg) { pfEach(function(nr){ nr.z = 1; nr.px = 50; nr.py = 50; nr.st = 0; }); setTimeout(pfGhost, 30); return; }
+if (a === 'pffit' && e && e.pimg) { pfEach(function(nf){ nf.st = n === 'stretch' ? 1 : 0; }); return; }
+  if (a === 'pfone') { if (e && e.pimg) pfSetOne(n === '1'); else { pfOne = n === '1'; paint(); } return; }
   if (a === 'fmode' && e && n === 'pic') { if (!e.pimg) openFillPick(sel); return; }
   if (a === 'fmode' && e) {
     if (n === 'none') { if (pmode === 'fill') setO(sel, {fill: '', grad: null, pimg: null}); else if (pmode === 'line') setO(sel, {line: '', lgrad: null}); else if (pmode === 'tline') setO(sel, {tline: '', tlgrad: null}); return; }
@@ -3120,9 +3146,7 @@ function onPanelInput(ev){
     }
     if (/^pf(tr|z|x|y)$/.test(ps)) {
       if (!e.pimg) return;
-      var np = JSON.parse(JSON.stringify(e.pimg));
-      if (ps === 'pftr') np.op = Math.round(100 - v) / 100; else if (ps === 'pfz') np.z = v / 100; else if (ps === 'pfx') np.px = v; else np.py = v;
-      slT = setTimeout(function(){ quietSet({pimg: np}, sel + '|' + ps); }, 60);
+      slT = setTimeout(function(){ pfEach(function(np){ if (ps === 'pftr') np.op = Math.round(100 - v) / 100; else if (ps === 'pfz') np.z = v / 100; else if (ps === 'pfx') np.px = v; else np.py = v; }, true, sel + '|' + ps); }, 60);
       return;
     }
     if (ps.indexOf('sh.') === 0) {
