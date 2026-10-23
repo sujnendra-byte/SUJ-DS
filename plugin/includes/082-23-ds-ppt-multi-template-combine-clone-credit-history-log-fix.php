@@ -996,7 +996,11 @@ if ( strpos($raw, 'pending:') === 0 ) {
         $design_cost2 = ( is_array($__ppt_opt_combine2) && isset($__ppt_opt_combine2['template_cost']) && $__ppt_opt_combine2['template_cost'] !== '' ) ? (int) $__ppt_opt_combine2['template_cost'] : 5;
         $charge = $realCount * $design_cost2;
         if ( function_exists('ds_deduct_credits') ) {
-            ds_deduct_credits($uid, $charge);
+            // Refused when another request spent the credits in the meantime.
+            if ( ! ds_deduct_credits($uid, $charge) ) {
+                @unlink($dest_path);
+                return rest_ensure_response(array('success' => false, 'error' => "You need {$charge} credits to download this deck."));
+            }
         } else {
             $cur_bal = (int) get_user_meta($uid, 'ds_ai_credits', true);
             update_user_meta($uid, 'ds_ai_credits', max(0, $cur_bal - $charge));

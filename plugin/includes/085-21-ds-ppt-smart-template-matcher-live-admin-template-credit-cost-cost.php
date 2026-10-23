@@ -891,7 +891,7 @@ function ds_tpl_rest_inject( WP_REST_Request $req ) {
     // the user credits.
     $ds_tpl_charge = function() use ($uid, $tpl_cost, $tpl_bal, $template_id) {
     if ( function_exists('ds_deduct_credits') ) {
-        ds_deduct_credits($uid, $tpl_cost);
+        if ( ! ds_deduct_credits($uid, $tpl_cost) ) return false;
     } else {
         update_user_meta($uid, 'ds_ai_credits', max(0, $tpl_bal - $tpl_cost));
     }
@@ -906,6 +906,7 @@ function ds_tpl_rest_inject( WP_REST_Request $req ) {
         'source'     => 'pick-a-design',
     ]);
     update_user_meta($uid, 'ds_ppt_generations', array_slice($ppt_log, 0, 100));
+    return true;
     };
 
     // ────────────────────────────────────────────────────────────────────────
@@ -937,7 +938,10 @@ function ds_tpl_rest_inject( WP_REST_Request $req ) {
         ));
     }
 
-    $ds_tpl_charge();
+    if ( ! $ds_tpl_charge() ) {
+        @unlink($dest_path);
+        return rest_ensure_response(array('success' => false, 'error' => "You need {$tpl_cost} credits to download this template."));
+    }
 
     $dest_url = trailingslashit($upload_dir['baseurl']) . 'ds-ppt-templates/' . $fname;
 

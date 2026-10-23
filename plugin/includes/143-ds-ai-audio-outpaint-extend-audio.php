@@ -407,7 +407,9 @@ add_action(
 					}
 
 					/* ── Deduct only after the task was accepted ────────────── */
-					ds_deduct_credits( $uid, $cost );
+					if ( ! ds_deduct_credits( $uid, $cost ) ) {
+						return new WP_Error( 'ds_op_nocredits', 'You need ' . $cost . ' credits for this.', array( 'status' => 402 ) );
+					}
 
 					$label = 'Extended · ' . $total . 's added';
 					$now   = current_time( 'Y-m-d H:i:s' );

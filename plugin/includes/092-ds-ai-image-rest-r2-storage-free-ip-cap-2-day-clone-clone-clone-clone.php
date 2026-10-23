@@ -234,8 +234,9 @@ register_rest_route('ds/v1', '/generate-image', array(
 		}
 
 		// ── Deduct credits ONLY on success ────────────────────────────
-		if ($total_cost > 0) {
-			ds_deduct_credits($uid, $total_cost);
+		if ($total_cost > 0 && !ds_deduct_credits($uid, $total_cost)) {
+			// Another request spent the credits while this one was generating.
+			return rest_ensure_response(array('error' => true, 'message' => 'Not enough credits. Need ' . $total_cost . '.'));
 		}
 
 		// ── Increment free daily counter ONLY on success ──────────────

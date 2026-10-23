@@ -39,7 +39,9 @@ function ds31_confirm_download( WP_REST_Request $req ) {
         return rest_ensure_response(['error' => "You need {$cost} credits to download."]);
     }
     if ( function_exists('ds_deduct_credits') ) {
-        ds_deduct_credits($uid, $cost);
+        if ( ! ds_deduct_credits($uid, $cost) ) {
+            return rest_ensure_response(['error' => "You need {$cost} credits to download."]);
+        }
     } else {
         update_user_meta($uid, 'ds_ai_credits', $credits - $cost);
     }

@@ -12,6 +12,7 @@ NEW IN 42.0.2
    plan it gives come from Razorpay's record of the order, not from the browser.
  - includes/093 (fixed): two leftover debug addresses could be used by anyone to change\nthe database; they now need an admin login.
  - includes/001 (fixed): two requests at the same moment can no longer both spend the\nsame credits.
+ - includes/072 080 082 085 092 104 123 139 143 259 (fixed): AI images, video, audio, voice clone, extend audio and\n   template / design downloads no longer hand over the result when the credits could\n   not be taken (several requests started at once used to get it free).
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to

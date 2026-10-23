@@ -652,8 +652,8 @@ add_action(
 					}
 
 					// Charge only after the task was accepted upstream.
-					if ( function_exists( 'ds_deduct_credits' ) ) {
-						ds_deduct_credits( $uid, $cost );
+					if ( function_exists( 'ds_deduct_credits' ) && ! ds_deduct_credits( $uid, $cost ) ) {
+						return rest_ensure_response( array( 'error' => true, 'message' => 'Not enough credits. Need ' . $cost . '.' ) );
 					}
 
 					$label = 'Voice clone (' . $voice['name'] . ') — ' . mb_substr( sanitize_text_field( $text ), 0, 40 );

@@ -194,8 +194,12 @@ function ds_pdx_finish( $res ) {
     $charge = 0;
     if ( $real > 0 ) {                                        /* same charge and history entry as snippet 23 */
         $charge = $real * ds_pdx_design_cost();
-        if ( function_exists('ds_deduct_credits') ) ds_deduct_credits($uid, $charge);
-        else update_user_meta($uid, 'ds_ai_credits', max(0, (int) get_user_meta($uid, 'ds_ai_credits', true) - $charge));
+        if ( function_exists('ds_deduct_credits') ) {
+            if ( ! ds_deduct_credits($uid, $charge) ) {
+                if ( $dest && file_exists($dest) ) @unlink($dest);
+                return $res;
+            }
+        } else update_user_meta($uid, 'ds_ai_credits', max(0, (int) get_user_meta($uid, 'ds_ai_credits', true) - $charge));
         $log = get_user_meta($uid, 'ds_ppt_generations', true) ?: array();
         if ( ! is_array($log) ) $log = array();
         array_unshift($log, array('date' => current_time('mysql'), 'prompt' => $ctx['title'] . ' (Marketplace Designs Applied)', 'credits' => $charge, 'num_slides' => $real));

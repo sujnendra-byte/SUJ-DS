@@ -83,7 +83,10 @@ add_action('rest_api_init', function() {
             }
 
             // ── Deduct credits ONLY after WaveSpeed accepted the task ──────
-            ds_deduct_credits($uid, $cost);
+            // Refused when another request spent the credits in the meantime.
+            if (!ds_deduct_credits($uid, $cost)) {
+                return rest_ensure_response(array('error' => true, 'message' => 'Not enough credits. Need ' . $cost . '.'));
+            }
 
             // ── Save a PENDING placeholder so a mid-generation refresh
             //    can still find and resolve this job (same pattern as images).

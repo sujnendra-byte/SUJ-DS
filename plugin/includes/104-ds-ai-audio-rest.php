@@ -89,7 +89,9 @@ return rest_ensure_response(array('error' => true, 'message' => 'No task ID retu
 }
 
 // ── Deduct credits ONLY after WaveSpeed accepted the task ──────
-ds_deduct_credits($uid, $cost);
+if (!ds_deduct_credits($uid, $cost)) {
+return rest_ensure_response(array('error' => true, 'message' => 'Not enough credits. Need ' . $cost . '.'));
+}
 
 $gens = get_user_meta($uid, 'ds_ai_audio_generations', true) ?: array();
 $now = current_time('Y-m-d H:i:s');
@@ -167,7 +169,9 @@ if (empty($result['prediction_id'])) {
 return rest_ensure_response(array('error' => true, 'message' => 'No task ID returned.'));
 }
 
-ds_deduct_credits($uid, $cost);
+if (!ds_deduct_credits($uid, $cost)) {
+return rest_ensure_response(array('error' => true, 'message' => 'Not enough credits. Need ' . $cost . '.'));
+}
 
 $gens = get_user_meta($uid, 'ds_ai_audio_generations', true) ?: array();
 $now = current_time('Y-m-d H:i:s');

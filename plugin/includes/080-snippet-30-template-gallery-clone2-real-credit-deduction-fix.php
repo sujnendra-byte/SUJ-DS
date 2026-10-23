@@ -305,7 +305,10 @@ if ( class_exists('WP_Object_Cache') ) { $wp_object_cache = new WP_Object_Cache(
     // Deduct now that the fill has actually succeeded -- never charge for a
     // failed/errored attempt (every earlier error return above skips this).
     if ( function_exists('ds_deduct_credits') ) {
-        ds_deduct_credits($uid, $cost);
+        // Refused when another request spent the credits in the meantime.
+        if ( ! ds_deduct_credits($uid, $cost) ) {
+            return rest_ensure_response(['error' => "You need {$cost} credits for this."]);
+        }
     } else {
         update_user_meta($uid, 'ds_ai_credits', max(0, $credits - $cost));
     }
