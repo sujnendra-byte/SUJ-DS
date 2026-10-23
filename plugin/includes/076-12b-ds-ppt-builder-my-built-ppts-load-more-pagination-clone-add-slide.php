@@ -1751,6 +1751,8 @@ function ds_ppt_v3_generate( WP_REST_Request $req ) {
     $forced_type = sanitize_text_field( $req->get_param('slide_type') ?: '' );
     $forced_pts  = (int) ( $req->get_param('num_points') ?: 0 );
     $is_add_slide = ! empty( $req->get_param('append_slide') );
+    // Adding a slide is priced as one slide, so it also makes exactly one.
+    if ( $is_add_slide ) $num_slides = 1;
 // Cost is ALWAYS computed server-side — never trust client 'amount'.
 // Pricing lives in ds_ppt_credit_cost() (Snippet 1a): 1 credit per slide,
 // minimum 5 per generation. Change it there, not here.

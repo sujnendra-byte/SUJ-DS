@@ -22,6 +22,7 @@ NEW IN 42.0.2
  - includes/023 (fixed): AJAX requests from customers and visitors work again (they were\n   redirected to the home page, so e.g. review feedback was never saved).
  - includes/022 (fixed): only staff can see and change the credits / plan box on a user\n   profile (customers could have edited their own if they reached wp-admin).
  - includes/033 (fixed): a shared presentation link can no longer carry hidden script\n   in a slide picture.
+ - includes/076 (fixed): "Add slide with AI" always makes exactly one slide (a whole deck\n   could be made for the one-slide price).
 
 NEW IN 42.0.1
  - includes/058 (fixed): the creator portal no longer gives a fatal error to
