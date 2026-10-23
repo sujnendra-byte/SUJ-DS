@@ -144,7 +144,11 @@ var TH={
 var t=TH[DATA.design]||TH['navy-pro'];
 var idx=0;
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+/* The picture comes from whoever shared the deck and goes inside a style="" attribute:
+   only a real image (base64 data or a plain web address) may pass, never quotes or HTML. */
+function safeImg(u){u=String(u||'');return /^(data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+\/=\s]+|https?:\/\/[^\s"'()<>\\]+)$/i.test(u)?u:'';}
 function imgZone(img,css){
+  img=safeImg(img);
   var bg=img?'background-image:url('+img+');':'background:linear-gradient(135deg,#1a3a5c,#0d1f35);';
   return '<div class="dsv-imgzone" style="'+css+bg+'"></div>';
 }
