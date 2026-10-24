@@ -16,6 +16,7 @@
  *        Up to 3 screenshots are read with the vision model the site already uses. Nothing found = credit refunded.
  *        The window now asks for the PDF / screenshots first; the link is optional (shown on the card) with a
  *        "Use this link for the QR code" switch.
+ *        Problems (no credits, nothing found, link blocked) now show inside the window with a Buy credits link.
  * 42.0.4 - 2026-10-24 AI Document: Use AI switch, My brand, View all pop-ups, Fill from LinkedIn. 2 includes updated (371, 373).
  *   371, 373  "Use My Text" now has a Use AI switch (like AI Presentation): off = no AI call, the text is placed
  *        into the design line by line (cards: name, job title, company, phone, email, website, address).

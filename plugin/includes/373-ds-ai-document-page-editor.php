@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 13:30:00
+ * Modified   : 2026-10-24 13:45:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.8.3-linkedin' );
+define( 'DS_DOC_APP_VER', '1.8.4-linkedin' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -3111,6 +3111,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       '<label class="dd-l">…or paste your profile text</label><textarea id="li-text" rows="4" maxlength="20000" placeholder="Name, headline, current job, location, contact info…"></textarea>' +
       '<label class="dd-l">2. Your LinkedIn link <small>(optional — shown on your card)</small></label><input type="text" id="li-url" placeholder="linkedin.com/in/your-name">' +
       '<label class="dd-bkauto"><input type="checkbox" id="li-qr"> Use this link for the QR code (people scan it to open your LinkedIn profile)</label>' +
+      '<div class="dd-lierr dd-hide" id="li-err" role="alert"></div>' +
       '</div><div class="dd-bkft"><span class="dd-lic">Uses ' + cost + ' credit' + (cost === 1 ? '' : 's') + ' (not charged when nothing is found)</span><span class="dd-sp"></span><button type="button" class="dd-bkbtn ghost" data-l="x">Cancel</button><button type="button" class="dd-bkbtn pri" data-l="go">Get my details</button></div></div>';
     root.appendChild(m); document.body.classList.add('dd-noscroll');
     function close() { m.remove(); document.removeEventListener('keydown', key); document.body.classList.remove('dd-noscroll'); }
@@ -3152,7 +3153,15 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (b.dataset.l === 'up') $('#li-file', m).click();
       if (b.dataset.l === 'go') {
         var txt = $('#li-text', m).value.trim(), url = $('#li-url', m).value.trim();
-        if (!url && txt.length < 30 && !shots.length) { toast('Add your LinkedIn link, a PDF or a screenshot of your profile first.', 'err', 6000); return; }
+        /* problems are shown inside this window, where they are easy to see (not only as a small message at the bottom) */
+        var errBox = $('#li-err', m);
+        function fail(msg, buy) {
+          errBox.innerHTML = esc(msg) + (buy && CFG.buyUrl ? ' <a href="' + esc(CFG.buyUrl) + '">Buy credits ›</a>' : '');
+          errBox.classList.remove('dd-hide'); errBox.scrollIntoView({ block: 'nearest' });
+        }
+        errBox.classList.add('dd-hide');
+        if (!url && txt.length < 30 && !shots.length) { fail('Upload your profile PDF or a screenshot, or paste your profile text, first.'); return; }
+        if (S.credits < cost && (txt.length >= 30 || shots.length)) { fail('You need ' + cost + ' credit' + (cost === 1 ? '' : 's') + ' to read your profile. You have ' + S.credits + '.', true); return; }
         var qr = $('#li-qr', m).checked;
         if (qr && !url) { toast('Add your LinkedIn link to use it for the QR code.', 'err', 6000); return; }
         b.disabled = true; b.textContent = shots.length ? 'Reading your screenshots…' : txt.length >= 30 ? 'Reading your profile…' : 'Trying your LinkedIn link…';
@@ -3167,7 +3176,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           toast('Your details were added from LinkedIn' + (r.from === 'link' ? ' (from your link)' : '') + '. Check them, then press Generate Document.', 'ok', 7000);
           elTopic.focus();
         }).catch(function (er) {
-          toast(er.message || 'Your profile could not be read.', 'err', 9000);
+          fail(er.message || 'Your profile could not be read.', er.status === 402 || (er.data && er.data.error === 'credits'));
           if (er.data && er.data.credits_balance != null) setCredits(er.data.credits_balance);
           if (er.data && er.data.need === 'file') { drop.classList.add('need'); drop.scrollIntoView({ block: 'center' }); }
           b.disabled = false; b.textContent = 'Get my details';
@@ -4749,6 +4758,9 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-li{width:min(640px,96vw)}
 #dsdoc-app .dd-li textarea{width:100%;box-sizing:border-box;background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx);font-size:13px;resize:vertical}
 #dsdoc-app .dd-linote{margin-top:10px;font-size:12.5px;line-height:1.55;color:var(--mut2);background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+#dsdoc-app .dd-lierr{margin-top:12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.55);color:#fecaca;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+#dsdoc-app .dd-lierr a{color:#fbbf24;font-weight:700;text-decoration:none}
+#dsdoc-app .dd-lierr.dd-hide{display:none}
 #dsdoc-app .dd-lidrop{display:flex;align-items:center;gap:12px;border:1.5px dashed var(--bd);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--mut)}
 #dsdoc-app .dd-lidrop.over,#dsdoc-app .dd-lidrop.need{border-color:#3b82f6;background:rgba(59,130,246,.08)}
 #dsdoc-app .dd-lifiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
