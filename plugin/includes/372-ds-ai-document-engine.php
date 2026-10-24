@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 15:30:00
+ * Modified   : 2026-10-24 17:00:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.7.2-iconbtn' );
+define( 'DS_DOC_ENGINE_VER', '1.8.0-infographics' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -3100,7 +3100,7 @@ D.toDocx = function (doc, opts) {
           else out.push(P(R(b.text, hr), hp));
           if (dz.head === 'chapter') out.push(T('◆  ◆  ◆', { color: (onDark ? TAD : TA), size: 10 }, { alignment: A.CENTER, spacing: { after: 360 } }));
           break;
-        case 'h2': out.push(P(R(b.text, { font: HF, color: dz.head === 'serif' ? ink : (onDark ? '#FFFFFF' : t.s), bold: true, size: dz.h2, italics: dz.head === 'serif' }), { heading: X.HeadingLevel.HEADING_2, keepNext: true, spacing: { before: 240, after: 100 } })); break;
+        case 'h2': out.push(P(R(b.text, { font: HF, color: dz.head === 'serif' ? ink : (onDark ? '#FFFFFF' : t.s), bold: true, size: o.fx && dz.layout === 'ig' ? Math.round(16 * K * 10) / 10 : dz.h2, italics: dz.head === 'serif' }), { heading: X.HeadingLevel.HEADING_2, keepNext: true, alignment: o.fx ? o.align : undefined, spacing: { before: 240, after: 100 } })); break;
         case 'h3': out.push(P(R(b.text, { font: HF, color: ink, bold: true, size: 11.5 }), { heading: X.HeadingLevel.HEADING_3, keepNext: true, spacing: { before: 200, after: 80 } })); break;
         case 'p': out.push(P(R(b.text, { color: onDark ? '#FFFFFF' : undefined }), { spacing: SP, alignment: o.align })); break;
         case 'ul': (b.items || []).forEach(function (it) { out.push(P(R(it, { color: onDark ? '#FFFFFF' : undefined }), { numbering: { reference: 'ds-bul', level: 0 }, spacing: { after: 60, line: 290 } })); }); break;
@@ -5207,6 +5207,404 @@ D.toDocx = function (doc, opts) {
     return doc;
   };
 })();
+
+/* IG-BEGIN */
+/* =====================================================================================
+ * Infographics (2026-10-24 rebuild): tall pages (800 x 2000, the usual infographic size) in the
+ * style the user asked for - dark tech gradients with glow and neon lines, light clean cards,
+ * bold colour blocks, numbered steps, timelines, zigzags, funnels, data pages and photo rows.
+ * Each layout draws its art (shapes, numbers, line icons) and returns zones with a tag:
+ *   head (kicker / title / sub), intro, i1..i6 (one point each: heading + text), p0..p6 (photos),
+ *   data (stats + chart), foot (website line). Blocks carry roles that map to these tags.
+ * ===================================================================================== */
+(function () {
+  var NF = 'Arial, Helvetica, sans-serif';
+  function T(tag, x, y, w, h, o) { o = o || {}; return { tag: tag, x: x, y: y, w: w, h: h, al: o.al || 'left', v: o.v || 'top', dk: !!o.dk, tf: o.tf, tmax: o.tmax, k: o.k, cls: 'ig' + (o.cls ? ' ' + o.cls : '') }; }
+  function PH(tag, x, y, w, h, clip) { return { tag: tag, x: x, y: y, w: w, h: h, clip: (D.FX_CLIP && D.FX_CLIP[clip]) || clip || 'none', photo: 1 }; }
+  function rr(x, y, w, h, c, r, op) { return rect(x, y, w, h, c, op, r); }
+  function stroke(x, y, w, h, c, sw, r, op, dash) { return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"' + (r ? ' rx="' + r + '"' : '') + ' fill="none" stroke="' + c + '" stroke-width="' + sw + '"' + (op != null ? ' stroke-opacity="' + op + '"' : '') + (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>'; }
+  function txt(x, y, s, size, c, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" font-family="' + (o.f || NF) + '" font-weight="' + (o.w || 800) + '" font-size="' + size + '" fill="' + c + '"' + (o.op != null ? ' fill-opacity="' + o.op + '"' : '') + ' text-anchor="' + (o.a || 'middle') + '" dominant-baseline="central"' + (o.ls ? ' letter-spacing="' + o.ls + '"' : '') + '>' + s + '</text>'; }
+  function rgrad(id, c, op) { return '<radialGradient id="' + id + '"><stop offset="0" stop-color="' + c + '" stop-opacity="' + op + '"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></radialGradient>'; }
+  function glow(id, cx, cy, r) { return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#' + id + ')"/>'; }
+  function num(i) { return (i < 9 ? '0' : '') + (i + 1); }
+  function onDark(c) { return D.cr('#FFFFFF', c) > D.cr('#141414', c); }
+  function dark0(t) { return D.mix(t.p, '#05060C', 0.62); }
+  /* ---- simple line icons (24 x 24), drawn in the art ---- */
+  var ICO = {
+    bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
+    chart: '<path d="M4 20V11M10 20V5M16 20v-6M2 20h20"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+    cloud: '<path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 11.5 3.5 3.5 0 0 0 7 18z"/>',
+    rocket: '<path d="M12 2c3 2 5 6 5 10l-2 4H9l-2-4c0-4 2-8 5-10z"/><circle cx="12" cy="9" r="1.8"/><path d="M9 16l-3 4h4M15 16l3 4h-4"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    users: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14c3 0 5 2 5 5"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/>',
+    cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>'
+  };
+  var ICONS = ['bulb', 'chart', 'users', 'shield', 'rocket', 'target', 'cloud', 'gear', 'globe', 'lock', 'chat', 'cpu'];
+  function ic(i, cx, cy, s, c, sw) { var n = typeof i === 'number' ? ICONS[i % ICONS.length] : i, k = s / 24; return '<g transform="translate(' + (cx - s / 2) + ',' + (cy - s / 2) + ') scale(' + k + ')" fill="none" stroke="' + c + '" stroke-width="' + ((sw || 2) / k) + '" stroke-linecap="round" stroke-linejoin="round">' + ICO[n] + '</g>'; }
+  function grid(x, y, w, h, gp, c, op) { var s = ''; for (var gx = x; gx <= x + w; gx += gp) s += line(gx, y, gx, y + h, c, 1, op); for (var gy = y; gy <= y + h; gy += gp) s += line(x, gy, x + w, gy, c, 1, op); return s; }
+  function circuit(W, H, c, op, seed) {   /* thin circuit-board lines with dots */
+    var s = '', r = seed || 7;
+    function rnd() { r = (r * 9301 + 49297) % 233280; return r / 233280; }
+    for (var i = 0; i < 26; i++) {
+      var x = rnd() * W, y = rnd() * H, l1 = 40 + rnd() * 120, l2 = 30 + rnd() * 90, dir = rnd() > 0.5 ? 1 : -1;
+      s += path('M' + x + ' ' + y + ' h' + (l1 * dir) + ' l' + (20 * dir) + ' 20 v' + l2, null, null, c, 1.4).replace('/>', ' stroke-opacity="' + op + '"/>') + circ(x, y, 3, c, op) + circ(x + l1 * dir + 20 * dir, y + 20 + l2, 3, c, op);
+    }
+    return s;
+  }
+  function head(W, y, h, o) { return T('head', W * 0.08, y, W * 0.84, h, Object.assign({ al: 'center', v: 'center', tf: 0.11, tmax: 72, k: 1.15 }, o || {})); }
+  function foot(W, H, o) { return T('foot', W * 0.08, H * 0.962, W * 0.84, H * 0.03, Object.assign({ al: 'center', v: 'center', k: 0.9, cls: 'ft' }, o || {})); }
+  function items(n, y0, y1, gap) { var h = (y1 - y0 - gap * (n - 1)) / n, out = []; for (var i = 0; i < n; i++) out.push({ y: y0 + i * (h + gap), h: h }); return out; }
+
+  var L = {};
+  /* 1. dark gradient, glowing circles, stacked glass cards with a numbered icon disc */
+  L.glass = function (t, W, H, o) {
+    var bg = dark0(t), s = rect(0, 0, W, H, 'url(#igb)') + glow('igg', W * 0.85, H * 0.08, W * 0.55) + glow('igg', W * 0.05, H * 0.55, W * 0.5) + glow('igg', W * 0.9, H * 0.9, W * 0.45), z = [head(W, H * 0.035, H * 0.15, { dk: 1, cls: 'acc' })];
+    s += grid(0, 0, W, H * 0.2, 40, '#FFFFFF', 0.05);
+    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
+      var x = W * 0.07, w = W * 0.86;
+      s += rr(x, b.y, w, b.h, '#FFFFFF', 22, 0.07) + stroke(x, b.y, w, b.h, '#FFFFFF', 1.5, 22, 0.18);
+      s += circ(x + W * 0.1, b.y + b.h / 2, W * 0.062, t.a) + ic(i, x + W * 0.1, b.y + b.h / 2, W * 0.06, D.onColor(t.a), 2.2) + txt(x + w - W * 0.06, b.y + W * 0.045, num(i), W * 0.035, '#FFFFFF', { op: 0.35 });
+      z.push(T('i' + (i + 1), x + W * 0.2, b.y + b.h * 0.1, w - W * 0.28, b.h * 0.8, { v: 'center', dk: 1, cls: 'acc', k: 1 }));
+    });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: grad('igb', bg, D.mix(t.s, bg, 0.35), 0.3, 1) + rgrad('igg', t.s, 0.55), z: z };
+  };
+  /* 2. zigzag: big outlined numbers that alternate sides, cards linked by a dashed line */
+  L.zigzag = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.19, dk ? D.mix(t.p, bg, 0.5) : t.p) + circ(W * 0.92, H * 0.02, W * 0.22, t.a, 0.25), z = [head(W, H * 0.025, H * 0.14, { dk: 1, cls: 'acc' })];
+    var its = items(o.n || 5, H * 0.215, H * 0.94, H * 0.02), pth = '';
+    its.forEach(function (b, i) {
+      var left = i % 2 === 0, cw = W * 0.6, cx = left ? W * 0.32 : W * 0.08, nx = left ? W * 0.16 : W * 0.84;
+      s += rr(cx, b.y, cw, b.h, dk ? '#FFFFFF' : t.tint, 26, dk ? 0.08 : 1) + rect(left ? cx : cx + cw - 10, b.y + b.h * 0.2, 10, b.h * 0.6, t.a);
+      s += txt(nx, b.y + b.h / 2, num(i), W * 0.16, 'none', {}).replace('fill="none"', 'fill="none" stroke="' + (dk ? t.a : t.p) + '" stroke-width="3"');
+      pth += (i ? ' L' : 'M') + nx + ' ' + (b.y + b.h / 2);
+      z.push(T('i' + (i + 1), cx + W * 0.05, b.y + b.h * 0.1, cw - W * 0.1, b.h * 0.8, { v: 'center', dk: dk, k: 1 }));
+    });
+    s = s.replace(rect(0, 0, W, H * 0.19, dk ? D.mix(t.p, bg, 0.5) : t.p), rect(0, 0, W, H * 0.19, dk ? D.mix(t.p, bg, 0.5) : t.p) + '<path d="' + pth + '" fill="none" stroke="' + t.a + '" stroke-width="3" stroke-dasharray="10 10" stroke-opacity="0.6"/>');
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 3. timeline: centre line with dots, points on alternating sides */
+  L.timeline = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.15, { dk: dk })];
+    s += rect(W / 2 - 3, H * 0.2, 6, H * 0.74, t.a) + rr(W * 0.3, H * 0.185, W * 0.4, 8, t.p, 4);
+    items(o.n || 6, H * 0.21, H * 0.94, H * 0.014).forEach(function (b, i) {
+      var left = i % 2 === 0, cy = b.y + b.h / 2;
+      s += circ(W / 2, cy, W * 0.045, t.p) + ring(W / 2, cy, W * 0.058, t.a, 4) + txt(W / 2, cy, num(i), W * 0.034, D.onColor(t.p));
+      var bx = left ? W * 0.06 : W * 0.58, bw = W * 0.36;
+      s += rr(bx, b.y + b.h * 0.06, bw, b.h * 0.88, dk ? '#FFFFFF' : '#FFFFFF', 20, dk ? 0.07 : 1) + line(left ? bx + bw : bx, cy, left ? W / 2 - W * 0.058 : W / 2 + W * 0.058, cy, t.a, 3);
+      z.push(T('i' + (i + 1), bx + W * 0.03, b.y + b.h * 0.12, bw - W * 0.06, b.h * 0.76, { v: 'center', dk: dk, al: left ? 'right' : 'left', k: 0.92 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 4. grid of six tiles, icon on top */
+  L.tiles = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#F6F8FC', s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.5, H * 0.1, W * 0.7) : rect(0, 0, W, H * 0.22, t.p)), z = [head(W, H * 0.03, H * 0.15, { dk: 1, cls: 'acc' })];
+    z.push(T('intro', W * 0.1, H * 0.235, W * 0.8, H * 0.07, { al: 'center', v: 'center', dk: dk, k: 0.95 }));
+    var cw = W * 0.4, gx = W * 0.07, ys = items(3, H * 0.32, H * 0.94, H * 0.02);
+    ys.forEach(function (b, r) { for (var c = 0; c < 2; c++) {
+      var i = r * 2 + c, x = gx + c * (cw + W * 0.06);
+      s += rr(x, b.y, cw, b.h, dk ? '#FFFFFF' : '#FFFFFF', 24, dk ? 0.07 : 1) + (dk ? stroke(x, b.y, cw, b.h, t.a, 1.5, 24, 0.5) : rr(x, b.y, cw, 10, t.a, 5));
+      s += circ(x + cw / 2, b.y + b.h * 0.2, W * 0.055, dk ? t.a : t.tint) + ic(i, x + cw / 2, b.y + b.h * 0.2, W * 0.055, dk ? D.onColor(t.a) : t.p, 2.2);
+      z.push(T('i' + (i + 1), x + W * 0.03, b.y + b.h * 0.36, cw - W * 0.06, b.h * 0.6, { al: 'center', dk: dk, k: 0.9 }));
+    } });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.6), z: z };
+  };
+  /* 5. puzzle: bold colour blocks with large numbers */
+  L.blocks = function (t, W, H, o) {
+    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, '#000000', 0.25), D.mix(t.a, '#FFFFFF', 0.25)], s = rect(0, 0, W, H, dark0(t)), z = [head(W, H * 0.025, H * 0.15, { dk: 1 })];
+    s += circ(W * 0.12, H * 0.03, W * 0.04, t.a) + circ(W * 0.9, H * 0.16, W * 0.02, t.a);
+    var ys = items(3, H * 0.19, H * 0.95, 0);
+    ys.forEach(function (b, r) { for (var c = 0; c < 2; c++) {
+      var i = r * 2 + c, x = c * W / 2, col = cols[(i + r) % cols.length], dk = onDark(col);
+      s += rect(x, b.y, W / 2, b.h, col) + txt(x + W * 0.25, b.y + b.h * 0.2, String(i + 1), W * 0.16, dk ? '#FFFFFF' : '#14161B', { op: 0.9 });
+      if (c === 0) s += circ(W / 2, b.y + b.h * 0.5, W * 0.035, col);
+      z.push(T('i' + (i + 1), x + W * 0.05, b.y + b.h * 0.36, W * 0.4, b.h * 0.58, { al: 'center', dk: dk, k: 0.9 }));
+    } });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, z: z };
+  };
+  /* 6. neon: near-black, outlined boxes with cut corners and a tab heading */
+  L.neon = function (t, W, H, o) {
+    var bg = '#07090F', ac = D.mix(t.a, '#FFFFFF', 0.1), s = rect(0, 0, W, H, bg) + grid(0, 0, W, H, 50, ac, 0.05) + glow('igg', W * 0.5, H * 0.06, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
+    items(o.n || 5, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
+      var x = W * 0.08, w = W * 0.84, c = 26, y = b.y, h = b.h;
+      s += path('M' + (x + c) + ' ' + y + ' H' + (x + w) + ' V' + (y + h - c) + ' L' + (x + w - c) + ' ' + (y + h) + ' H' + x + ' V' + (y + c) + ' Z', ac, 0.05, ac, 2);
+      s += rr(x + W * 0.04, y - 16, W * 0.12, 32, ac, 16) + txt(x + W * 0.1, y, num(i), 18, D.onColor(ac));
+      s += ic(i, x + w - W * 0.09, y + h / 2, W * 0.08, ac, 1.8);
+      z.push(T('i' + (i + 1), x + W * 0.05, y + h * 0.14, w - W * 0.2, h * 0.76, { v: 'center', dk: 1, cls: 'acc', k: 1 }));
+    });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: rgrad('igg', ac, 0.35), z: z };
+  };
+  /* 7. photo rows: photo and text alternate sides */
+  L.photos = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.17, t.p) + rect(0, H * 0.17, W, 10, t.a), z = [head(W, H * 0.02, H * 0.13, { dk: 1, cls: 'acc' })];
+    items(o.n || 5, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
+      var left = i % 2 === 0, px = left ? W * 0.06 : W * 0.56, tx = left ? W * 0.5 : W * 0.06, pw = W * 0.38;
+      s += rr(left ? W * 0.04 : W * 0.04, b.y, W * 0.92, b.h, dk ? '#FFFFFF' : t.tint, 26, dk ? 0.06 : 1) + rr(px - 6, b.y + b.h * 0.1 - 6, pw + 12, b.h * 0.8 + 12, t.a, 22);
+      z.push(PH('p' + (i + 1), px, b.y + b.h * 0.1, pw, b.h * 0.8, 'round'));
+      z.push(T('i' + (i + 1), tx + W * 0.02, b.y + b.h * 0.1, W * 0.4, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 8. pills: capsule heading tabs on a vertical connector */
+  L.pills = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.tint, '#FFFFFF', 0.4), s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.2, H * 0.1, W * 0.7) : ''), z = [head(W, H * 0.03, H * 0.15, { dk: dk, cls: 'acc' })];
+    s += rect(W * 0.12, H * 0.2, 4, H * 0.72, t.a, 0.7);
+    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
+      s += circ(W * 0.12 + 2, b.y + 30, 14, t.a) + rr(W * 0.18, b.y, W * 0.74, b.h, dk ? '#FFFFFF' : '#FFFFFF', 22, dk ? 0.07 : 1) + line(W * 0.12 + 16, b.y + 30, W * 0.18, b.y + 30, t.a, 3);
+      z.push(T('i' + (i + 1), W * 0.21, b.y + b.h * 0.06, W * 0.68, b.h * 0.88, { dk: dk, cls: 'pill', k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.5), z: z };
+  };
+  /* 9. data: big numbers, a chart and three cards */
+  L.data = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 40, '#FFFFFF', 0.04) : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.025, H * 0.15, { dk: dk, cls: 'acc' })];
+    s += rr(W * 0.06, H * 0.2, W * 0.88, H * 0.36, dk ? '#FFFFFF' : t.tint, 28) + (dk ? rr(W * 0.06, H * 0.2, W * 0.88, 12, t.a, 6) : '');
+    z.push(T('data', W * 0.1, H * 0.215, W * 0.8, H * 0.33, { k: 1.05 }));   /* charts stay on a light card, so they read well */
+    items(3, H * 0.58, H * 0.94, H * 0.02).forEach(function (b, i) {
+      s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : '#FFFFFF', 24, dk ? 0.07 : 1) + stroke(W * 0.06, b.y, W * 0.88, b.h, t.a, 2, 24, dk ? 0.5 : 0.8) + circ(W * 0.16, b.y + b.h / 2, W * 0.055, t.a) + ic(i + 1, W * 0.16, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
+      z.push(T('i' + (i + 1), W * 0.26, b.y + b.h * 0.1, W * 0.62, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 10. chevrons: numbered arrow blocks down the page */
+  L.chevron = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, t.a, 0.5), D.mix(t.p, '#000000', 0.2)];
+    items(o.n || 5, H * 0.19, H * 0.94, H * 0.012).forEach(function (b, i) {
+      var c = cols[i % cols.length], x = W * 0.06, w = W * 0.22, y = b.y, h = b.h, tip = h * 0.22;
+      s += poly([[x, y], [x + w, y], [x + w, y + h - tip], [x + w / 2, y + h], [x, y + h - tip]], c) + txt(x + w / 2, y + h * 0.4, num(i), W * 0.07, D.onColor(c));
+      s += rr(x + w + W * 0.03, y + h * 0.04, W * 0.63, h * 0.82, dk ? '#FFFFFF' : t.tint, 18, dk ? 0.07 : 1);
+      z.push(T('i' + (i + 1), x + w + W * 0.06, y + h * 0.08, W * 0.57, h * 0.74, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 11. path: circles on a winding road, text beside each */
+  L.path = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var its = items(o.n || 6, H * 0.2, H * 0.94, H * 0.01), d = '';
+    its.forEach(function (b, i) { var x = i % 2 === 0 ? W * 0.2 : W * 0.8, y = b.y + b.h / 2; d += i === 0 ? 'M' + x + ' ' + y : ' C' + (i % 2 ? W * 0.2 : W * 0.8) + ' ' + (y - b.h * 0.6) + ',' + x + ' ' + (y - b.h * 0.5) + ',' + x + ' ' + y; });
+    s += path(d, null, null, dk ? '#FFFFFF' : t.tint, 26).replace('/>', ' stroke-opacity="' + (dk ? 0.12 : 1) + '" stroke-linecap="round"/>') + path(d, null, null, t.a, 3).replace('/>', ' stroke-dasharray="12 12"/>');
+    its.forEach(function (b, i) {
+      var left = i % 2 === 0, x = left ? W * 0.2 : W * 0.8, y = b.y + b.h / 2, c = [t.p, t.a, t.s][i % 3];
+      s += circ(x, y, W * 0.085, '#FFFFFF') + ring(x, y, W * 0.085, c, 8) + ic(i, x, y - 8, W * 0.06, c, 2.2) + txt(x, y + W * 0.045, num(i), 18, c);
+      z.push(T('i' + (i + 1), left ? W * 0.33 : W * 0.06, b.y + b.h * 0.08, W * 0.58, b.h * 0.84, { v: 'center', al: left ? 'left' : 'right', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 12. tabs: full-width boxes with a number tab on the left */
+  L.tabs = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.p, s = rect(0, 0, W, H, bg) + glow('igg', W * 0.9, H * 0.05, W * 0.5), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
+    items(o.n || 5, H * 0.19, H * 0.9, H * 0.02).forEach(function (b, i) {
+      s += stroke(W * 0.06, b.y, W * 0.88, b.h, '#FFFFFF', 2, 14, 0.7) + rect(W * 0.06, b.y, W * 0.17, b.h, '#FFFFFF', 0.1) + txt(W * 0.145, b.y + b.h / 2, num(i), W * 0.07, '#FFFFFF');
+      z.push(T('i' + (i + 1), W * 0.27, b.y + b.h * 0.08, W * 0.63, b.h * 0.84, { v: 'center', dk: 1, cls: 'acc', k: 0.95 }));
+    });
+    z.push(T('intro', W * 0.08, H * 0.905, W * 0.84, H * 0.05, { al: 'center', v: 'center', dk: 1, k: 0.9 }));
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: rgrad('igg', t.a, 0.35), z: z };
+  };
+  /* 13. hero photo at the top, cards below */
+  L.hero = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg), z = [];
+    z.push(PH('p0', 0, 0, W, H * 0.24, 'slantB'));
+    s += P0(W, H, t);
+    z.push(T('head', W * 0.08, H * 0.243, W * 0.84, H * 0.085, { al: 'left', v: 'center', tf: 0.09, tmax: 60, k: 1.05, dk: onDark(t.p) }));
+    items(o.n || 5, H * 0.35, H * 0.94, H * 0.016).forEach(function (b, i) {
+      s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : '#FFFFFF', 20, dk ? 0.07 : 1) + rr(W * 0.06, b.y, 14, b.h, t.a, 7) + circ(W * 0.86, b.y + b.h / 2, W * 0.045, dk ? t.a : t.tint) + ic(i, W * 0.86, b.y + b.h / 2, W * 0.045, dk ? D.onColor(t.a) : t.p, 2.2);
+      z.push(T('i' + (i + 1), W * 0.11, b.y + b.h * 0.08, W * 0.66, b.h * 0.84, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  function P0(W, H, t) { return poly([[0, H * 0.2], [W, H * 0.17], [W, H * 0.33], [0, H * 0.33]], t.p); }
+  /* 14. funnel: layers that narrow, then two notes */
+  L.funnel = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var cols = [t.p, t.s, D.mix(t.s, t.a, 0.5), t.a, D.mix(t.a, '#FFFFFF', 0.3)];
+    items(5, H * 0.19, H * 0.74, H * 0.008).forEach(function (b, i) {
+      var top = W * (0.9 - i * 0.13), bot = W * (0.9 - (i + 1) * 0.13), c = cols[i];
+      s += poly([[W / 2 - top / 2, b.y], [W / 2 + top / 2, b.y], [W / 2 + bot / 2, b.y + b.h], [W / 2 - bot / 2, b.y + b.h]], c);
+      z.push(T('i' + (i + 1), W / 2 - bot / 2 + 8, b.y + b.h * 0.08, bot - 16, b.h * 0.84, { al: 'center', v: 'center', dk: onDark(c), k: Math.max(0.7, 0.95 - i * 0.05) }));
+    });
+    s += rr(W * 0.06, H * 0.77, W * 0.88, H * 0.17, dk ? '#FFFFFF' : t.tint, 26, dk ? 0.07 : 1);
+    z.push(T('i6', W * 0.1, H * 0.785, W * 0.8, H * 0.14, { v: 'center', dk: dk, k: 0.95 }));
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 15. sidebar: a colour strip with icons, text to the right */
+  L.sidebar = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W * 0.24, H, t.p) + rect(W * 0.24, 0, 8, H, t.a), z = [T('head', W * 0.3, H * 0.03, W * 0.64, H * 0.15, { v: 'center', tf: 0.1, tmax: 64, k: 1.1, dk: dk, cls: 'acc' })];
+    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
+      s += circ(W * 0.12, b.y + b.h / 2, W * 0.07, t.a) + ic(i, W * 0.12, b.y + b.h / 2, W * 0.065, D.onColor(t.a), 2.2) + line(W * 0.3, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 2, dk ? 0.2 : 1);
+      z.push(T('i' + (i + 1), W * 0.3, b.y + b.h * 0.06, W * 0.64, b.h * 0.86, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(T('foot', W * 0.3, H * 0.962, W * 0.64, H * 0.03, { v: 'center', k: 0.9, dk: dk, cls: 'ft' }));
+    return { s: s, z: z };
+  };
+  /* 16. hexagons: number badges alternate with cards */
+  L.hex = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.5, H * 0.5, W * 0.9) : ''), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    items(o.n || 6, H * 0.19, H * 0.94, H * 0.016).forEach(function (b, i) {
+      var left = i % 2 === 0, hx = left ? W * 0.16 : W * 0.84, cy = b.y + b.h / 2, r = Math.min(W * 0.1, b.h * 0.48), pts = [];
+      for (var k = 0; k < 6; k++) { var a = Math.PI / 3 * k + Math.PI / 6; pts.push([hx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+      var c = i % 2 ? t.a : t.p;
+      s += rr(left ? W * 0.2 : W * 0.06, b.y + b.h * 0.08, W * 0.74, b.h * 0.84, dk ? '#FFFFFF' : '#FFFFFF', 22, dk ? 0.07 : 1) + poly(pts, c) + txt(hx, cy, num(i), r * 0.62, D.onColor(c));
+      z.push(T('i' + (i + 1), left ? W * 0.3 : W * 0.1, b.y + b.h * 0.12, W * 0.6, b.h * 0.76, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.4), z: z };
+  };
+  /* 17. steps: rounded number squares that overlap the cards, rising like a staircase */
+  L.steps = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.s, '#FFFFFF', 0.85), s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var n = o.n || 4;
+    items(n, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
+      var off = W * 0.06 * (i % 2 ? 1 : 0), x = W * 0.06 + off, w = W * 0.82;
+      s += rr(x + W * 0.1, b.y, w - W * 0.1, b.h, dk ? '#FFFFFF' : '#FFFFFF', 30, dk ? 0.08 : 1) + rr(x, b.y + b.h * 0.18, W * 0.2, b.h * 0.64, t.p, 26) + txt(x + W * 0.1, b.y + b.h / 2, String(i + 1), W * 0.12, D.onColor(t.p));
+      s += circ(x + w - W * 0.08, b.y + b.h / 2, W * 0.05, t.a) + ic(i, x + w - W * 0.08, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
+      z.push(T('i' + (i + 1), x + W * 0.24, b.y + b.h * 0.1, w - W * 0.4, b.h * 0.8, { v: 'center', dk: dk, k: 1 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 18. bubbles: speech-bubble cards with an icon person-dot */
+  L.bubbles = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? '' : circ(W * 0.92, H * 0.05, W * 0.18, t.tint) + circ(W * 0.05, H * 0.6, W * 0.15, t.tint)), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    items(o.n || 4, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
+      var left = i % 2 === 0, bx = left ? W * 0.06 : W * 0.3, bw = W * 0.64, by = b.y, bh = b.h * 0.86;
+      var tail = left ? [[bx + bw * 0.75, by + bh], [bx + bw * 0.9, by + bh], [bx + bw * 0.95, by + bh + b.h * 0.12]] : [[bx + bw * 0.1, by + bh], [bx + bw * 0.25, by + bh], [bx + bw * 0.05, by + bh + b.h * 0.12]];
+      s += rr(bx, by, bw, bh, dk ? '#FFFFFF' : '#FFFFFF', 34, dk ? 0.08 : 1) + stroke(bx, by, bw, bh, t.p, 3, 34, 0.9) + poly(tail, t.p);
+      var cx = left ? W * 0.84 : W * 0.15;
+      s += circ(cx, by + bh * 0.55, W * 0.085, t.tint) + ic(i, cx, by + bh * 0.55, W * 0.08, t.p, 2);
+      z.push(T('i' + (i + 1), bx + W * 0.04, by + bh * 0.1, bw - W * 0.08, bh * 0.82, { v: 'center', dk: dk, cls: 'pill pa', k: 1 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 19. circuit: dark board with circuit lines, glowing boxes */
+  L.circuit = function (t, W, H, o) {
+    var bg = D.mix(t.p, '#020403', 0.78), ac = t.a, s = rect(0, 0, W, H, bg) + circuit(W, H, ac, 0.18, o.seed || 11) + glow('igg', W * 0.5, H * 0.08, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
+    items(o.n || 4, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
+      s += rr(W * 0.08, b.y, W * 0.84, b.h, bg, 12, 0.9) + stroke(W * 0.08, b.y, W * 0.84, b.h, ac, 3, 12) + circ(W * 0.08, b.y + b.h / 2, 7, ac) + circ(W * 0.92, b.y + b.h / 2, 7, ac);
+      z.push(T('i' + (i + 1), W * 0.12, b.y + b.h * 0.08, W * 0.76, b.h * 0.86, { dk: 1, al: 'center', v: 'center', cls: 'tab', k: 1 }));
+    });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: rgrad('igg', ac, 0.3), z: z };
+  };
+  /* 20. editorial: light page, big title, thin rules, numbered list in two columns */
+  L.editorial = function (t, W, H, o) {
+    var s = rect(0, 0, W, H, '#FBFAF7') + rect(W * 0.08, H * 0.19, W * 0.84, 4, t.p) + rect(W * 0.08, H * 0.94, W * 0.84, 2, t.p), z = [T('head', W * 0.08, H * 0.03, W * 0.84, H * 0.15, { v: 'center', tf: 0.12, tmax: 76, k: 1.15, cls: 'ed' })];
+    z.push(PH('p0', W * 0.08, H * 0.21, W * 0.84, H * 0.16, 'round'));
+    var ys = items(3, H * 0.4, H * 0.92, H * 0.02);
+    ys.forEach(function (b, r) { for (var c = 0; c < 2; c++) {
+      var i = r * 2 + c, x = W * 0.08 + c * W * 0.44;
+      s += txt(x, b.y + 30, num(i), 44, t.a, { a: 'start', f: 'Georgia, serif', w: 700 }) + line(x, b.y + b.h, x + W * 0.4, b.y + b.h, t.line, 2);
+      z.push(T('i' + (i + 1), x, b.y + 62, W * 0.4, b.h - 70, { k: 0.9 }));
+    } });
+    z.push(foot(W, H));
+    return { s: s, z: z };
+  };
+
+  /* ---- zones -> panel zones ---- */
+  function kOf(sz) { return Math.max(0.7, Math.min(1.45, Math.sqrt(sz.w * sz.h) / 1100)); }
+  function Zs(list, sz) {
+    var k0 = kOf(sz);
+    return list.filter(function (z) { return z.w > 0 && z.h > 0; }).map(function (z) {
+      if (z.photo) return { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: 'center', v: 'top', dark: false, k: 1, cls: 'bcph', vars: '--zh:' + Math.round(z.h) + 'px;--clip:' + z.clip + ';' };
+      var o = { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: z.al, v: z.v, dark: z.dk, k: (z.k || 1) * k0 * (/^i\d$/.test(z.tag) ? 1.3 : z.tag === 'intro' ? 1.15 : 1), cls: 'fx ' + z.cls + (z.dk ? ' dark' : '') };
+      o.titlePt = Math.round(Math.max(12, Math.min(z.tmax || 72, z.w * (z.tf || 0.1))));
+      return o;
+    });
+  }
+  function at(zs, tags) { tags = [].concat(tags); for (var j = 0; j < tags.length; j++) for (var i = 0; i < zs.length; i++) if (zs[i].tag === tags[j]) return [0, i]; return null; }
+  var ROLES = { kicker: 'head', title: 'head', sub: 'head', intro: 'intro', data: 'data', dchart: 'data', foot: 'foot', photo0: 'p0' };
+  for (var q = 1; q <= 6; q++) { ROLES['i' + q + 'h'] = 'i' + q; ROLES['i' + q + 't'] = 'i' + q; ROLES['photo' + q] = 'p' + q; }
+  D.PANEL.ig = function (doc, t, W, H, dz, sz) {
+    var f = (L[dz.ig] || L.glass)(t, W, H, { dark: !!dz.dark, n: dz.n, seed: dz.vi });
+    var zs = Zs(f.z, sz), roles = {};
+    Object.keys(ROLES).forEach(function (k) { roles[k] = at(zs, ROLES[k]); });
+    return { pages: [{ svg: svg(W, H, f.s, f.defs), zones: zs }], ownLogo: false, roles: roles };
+  };
+
+  /* ---- styles ---- */
+  D.CSS += '.fx.ig .dsd-s-t{font-weight:800;line-height:1.02}.fx.ig.acc.dark .dsd-s-k{color:var(--at)}.fx.ig .dsd-s-k{letter-spacing:.18em}' +
+    '.fx.ig .dsd-h2{font-size:calc(17pt*var(--k,1)*var(--fit,1));margin:0 0 calc(4pt*var(--k,1)*var(--fit,1));letter-spacing:.02em;line-height:1.15}.fx.ig.acc.dark .dsd-h2{color:var(--at)}' +
+    '.fx.ig .dsd-s-x{font-size:calc(11.5pt*var(--k,1)*var(--fit,1));line-height:1.45;margin-top:0}.fx.ig.dark .dsd-s-x{color:rgba(255,255,255,.86)}' +
+    '.fx.ig.pill .dsd-h2,.fx.ig.tab .dsd-h2{display:inline-block;background:var(--p);color:#fff!important;border-radius:999px;padding:calc(5pt*var(--k,1)*var(--fit,1)) calc(13pt*var(--k,1)*var(--fit,1));margin-bottom:calc(8pt*var(--k,1)*var(--fit,1));font-size:calc(14pt*var(--k,1)*var(--fit,1))}' +
+    '.fx.ig.pa .dsd-h2,.fx.ig.tab .dsd-h2,.fx.ig.dark.pill .dsd-h2{background:var(--a);color:#14161B!important}.fx.ig.tab .dsd-h2{border-radius:8px}' +
+    '.fx.ig.ed .dsd-s-t{font-family:Georgia,serif;font-weight:700;text-transform:none}.fx.ig.ft .dsd-s-c,.fx.ig.ft .dsd-s-x{margin:0;font-size:calc(10pt*var(--k,1)*var(--fit,1));letter-spacing:.12em;text-transform:uppercase;opacity:.85}.fx.ig.ft .dsd-s-c{background:none;color:inherit;padding:0}' +
+    '.fx.ig .dsd-stats .v{font-size:calc(26pt*var(--k,1)*var(--fit,1))}.fx.ig .dsd-chart{margin-top:calc(6pt*var(--k,1))}';
+
+  /* ---- size: the usual tall infographic page ---- */
+  D.SIZES.IG = { w: 800, h: 2000, tw: 12000, th: 30000, label: 'Infographic (800 × 2000)', screen: 1 };
+  D.TYPE_SIZES.infographic = ['IG', 'Story', 'A3'];
+
+  /* ---- palettes ---- */
+  function ip(id, name, p, s, a, head, body) { var ink = D.mix(p, '#121318', 0.82), x = th(id, name, p, s, a, ink, D.mix(ink, '#FFFFFF', 0.4), D.mix(s, '#FFFFFF', 0.9), D.mix(s, '#FFFFFF', 0.75), head, body); x.hide = 1; return x; }
+  var IP = [
+    ip('ig01', 'Neon Navy', '#1A1F6B', '#3B44C4', '#22D3EE', 'Montserrat', 'Aptos'), ip('ig02', 'Electric Violet', '#3B0D7A', '#7C3AED', '#F472B6', 'Montserrat', 'Aptos'),
+    ip('ig03', 'Cyber Blue', '#0B2A6B', '#1D4ED8', '#38BDF8', 'Bahnschrift', 'Aptos'), ip('ig04', 'Circuit Lime', '#12351F', '#15803D', '#A3E635', 'Bahnschrift', 'Aptos'),
+    ip('ig05', 'Royal Gold', '#1E1B4B', '#4338CA', '#FBBF24', 'Montserrat', 'Aptos'), ip('ig06', 'Sunset', '#7C2D12', '#EA580C', '#FDBA74', 'Montserrat', 'Aptos'),
+    ip('ig07', 'Lagoon', '#134E4A', '#0D9488', '#5EEAD4', 'Century Gothic', 'Calibri'), ip('ig08', 'Ember', '#3B0A0A', '#B91C1C', '#FB923C', 'Bahnschrift', 'Aptos'),
+    ip('ig09', 'Ocean', '#075985', '#0284C7', '#F59E0B', 'Segoe UI', 'Segoe UI'), ip('ig10', 'Orchid', '#4C1D95', '#8B5CF6', '#F0ABFC', 'Century Gothic', 'Century Gothic'),
+    ip('ig11', 'Graphite Mint', '#1F2937', '#374151', '#34D399', 'Segoe UI', 'Segoe UI'), ip('ig12', 'Cobalt Coral', '#1E3A8A', '#2563EB', '#FB7185', 'Montserrat', 'Aptos')
+  ];
+  IP.forEach(function (x) { D.THEMES.push(x); });
+
+  D.DESIGNS = D.DESIGNS.filter(function (d) { return d.types.indexOf('infographic') < 0; });
+  /* layout, name, description, default dark?, number of points */
+  var LS = [['glass', 'Glass Cards', 'Dark gradient, glowing glass cards', 1, 6], ['zigzag', 'Zigzag', 'Big numbers, zigzag cards', 0, 5], ['timeline', 'Timeline', 'Centre timeline with dots', 0, 6],
+    ['tiles', 'Tiles', 'Six icon tiles', 0, 6], ['blocks', 'Colour Blocks', 'Bold colour blocks, big numbers', 1, 6], ['neon', 'Neon', 'Black with neon outline boxes', 1, 5],
+    ['photos', 'Photo Rows', 'Photos and text side by side', 0, 5], ['pills', 'Pill Tabs', 'Capsule headings on a line', 0, 6], ['data', 'Data', 'Big numbers, chart and cards', 0, 3],
+    ['chevron', 'Chevrons', 'Numbered arrow blocks', 0, 5], ['path', 'Road Map', 'Winding road with circles', 0, 6], ['tabs', 'Number Tabs', 'Colour page, number tabs', 1, 5],
+    ['hero', 'Hero Photo', 'Big photo on top, cards', 0, 5], ['funnel', 'Funnel', 'Funnel layers', 0, 6], ['sidebar', 'Sidebar', 'Colour side with icons', 0, 6],
+    ['hex', 'Hexagons', 'Hexagon number badges', 1, 6], ['steps', 'Steps', 'Step by step, big numbers', 0, 4], ['bubbles', 'Bubbles', 'Speech-bubble cards', 0, 4],
+    ['circuit', 'Circuit', 'Dark circuit board, glowing boxes', 1, 4], ['editorial', 'Editorial', 'Magazine style, photo and numbered list', 0, 6]];
+  var ROM = ['', ' II', ' III', ' IV', ' V'], nI = 0;
+  [0, 1, 2, 3, 4].forEach(function (v) { LS.forEach(function (x, i) {
+    var pal = IP[(i * 5 + v * 7 + 2) % IP.length], dark = x[0] === 'neon' || x[0] === 'circuit' || x[0] === 'blocks' || x[0] === 'glass' ? true : x[0] === 'editorial' ? false : (x[3] + v) % 2 === 1;
+    D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], dark: dark, n: x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
+  }); });
+
+  /* ---- sample content, with roles ---- */
+  function ph(i) { var a = D.samplePhotos || []; return a.length ? String(a[i % a.length]) : ''; }
+  var sample3 = D.sample;
+  D.sample = function (type) {
+    var doc = sample3(type);
+    if (type !== 'infographic') return doc;
+    var R = function (tt, o, role) { var b = D.B(tt, o); b.role = role; return b; };
+    var pts = [['Automate repetitive tasks', 'Let AI handle data entry, scheduling and reports so your team can focus on work that matters.'],
+      ['Understand your customers', 'Spot patterns in feedback and buying habits to offer what people really want.'],
+      ['Make faster decisions', 'Turn reports into clear answers in minutes instead of days.'],
+      ['Improve your marketing', 'Write, test and improve campaigns with smart suggestions.'],
+      ['Strengthen security', 'Find unusual activity early and keep company data safe.'],
+      ['Cut operating costs', 'Do more with the same team by removing slow, manual steps.']];
+    doc.title = 'Infographic'; doc.org = 'Your Company';
+    doc.blocks = [R('s_kicker', { text: 'Your Company' }, 'kicker'), R('s_title', { text: 'Business with AI' }, 'title'), R('s_sub', { text: '6 ways to bring artificial intelligence into your business' }, 'sub'),
+      R('s_text', { text: 'Small steps with AI can save hours every week. Here is where to start.' }, 'intro'),
+      R('stats', { items: [{ v: '[X]%', l: 'Time saved' }, { v: '[X]x', l: 'Faster reports' }, { v: '[X]%', l: 'Fewer errors' }] }, 'data'),
+      R('chart', { kind: 'column', title: 'Hours saved per week', labels: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ name: 'Hours', values: [4, 7, 11, 15] }], vals: true }, 'dchart')];
+    pts.forEach(function (p, i) { doc.blocks.push(R('h2', { text: p[0] }, 'i' + (i + 1) + 'h'), R('s_text', { text: p[1] }, 'i' + (i + 1) + 't')); });
+    for (var i = 0; i <= 6; i++) doc.blocks.push(R('s_photo', { src: ph(i) }, 'photo' + i));
+    doc.blocks.push(R('s_cta', { text: 'www.yourcompany.com' }, 'foot'));
+    return doc;
+  };
+})();
+/* IG-END */
 
 window.DSDOC=D;})();
 

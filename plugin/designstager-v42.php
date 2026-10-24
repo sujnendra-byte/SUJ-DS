@@ -2,13 +2,20 @@
 /**
  * Plugin Name: Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in
  * Description: All active DesignStager Code Snippets packaged as a single plugin. V42 = V41 (41.5.0) + AI Document: write with AI or use your own text, review, then a designed document in the AI Presentation-style editor; 784 designs in 8 categories (business, education, career, letters, meetings, finance, marketing, events) incl. 2-sided flyers, tri-fold brochures, posters, social posts, infographics, business cards, invitations, menus, certificates, tickets and folded cards; page sizes per type; Word, PDF, PNG, JPG, TIFF (96-1200 dpi) and EPS+SVG downloads + DesignStager Word add-in. Deactivate V41 before activating V42.
- * Version: 42.0.5
+ * Version: 42.0.6
  * Author: DesignStager
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
  *
  * CHANGELOG
  * ---------
+ * 42.0.6 - 2026-10-24 AI Document: 100 new infographics on a tall 800 x 2000 page. 2 includes updated (371, 372).
+ *   372  Infographics rebuilt: 20 original layouts (glass cards, zigzag, timeline, icon tiles, colour blocks,
+ *        neon, photo rows, pill tabs, data and chart, chevrons, road map, number tabs, hero photo, funnel,
+ *        sidebar, hexagons, steps, speech bubbles, circuit board, editorial) x 5 colour sets, dark and light,
+ *        with line icons, big numbers and photos. New page size "Infographic (800 x 2000)" (also Story, A3).
+ *        Word export sizes the point headings like the screen.
+ *   371  The AI is told what a tall infographic holds (headline, intro, six numbered points, figures).
  * 42.0.5 - 2026-10-24 AI Document: Fill from LinkedIn accepts any profile link, tries the link alone, and reads screenshots. 3 includes updated (371, 372, 373).
  *   371, 373  A link copied from the address bar (with ?isSelfProfile=true or similar) was refused as "not a
  *        LinkedIn profile link". Links are now cleaned to linkedin.com/in/name. The link alone is tried first
@@ -1403,7 +1410,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DSV42_VERSION', '42.0.5' );
+define( 'DSV42_VERSION', '42.0.6' );
 define( 'DSV42_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DSV42_URL', plugin_dir_url( __FILE__ ) );
 

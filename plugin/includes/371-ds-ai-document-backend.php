@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 16:30:00
+ * Modified   : 2026-10-24 17:00:00
  * Load order : 371 of 374
  */
 /**
@@ -198,7 +198,7 @@ final class DS_AI_Doc {
 		'minutes' => 'meeting minutes', 'todo' => 'to-do list', 'project_plan' => 'project plan (overview, goals, scope, timeline, team, risks)', 'project_timeline' => 'project timeline with milestones', 'budget_plan' => 'budget plan (totals, budget table by area and period, approval note)', 'financial_report' => 'financial report (summary, income statement, balance sheet highlights, outlook; only numbers the user gave)', 'quote' => 'price quote / estimate', 'flyer' => 'two-sided event or promotional flyer (front: headline and offer; back: details)', 'invitation' => 'invitation',
 		'menu' => 'restaurant or event menu', 'card' => 'folded greeting or thank-you card (front, short quote, message inside)',
 		'brochure' => 'tri-fold brochure (cover, who we are, contact, then three inside panels: about us, our services, why choose us)', 'brochure_a4' => 'A4 company brochure (a cover with the company name, a title and key numbers, then an inside page: about us, our mission, key numbers)', 'poster' => 'event or promotional poster (headline, short line, key details)',
-		'social_post' => 'social media post (very short: small line, headline of under 8 words, one line, call to action)', 'infographic' => 'infographic (headline, three key figures, a simple chart, short tips)', 'business_card' => 'business card (name, job title, company, contact lines; use [placeholders] for any detail not given)',
+		'social_post' => 'social media post (very short: small line, headline of under 8 words, one line, call to action)', 'infographic' => 'tall infographic (small line, headline of 3-6 words, one-line subtitle, a short intro, six numbered points each with a heading of 2-5 words and one or two short sentences, key figures and a simple chart only if the user gave the numbers, website line)', 'business_card' => 'business card (name, job title, company, contact lines; use [placeholders] for any detail not given)',
 	);
 	private static $FIXED = array( 'press', 'resume', 'cover_letter', 'professional_bio', 'letter', 'formal_letter', 'email_draft', 'memo', 'agenda', 'minutes', 'todo', 'quote', 'flyer', 'invitation', 'menu', 'card', 'brochure', 'brochure_a4', 'poster', 'social_post', 'infographic', 'business_card' );
 

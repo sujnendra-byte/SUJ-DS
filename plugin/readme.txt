@@ -1,11 +1,15 @@
 === Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in ===
 Requires PHP: 7.4
-Stable tag: 42.0.5
+Stable tag: 42.0.6
 
 All active DesignStager Code Snippets packaged as a single plugin.
 
 V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
+
+NEW IN 42.0.6
+ - includes/371, 372: AI Document - 100 new infographics (20 layouts x 5 colour sets, dark
+   and light) on the tall 800 x 2000 infographic page.
 
 NEW IN 42.0.5
  - includes/371, 373: Fill from LinkedIn - any profile link works (also links with ?extras),
