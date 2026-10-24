@@ -26,6 +26,9 @@
  *        fit is measured as if the text had not been moved).
  *   372, 373  Contact icons no longer change by themselves when clicked: a "Change icon" button appears next
  *        to the icon and opens a window with the icons to choose from.
+ *   371, 373  My brand: 5 colours (Main, Second, Accent, Dark text, Light background). Website colours are
+ *        ranked by real use (theme files and the page first; WordPress, Bootstrap and plugin default colours
+ *        and icon fonts skipped). "Get logo & colours" button no longer overflows.
  * 42.0.4 - 2026-10-24 AI Document: Use AI switch, My brand, View all pop-ups, Fill from LinkedIn. 2 includes updated (371, 373).
  *   371, 373  "Use My Text" now has a Use AI switch (like AI Presentation): off = no AI call, the text is placed
  *        into the design line by line (cards: name, job title, company, phone, email, website, address).

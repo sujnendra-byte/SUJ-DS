@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 13:00:00
+ * Modified   : 2026-10-24 16:00:00
  * Load order : 371 of 374
  */
 /**
@@ -785,6 +785,8 @@ final class DS_AI_Doc {
 			'p'    => self::hex6( isset( $b['p'] ) ? $b['p'] : '' ),
 			's'    => self::hex6( isset( $b['s'] ) ? $b['s'] : '' ),
 			'a'    => self::hex6( isset( $b['a'] ) ? $b['a'] : '' ),
+			'd'    => self::hex6( isset( $b['d'] ) ? $b['d'] : '' ),
+			'l'    => self::hex6( isset( $b['l'] ) ? $b['l'] : '' ),
 			'head' => self::font_name( isset( $b['head'] ) ? $b['head'] : '' ),
 			'body' => self::font_name( isset( $b['body'] ) ? $b['body'] : '' ),
 			'logo' => self::logo_data( isset( $b['logo'] ) ? $b['logo'] : '' ),
@@ -849,55 +851,103 @@ final class DS_AI_Doc {
 		$html = (string) wp_remote_retrieve_body( $res );
 		$base = $url;
 
-		/* colours: the theme colour first, then the colours the site's styles use most (not white, black or greys) */
+		/* colours: how much the site really uses each colour.
+		 * - the site's own theme stylesheets and the page itself count most; WordPress, Bootstrap and plugin
+		 *   default colours are skipped (they are in almost every site and are not the brand)
+		 * - colours named as the brand (--primary, --brand, --accent, Elementor global colours...) count extra
+		 * - backgrounds and buttons count more than a single text colour */
+		$skip = array_flip( array( '#007CBA', '#0073AA', '#00A0D2', '#135E96', '#2271B1', '#72AEE6', '#D63638', '#006BA1', '#005A87', '#7A00DF', '#CF2E2E', '#FF6900', '#FCB900', '#7BDCB5', '#00D084', '#8ED1FC', '#0693E3', '#9B51E0', '#F78DA7', '#ABB8C3', '#EB144C', '#00A32A', '#DBA617',
+			'#0D6EFD', '#6610F2', '#6F42C1', '#D63384', '#DC3545', '#FD7E14', '#FFC107', '#198754', '#20C997', '#0DCAF0', '#0A58CA', '#B02A37', '#146C43', '#3D8BFD', '#6EA8FE', '#9EC5FE', '#CFE2FF', '#E7F1FF',
+			'#86B7FE', '#B6D4FE', '#0F5132', '#664D03', '#842029', '#055160', '#41464B', '#084298', '#D1E7DD', '#FFF3CD', '#F8D7DA', '#CFF4FC', '#BADBCC', '#FFECB5', '#F5C2C7', '#B6EFFB', '#A3CFBB', '#FFE69C', '#F1AEB5', '#9EEAF9', '#052C65', '#031633', '#0A3622', '#58151C', '#332701', '#032830', '#6EA8FE', '#75B798', '#FFDA6A', '#EA868F', '#6EDFF6', '#A370F7', '#E685B5', '#FEB272', '#79DFC1',
+			'#007BFF', '#28A745', '#17A2B8', '#E83E8C', '#6EC1E4', '#54595F', '#61CE70', '#4054B2', '#23A455', '#F0AD4E', '#D9534F', '#5CB85C', '#5BC0DE', '#337AB7', '#3B5998', '#1DA1F2', '#25D366', '#0077B5', '#FF0000', '#E4405F', '#BD081C' ) );
 		$count = array();
-		if ( preg_match( '/<meta[^>]+name=["\']theme-color["\'][^>]+content=["\'](#[0-9a-f]{3,6})["\']/i', $html, $m ) || preg_match( '/<meta[^>]+content=["\'](#[0-9a-f]{3,6})["\'][^>]+name=["\']theme-color["\']/i', $html, $m ) ) {
-			$h = self::hex6( $m[1] );
-			if ( $h ) {
-				$count[ $h ] = 1000;
+		$darks = array();
+		$lights = array();
+		$add = function ( $c, $w ) use ( &$count, &$darks, &$lights, $skip ) {
+			$h = self::hex6( $c );
+			if ( ! $h || isset( $skip[ $h ] ) ) {
+				return;
 			}
+			list( $r, $g, $b ) = array( hexdec( substr( $h, 1, 2 ) ), hexdec( substr( $h, 3, 2 ) ), hexdec( substr( $h, 5, 2 ) ) );
+			$lum = ( 0.2126 * $r + 0.7152 * $g + 0.0722 * $b ) / 255;
+			$sat = max( $r, $g, $b ) - min( $r, $g, $b );
+			if ( $lum < 0.2 && $lum > 0.01 ) {
+				$darks[ $h ] = ( isset( $darks[ $h ] ) ? $darks[ $h ] : 0 ) + $w;   /* text / dark background colour */
+			}
+			if ( $lum > 0.9 && $lum < 0.995 ) {
+				$lights[ $h ] = ( isset( $lights[ $h ] ) ? $lights[ $h ] : 0 ) + $w; /* light background tint */
+			}
+			if ( $sat < 40 || $lum > 0.93 ) {
+				return; /* white, black, greys and near-white tints are not the brand colours */
+			}
+			$count[ $h ] = ( isset( $count[ $h ] ) ? $count[ $h ] : 0 ) + $w;
+		};
+		$scan = function ( $css, $w ) use ( $add ) {
+			/* brand-named variables: --primary, --brand-color, --main-color, --accent, --e-global-color-primary ... */
+			if ( preg_match_all( '/--[\w-]*(primary|brand|main|accent|secondary|theme)[\w-]*\s*:\s*(#[0-9a-f]{3,6})\b/i', $css, $vm ) ) {
+				foreach ( $vm[2] as $c ) {
+					$add( $c, 25 * $w );
+				}
+			}
+			/* backgrounds, buttons and borders weigh more than a single text colour */
+			if ( preg_match_all( '/(background(?:-color)?|fill|border(?:-[a-z]+)?-color|border)\s*:[^;}{]*?(#[0-9a-f]{3,6})\b/i', $css, $bm ) ) {
+				foreach ( $bm[2] as $c ) {
+					$add( $c, 3 * $w );
+				}
+			}
+			if ( preg_match_all( '/#([0-9a-f]{6}|[0-9a-f]{3})\b/i', $css, $cm ) ) {
+				foreach ( $cm[0] as $c ) {
+					$add( $c, $w );
+				}
+			}
+			if ( preg_match_all( '/rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})(?:[\s,\/]+([\d.]+%?))?\s*\)/i', $css, $rm, PREG_SET_ORDER ) ) {
+				foreach ( $rm as $x ) {
+					if ( isset( $x[4] ) && '' !== $x[4] && (float) $x[4] < 0.6 && false === strpos( $x[4], '%' ) ) {
+						continue; /* see-through overlays are not brand colours */
+					}
+					$add( sprintf( '#%02X%02X%02X', min( 255, $x[1] ), min( 255, $x[2] ), min( 255, $x[3] ) ), $w );
+				}
+			}
+		};
+		if ( preg_match( '/<meta[^>]+name=["\']theme-color["\'][^>]+content=["\'](#[0-9a-f]{3,6})["\']/i', $html, $m ) || preg_match( '/<meta[^>]+content=["\'](#[0-9a-f]{3,6})["\'][^>]+name=["\']theme-color["\']/i', $html, $m ) ) {
+			$add( $m[1], 60 );
 		}
-		$css = '';
-		if ( preg_match_all( '/<style[^>]*>(.*?)<\/style>/is', $html, $mm ) ) {
-			$css .= implode( "\n", $mm[1] );
-		}
-		if ( preg_match_all( '/style=["\']([^"\']+)["\']/i', $html, $mm ) ) {
-			$css .= "\n" . implode( "\n", $mm[1] );
-		}
-		/* the site's own first stylesheet (same host only) */
-		$host = wp_parse_url( $url, PHP_URL_HOST );
+		/* the page itself (inline styles, SVG fills, style blocks), without its scripts */
+		$scan( preg_replace( '#<script\b[^>]*>.*?</script>#is', '', $html ), 3 );
+		/* the site's own stylesheets: theme files first, then site-made files; WordPress and plugin files last */
+		$host  = wp_parse_url( $url, PHP_URL_HOST );
+		$links = array();
 		if ( preg_match_all( '/<link[^>]+rel=["\']stylesheet["\'][^>]*>/i', $html, $ls ) ) {
-			$n = 0;
-			foreach ( $ls[0] as $tag ) {
+			foreach ( $ls[0] as $i => $tag ) {
 				if ( ! preg_match( '/href=["\']([^"\']+)["\']/i', $tag, $hm ) ) {
 					continue;
 				}
 				$href = self::abs_url( html_entity_decode( $hm[1] ), $base );
-				if ( ! $href || wp_parse_url( $href, PHP_URL_HOST ) !== $host || $n >= 2 ) {
+				if ( ! $href || wp_parse_url( $href, PHP_URL_HOST ) !== $host ) {
 					continue;
 				}
-				$n++;
-				$r2 = wp_safe_remote_get( $href, array( 'timeout' => 6, 'redirection' => 2, 'limit_response_size' => 800000 ) );
-				if ( ! is_wp_error( $r2 ) && 200 === (int) wp_remote_retrieve_response_code( $r2 ) ) {
-					$css .= "\n" . wp_remote_retrieve_body( $r2 );
+				$p = 5;
+				if ( preg_match( '#/themes/#i', $href ) ) {
+					$p = 1;
+				} elseif ( preg_match( '#/uploads/(elementor|oxygen|bricks|generateblocks|kadence)|custom|style|main|theme|brand#i', $href ) ) {
+					$p = 2;
+				} elseif ( preg_match( '#/wp-includes/|/wp-admin/|/plugins/|bootstrap|font-?awesome|swiper|slick|animate|dashicons#i', $href ) ) {
+					$p = 9;
 				}
+				$links[] = array( $p, $i, $href );
 			}
 		}
-		if ( preg_match_all( '/#([0-9a-f]{6}|[0-9a-f]{3})\b/i', $css, $cm ) ) {
-			foreach ( $cm[0] as $c ) {
-				$h = self::hex6( $c );
-				if ( ! $h ) {
-					continue;
-				}
-				list( $r, $g, $b ) = array( hexdec( substr( $h, 1, 2 ) ), hexdec( substr( $h, 3, 2 ) ), hexdec( substr( $h, 5, 2 ) ) );
-				$sat = max( $r, $g, $b ) - min( $r, $g, $b );
-				if ( $sat < 40 ) {
-					continue; /* white, black and greys are not brand colours */
-				}
-				if ( in_array( $h, array( '#007CBA', '#0073AA', '#00A0D2', '#135E96', '#2271B1', '#72AEE6', '#D63638', '#CF2E2E', '#FF6900', '#FCB900', '#7BDCB5', '#00D084', '#8ED1FC', '#0693E3', '#9B51E0', '#F78DA7', '#ABB8C3', '#EB144C', '#00A32A', '#DBA617' ), true ) ) {
-					continue; /* WordPress's own admin and block-editor colours, which most WordPress sites carry */
-				}
-				$count[ $h ] = ( isset( $count[ $h ] ) ? $count[ $h ] : 0 ) + 1;
+		usort( $links, function ( $a, $b ) { return $a[0] === $b[0] ? $a[1] - $b[1] : $a[0] - $b[0]; } );
+		$sheets = '';
+		foreach ( array_slice( $links, 0, 4 ) as $lk ) {
+			if ( $lk[0] >= 9 ) {
+				break;
+			}
+			$r2 = wp_safe_remote_get( $lk[2], array( 'timeout' => 6, 'redirection' => 2, 'limit_response_size' => 900000 ) );
+			if ( ! is_wp_error( $r2 ) && 200 === (int) wp_remote_retrieve_response_code( $r2 ) ) {
+				$body2   = (string) wp_remote_retrieve_body( $r2 );
+				$sheets .= "\n" . $body2;
+				$scan( $body2, 1 === $lk[0] ? 2 : 1 );
 			}
 		}
 		arsort( $count );
@@ -913,11 +963,19 @@ final class DS_AI_Doc {
 			if ( ! $dup ) {
 				$colors[] = $h;
 			}
-			if ( count( $colors ) >= 6 ) {
+			if ( count( $colors ) >= 8 ) {
 				break;
 			}
 		}
-
+		arsort( $darks );
+		arsort( $lights );
+		$dark  = $darks ? array_keys( $darks )[0] : '';
+		$light = $lights ? array_keys( $lights )[0] : '';
+		$css   = ''; /* the font reader below looks at the page's styles */
+		if ( preg_match_all( '/<style[^>]*>(.*?)<\/style>/is', $html, $mm ) ) {
+			$css .= implode( "\n", $mm[1] );
+		}
+		$css .= $sheets;
 		/* fonts: Google Fonts links and the first font-family names in the styles */
 		$fonts = array();
 		if ( preg_match_all( '/fonts\.googleapis\.com\/css2?\?([^"\'>\s]+)/i', $html, $gm ) ) {
@@ -932,7 +990,7 @@ final class DS_AI_Doc {
 		if ( preg_match_all( '/font-family\s*:\s*["\']?([A-Za-z0-9 \-]+)/i', $css, $fm ) ) {
 			foreach ( $fm[1] as $f ) {
 				$f = self::font_name( $f );
-				if ( $f && ! preg_match( '/^(inherit|initial|sans-serif|serif|monospace|system-ui|var|-apple-system|BlinkMacSystemFont|dashicons|Font Awesome.*|fontawesome|icomoon|eicons|star|swiper-icons)$/i', $f ) ) {
+				if ( $f && ! preg_match( '/^(inherit|initial|sans-serif|serif|monospace|system-ui|var|-apple-system|BlinkMacSystemFont|dashicons|Font Awesome.*|fontawesome|icomoon|eicons|star|swiper-icons|slick|swiper|fontello|flaticon|themify|Material Icons.*|Material Symbols.*|bootstrap-icons|feather|ionicons|lineicons|elementskit|revicons|WooCommerce|icons?)$/i', $f ) ) {
 					$fonts[] = $f;
 				}
 			}
@@ -979,7 +1037,7 @@ final class DS_AI_Doc {
 		if ( ! $colors && ! $logo && ! $fonts ) {
 			return self::err( 'empty', 'We opened the website but could not find a logo or colours. Please add them by hand.' );
 		}
-		return rest_ensure_response( array( 'success' => true, 'site' => $url, 'name' => $title, 'colors' => $colors, 'fonts' => $fonts, 'logo' => $logo ) );
+		return rest_ensure_response( array( 'success' => true, 'site' => $url, 'name' => $title, 'colors' => $colors, 'dark' => $dark, 'light' => $light, 'fonts' => $fonts, 'logo' => $logo ) );
 	}
 	private static function abs_url( $u, $base ) {
 		$u = trim( (string) $u );

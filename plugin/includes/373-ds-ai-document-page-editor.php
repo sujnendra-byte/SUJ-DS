@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 15:30:00
+ * Modified   : 2026-10-24 16:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.9.0-iconbtn' );
+define( 'DS_DOC_APP_VER', '1.9.2-brand5' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2562,7 +2562,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   var BRAND = CFG.brand || null;
   function brandTheme(b) {
     var p = b.p, s2 = b.s || D.mix(p, '#FFFFFF', 0.3), a = b.a || s2;
-    return { id: 'my-brand', name: b.name || 'My brand', p: p, s: s2, a: a, ink: '#1C1E26', mute: '#5E6573', tint: D.mix(p, '#FFFFFF', 0.94), line: D.mix(p, '#FFFFFF', 0.82), head: b.head || 'Aptos Display', body: b.body || b.head || 'Aptos', mine: 1 };
+    var ink = b.d || '#1C1E26';
+    return { id: 'my-brand', name: b.name || 'My brand', p: p, s: s2, a: a, ink: ink, mute: D.mix(ink, '#FFFFFF', 0.38), tint: b.l || D.mix(p, '#FFFFFF', 0.94), line: D.mix(p, '#FFFFFF', 0.82), head: b.head || 'Aptos Display', body: b.body || b.head || 'Aptos', mine: 1 };
   }
   function registerBrand(b) {
     for (var i = D.THEMES.length - 1; i >= 0; i--) if (D.THEMES[i].id === 'my-brand') D.THEMES.splice(i, 1);
@@ -2604,7 +2605,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   }
   function openBrand() {
     var old = $('.dd-gal', root); if (old) old.remove();
-    var W = Object.assign({ name: 'My brand', p: '#1F3864', s: '#2E74B5', a: '#F2B134', head: 'Aptos Display', body: 'Aptos', logo: '', site: '', auto: 1 }, BRAND || {});
+    var W = Object.assign({ name: 'My brand', p: '#1F3864', s: '#2E74B5', a: '#F2B134', d: '#1C1E26', l: '#F2F5FA', head: 'Aptos Display', body: 'Aptos', logo: '', site: '', auto: 1 }, BRAND || {});
     var found = { colors: [], fonts: [] }, slot = 'p';
     var m = el('div', 'dd-gal');
     m.innerHTML = '<div class="dd-gbox dd-bk" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3>My brand</h3><p>Your logo, colours and fonts. Saved to your account as a personal theme and used on every new design.</p></div><button type="button" class="dd-gx" data-b="x" title="Close">×</button></div>' +
@@ -2613,7 +2614,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       '<div class="dd-bkfound" id="bk-found"></div>' +
       '<label class="dd-l">Logo</label><div class="dd-bklogo"><div class="lg" id="bk-lg"></div><div><button type="button" class="dd-bkbtn" data-b="up">Upload logo</button> <button type="button" class="dd-bkbtn ghost" data-b="nolg">Remove</button><input type="file" id="bk-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="dd-hide"><small>PNG with a see-through background works best. SVG is turned into a PNG.</small></div></div>' +
       '<label class="dd-l">Brand colours <small>(click a slot, then a colour found on your website — or pick one)</small></label><div class="dd-bkcols">' +
-      [['p', 'Main'], ['s', 'Second'], ['a', 'Accent']].map(function (x) { return '<label class="sl" data-slot="' + x[0] + '"><input type="color" data-c="' + x[0] + '"><span>' + x[1] + '</span></label>'; }).join('') + '</div>' +
+      [['p', 'Main'], ['s', 'Second'], ['a', 'Accent'], ['d', 'Dark (text)'], ['l', 'Light (background)']].map(function (x) { return '<label class="sl" data-slot="' + x[0] + '"><input type="color" data-c="' + x[0] + '"><span>' + x[1] + '</span></label>'; }).join('') + '</div>' +
       '<div class="dd-row2"><div><label class="dd-l">Heading font</label><select id="bk-head"></select></div><div><label class="dd-l">Text font</label><select id="bk-body"></select></div></div>' +
       '<label class="dd-l">Name</label><input type="text" id="bk-name" maxlength="40">' +
       '<label class="dd-bkauto"><input type="checkbox" id="bk-auto"> Use my brand on every new design (logo, colours and fonts)</label>' +
@@ -2635,7 +2636,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       var t = brandTheme(W), pv = $('#bk-pv', m);
       pv.innerHTML = '<div class="bkcard" style="background:' + t.tint + ';border-top:8px solid ' + t.p + '">' + (W.logo ? '<img alt="" src="' + esc(W.logo) + '">' : '') +
         '<b style="color:' + t.p + ';font-family:' + esc(t.head) + ',sans-serif">' + esc(W.name || 'My brand') + '</b><i style="font-family:' + esc(t.body) + ',sans-serif;color:' + t.mute + '">Your headings use ' + esc(t.head) + ' and your text uses ' + esc(t.body) + '.</i>' +
-        '<div class="bar"><em style="background:' + t.p + '"></em><em style="background:' + t.s + '"></em><em style="background:' + t.a + '"></em></div><span class="cta" style="background:' + t.a + ';color:' + D.onColor(t.a) + '">Call to action</span></div>';
+        '<div class="bar"><em style="background:' + t.p + '"></em><em style="background:' + t.s + '"></em><em style="background:' + t.a + '"></em><em style="background:' + t.ink + '"></em><em style="background:' + t.tint + ';outline:1px solid rgba(0,0,0,.12)"></em></div><span class="cta" style="background:' + t.a + ';color:' + D.onColor(t.a) + '">Call to action</span></div>';
     }
     $('#bk-site', m).value = W.site || ''; $('#bk-name', m).value = W.name || 'My brand'; $('#bk-auto', m).checked = !!W.auto;
     fonts(); paint();
@@ -2656,7 +2657,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     m.addEventListener('click', function (e) {
       if (e.target === m) { close(); return; }
       var sl = e.target.closest('.sl'); if (sl) { slot = sl.dataset.slot; paint(); }
-      var fc = e.target.closest('[data-fc]'); if (fc) { W[slot] = fc.dataset.fc; slot = slot === 'p' ? 's' : slot === 's' ? 'a' : 'a'; paint(); return; }
+      var fc = e.target.closest('[data-fc]'); if (fc) { W[slot] = fc.dataset.fc; slot = { p: 's', s: 'a', a: 'd', d: 'l', l: 'l' }[slot]; paint(); return; }
       var b = e.target.closest('[data-b]'); if (!b) return;
       var a = b.dataset.b;
       if (a === 'x') close();
@@ -2666,15 +2667,17 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         var u = $('#bk-site', m).value.trim(); if (!u) { toast('Type your website address first.', 'err'); return; }
         b.disabled = true; b.textContent = 'Reading your website…';
         api('POST', 'ds/v1/doc-brand-site', { url: u }).then(function (r) {
-          found.colors = r.colors || []; found.fonts = r.fonts || []; W.site = r.site || u;
-          if (found.colors[0]) W.p = found.colors[0];
-          if (found.colors[1]) W.s = found.colors[1];
-          if (found.colors[2]) W.a = found.colors[2];
+          found.colors = (r.colors || []).concat([r.dark, r.light].filter(function (c, i, arr) { return c && (r.colors || []).indexOf(c) < 0 && arr.indexOf(c) === i; })); found.fonts = r.fonts || []; W.site = r.site || u;
+          if (r.colors && r.colors[0]) W.p = r.colors[0];
+          if (r.colors && r.colors[1]) W.s = r.colors[1];
+          if (r.colors && r.colors[2]) W.a = r.colors[2];
+          W.d = r.dark || '#1C1E26';
+          W.l = r.light || D.mix(W.p, '#FFFFFF', 0.94);
           if (found.fonts[0]) { W.head = found.fonts[0]; W.body = found.fonts[1] || found.fonts[0]; }
           if (r.logo) W.logo = r.logo;
           if (r.name && (!W.name || W.name === 'My brand')) { W.name = r.name; $('#bk-name', m).value = r.name; }
           fonts(); paint();
-          toast('Found ' + found.colors.length + ' colour' + (found.colors.length === 1 ? '' : 's') + (r.logo ? ', your logo' : '') + (found.fonts.length ? ' and ' + found.fonts.length + ' font' + (found.fonts.length === 1 ? '' : 's') : '') + '. Check them, then press Save.', 'ok', 6000);
+          toast('Found ' + (r.colors || []).length + ' colour' + ((r.colors || []).length === 1 ? '' : 's') + (r.logo ? ', your logo' : '') + (found.fonts.length ? ' and ' + found.fonts.length + ' font' + (found.fonts.length === 1 ? '' : 's') : '') + '. Check them, then press Save.', 'ok', 6000);
         }).catch(function (er) { toast(er.message || 'We could not read that website.', 'err', 6000); })
           .then(function () { b.disabled = false; b.innerHTML = 'Get logo &amp; colours'; });
       }
@@ -2905,7 +2908,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     if (!BRAND) return '<button type="button" class="dd-th dd-mybr add" data-act="brand"><div class="plus">+</div><b>Add my brand</b><span>Logo, colours &amp; fonts</span></button>';
     var t = brandTheme(BRAND);
     return '<div class="dd-th dd-mybr' + (S.theme === 'my-brand' ? ' on' : '') + '" data-theme="my-brand" role="button" tabindex="0"><span class="tag">Personal</span><button type="button" class="ed" data-act="brand" title="Edit my brand">Edit</button>' +
-      '<div class="sw">' + (BRAND.logo ? '<img alt="" src="' + esc(BRAND.logo) + '">' : '') + '<i style="background:' + t.p + '"></i><i style="background:' + t.s + '"></i><i style="background:' + t.a + '"></i></div><b>' + esc(t.name) + '</b><span>' + esc(t.head) + '</span></div>';
+      '<div class="sw">' + (BRAND.logo ? '<img alt="" src="' + esc(BRAND.logo) + '">' : '') + '<i style="background:' + t.p + '"></i><i style="background:' + t.s + '"></i><i style="background:' + t.a + '"></i><i style="background:' + t.ink + '"></i><i style="background:' + t.tint + '"></i></div><b>' + esc(t.name) + '</b><span>' + esc(t.head) + '</span></div>';
   }
   function drawChips() {
     var gs = ['auto', 'all'].concat(groups);
@@ -4847,7 +4850,9 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-bk{width:min(940px,96vw);height:auto;max-height:94vh}
 #dsdoc-app .dd-bkbody{display:grid;grid-template-columns:1.25fr 1fr;gap:22px;padding:4px 22px 10px;overflow:auto}
 #dsdoc-app .dd-bkform input[type=url],#dsdoc-app .dd-bkform input[type=text],#dsdoc-app .dd-bkform select{width:100%;background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:9px 12px;color:var(--tx);font-size:13.5px;box-sizing:border-box}
-#dsdoc-app .dd-bkrow{display:flex;gap:8px}
+#dsdoc-app .dd-bkrow{display:flex;gap:8px;align-items:stretch}
+#dsdoc-app .dd-bkrow>input{flex:1 1 auto;min-width:0}
+#dsdoc-app .dd-bkrow>.dd-bkbtn{flex:0 0 auto;width:auto;max-width:none;overflow:visible}
 #dsdoc-app .dd-bkbtn{background:var(--field);border:1px solid var(--bd);color:var(--tx);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
 #dsdoc-app .dd-bkbtn.pri{background:#2563eb;border-color:#2563eb;color:#fff}
 #dsdoc-app .dd-bkbtn.ghost{background:transparent}
@@ -4858,8 +4863,8 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-bklogo .lg{width:120px;height:70px;border-radius:10px;background:repeating-conic-gradient(#e8ebf0 0 25%,#fff 0 50%) 0 0/14px 14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden;color:#6b7280;font-size:12px}
 #dsdoc-app .dd-bklogo .lg img{max-width:92%;max-height:86%;object-fit:contain}
 #dsdoc-app .dd-bklogo small{display:block;margin-top:6px;color:var(--mut);font-size:11.5px}
-#dsdoc-app .dd-bkcols{display:flex;gap:10px}
-#dsdoc-app .dd-bkcols .sl{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border:2px solid transparent;border-radius:12px;cursor:pointer;font-size:12px;color:var(--mut2)}
+#dsdoc-app .dd-bkcols{display:flex;gap:8px;flex-wrap:wrap}
+#dsdoc-app .dd-bkcols .sl{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;text-align:center;max-width:86px;border:2px solid transparent;border-radius:12px;cursor:pointer;font-size:12px;color:var(--mut2)}
 #dsdoc-app .dd-bkcols .sl.on{border-color:#3b82f6}
 #dsdoc-app .dd-bkcols input[type=color]{width:54px;height:40px;border:0;background:transparent;padding:0;cursor:pointer}
 #dsdoc-app .dd-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
