@@ -20,6 +20,8 @@
  *        Review window: each place is named by what goes there (Your name, Job title, Company name, Headline,
  *        Back – heading...) instead of "Big title" / "Subtitle"; contact lines have a Phone / Email / Website /
  *        Address / LinkedIn picker; the logo and photo show a short note instead of empty fields.
+ *        Editor: an "Edit page" button above every page (cards: Edit front side / Edit back side), like
+ *        "Edit + Add Points" in AI Presentation: a window with only that page's text and a live preview of the page.
  * 42.0.4 - 2026-10-24 AI Document: Use AI switch, My brand, View all pop-ups, Fill from LinkedIn. 2 includes updated (371, 373).
  *   371, 373  "Use My Text" now has a Use AI switch (like AI Presentation): off = no AI call, the text is placed
  *        into the design line by line (cards: name, job title, company, phone, email, website, address).

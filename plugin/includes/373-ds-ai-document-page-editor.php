@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 14:00:00
+ * Modified   : 2026-10-24 14:30:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.8.6-review' );
+define( 'DS_DOC_APP_VER', '1.8.9-editpage' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -3421,9 +3421,11 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   }
   function reviewDoc(doc, docId, opts) {
     var groups = rvGroups(doc.blocks || []), dz = D.design(doc.tpl), sectioned = groups.some(function (g) { return g.head; });
-    var m = el('div', 'dd-rv');
-    m.innerHTML = '<div class="rv-box"><div class="rv-hd"><div><h3>Review your document</h3><p>' + (S.mode === 'preserve' && !useAiOn() ? 'This is your text, placed without AI.' : 'This is the text the AI wrote.') + ' Change anything, delete what you don’t need or add more — nothing is designed yet. When it looks right, press <b>Generate Word document</b>.</p></div><button type="button" class="rv-x" data-rv="close" title="Close">×</button></div>' +
-      '<div class="rv-main"><nav class="rv-nav" id="rv-nav"></nav><div class="rv-body" id="rv-body"></div></div>' +
+    /* "Edit page" (like Edit slide in AI Presentation): only the blocks on one page, with a live preview of that page */
+    var only = opts && opts.only ? opts.only : null, pgMode = !!only;
+    var m = el('div', 'dd-rv' + (pgMode ? ' rv-pgm' : ''));
+    m.innerHTML = '<div class="rv-box"><div class="rv-hd"><div>' + (pgMode ? '<h3>✎ ' + esc(opts.title || 'Edit page') + '</h3><p>Change the text on this page, delete what you don’t need or add more. The preview updates as you type; press <b>Apply changes</b> when it looks right.</p>' : '<h3>Review your document</h3><p>' + (S.mode === 'preserve' && !useAiOn() ? 'This is your text, placed without AI.' : 'This is the text the AI wrote.') + ' Change anything, delete what you don’t need or add more — nothing is designed yet. When it looks right, press <b>Generate Word document</b>.</p>') + '</div><button type="button" class="rv-x" data-rv="close" title="Close">×</button></div>' +
+      '<div class="rv-main">' + (pgMode ? '<div class="rv-pvw"><div class="rv-pv" id="rv-pv"></div><p class="rv-pvn">Preview of this page</p></div>' : '') + '<nav class="rv-nav" id="rv-nav"></nav><div class="rv-body" id="rv-body"></div></div>' +
       '<div class="rv-ft"><span class="rv-info" id="rv-info"></span><button type="button" class="rv-btn" data-rv="back">' + (opts ? 'Cancel' : '← Back to edit') + '</button><button type="button" class="rv-btn pri" data-rv="go">' + (opts ? 'Apply changes →' : 'Generate Word document →') + '</button></div></div>';
     document.body.appendChild(m); document.body.classList.add('dd-noscroll');
     var body = $('#rv-body', m), nav = $('#rv-nav', m);
@@ -3505,22 +3507,29 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       return genericFld(b, gi, bi);
     }
     function draw() {
-      var h = '<div class="rv-doc"><label class="rv-lab">' + (D.type(doc.type).fixed ? 'Name in My Documents <i>(not printed on the design)</i>' : 'Document title') + '</label><input class="rv-in big" data-d="title" value="' + esc(doc.title || '') + '">' +
+      var h = pgMode ? '' : '<div class="rv-doc"><label class="rv-lab">' + (D.type(doc.type).fixed ? 'Name in My Documents <i>(not printed on the design)</i>' : 'Document title') + '</label><input class="rv-in big" data-d="title" value="' + esc(doc.title || '') + '">' +
         (doc.subtitle != null && dz.kind !== 'single' ? '<label class="rv-lab">Subtitle</label><input class="rv-in" data-d="subtitle" value="' + esc(doc.subtitle || '') + '">' : '') + '</div>';
       var nh = '';
+      var shown = 0;
       groups.forEach(function (g, gi) {
+        if (only && !(g.head && only[g.head.id]) && !g.blocks.some(function (b) { return only[b.id]; })) return;
+        shown++;
         var name = g.head ? (g.head.text || 'Untitled section') : (gi === 0 ? (sectioned ? 'Opening' : 'Content') : 'More');
         nh += '<a href="#" data-go="' + gi + '"><b>' + (g.head ? ('0' + (groups.slice(0, gi + 1).filter(function (x) { return x.head; }).length)).slice(-2) : '•') + '</b>' + esc(String(name).replace(/\*/g, '')) + '</a>';
-        h += '<section class="rv-sec" id="rv-s' + gi + '"><div class="rv-sh">' + (g.head ? '<input class="rv-in big hd" data-b="' + gi + '.h.text" value="' + esc(g.head.text || '') + '" placeholder="Section heading">' : '<span class="rv-st">' + esc(name) + '</span>') +
-          '<span class="rv-acts">' + (g.head ? '<button type="button" data-op="secup" data-at="' + gi + '" title="Move section up">↑</button><button type="button" data-op="secdown" data-at="' + gi + '" title="Move section down">↓</button><button type="button" data-op="secdel" data-at="' + gi + '" title="Delete section">' + IC.trash + '</button>' : '') + '</span></div>';
+        if (only && g.head && !only[g.head.id]) { h += '<section class="rv-sec" id="rv-s' + gi + '"><div class="rv-sh"><span class="rv-st">' + esc(String(name).replace(/\*/g, '')) + ' <i>(continued)</i></span></div>'; }
+        else h += '<section class="rv-sec" id="rv-s' + gi + '"><div class="rv-sh">' + (g.head ? '<input class="rv-in big hd" data-b="' + gi + '.h.text" value="' + esc(g.head.text || '') + '" placeholder="Section heading">' : '<span class="rv-st">' + esc(name) + '</span>') +
+          '<span class="rv-acts">' + (g.head && !pgMode ? '<button type="button" data-op="secup" data-at="' + gi + '" title="Move section up">↑</button><button type="button" data-op="secdown" data-at="' + gi + '" title="Move section down">↓</button><button type="button" data-op="secdel" data-at="' + gi + '" title="Delete section">' + IC.trash + '</button>' : '') + '</span></div>';
         g.blocks.forEach(function (b, bi) {
+          if (only && !only[b.id]) return;
           h += '<div class="rv-blk"><div class="rv-bh"><span class="rv-tag">' + esc(rvLabel(b, doc.type)) + '</span><span class="rv-acts"><button type="button" data-op="up" data-at="' + gi + '.' + bi + '" title="Move up">↑</button><button type="button" data-op="down" data-at="' + gi + '.' + bi + '" title="Move down">↓</button><button type="button" data-op="del" data-at="' + gi + '.' + bi + '" title="Delete">' + IC.trash + '</button></span></div>' + blockFld(b, gi, bi) + '</div>';
         });
-        h += '<div class="rv-add"><select data-addto="' + gi + '"><option value="">+ Add to this section…</option>' + RV_ADD.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + '</option>'; }).join('') + '</select>' +
-          (sectioned ? '<button type="button" data-op="secadd" data-at="' + gi + '">+ New section below</button>' : '') + '</div></section>';
+        if (!(pgMode && D.type(doc.type).fixed)) h += '<div class="rv-add"><select data-addto="' + gi + '"><option value="">+ Add to this section…</option>' + RV_ADD.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + '</option>'; }).join('') + '</select>' +
+          (sectioned && !pgMode ? '<button type="button" data-op="secadd" data-at="' + gi + '">+ New section below</button>' : '') + '</div></section>';
+        else h += '</section>';
       });
+      if (pgMode && !shown) h += '<p class="rv-note">This page has no text of its own. Use + Add element in the editor to add text, shapes or pictures.</p>';
       body.innerHTML = h; nav.innerHTML = nh;
-      count();
+      count(); if (pgMode) pvLater();
     }
     function count() {
       var w = 0; groups.forEach(function (g) { [g.head].concat(g.blocks).forEach(function (b) { if (b) w += (JSON.stringify(b).match(/[A-Za-zऀ-෿]+/g) || []).length; }); });
@@ -3541,7 +3550,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (ps[1] === 'h') { var a = nav.querySelector('[data-go="' + ps[0] + '"]'); if (a) a.lastChild.textContent = t.value; }
     });
     body.addEventListener('change', function (e) {
-      var sel = e.target.closest('[data-addto]'); if (sel && sel.value) { groups[+sel.dataset.addto].blocks.push(rvNew(sel.value)); draw(); var s2 = $('#rv-s' + sel.dataset.addto, m); if (s2) s2.lastElementChild.previousElementSibling.scrollIntoView({ block: 'center' }); return; }
+      var sel = e.target.closest('[data-addto]'); if (sel && sel.value) { var nb = rvNew(sel.value); if (only) only[nb.id] = 1; groups[+sel.dataset.addto].blocks.push(nb); draw(); var s2 = $('#rv-s' + sel.dataset.addto, m); if (s2) s2.lastElementChild.previousElementSibling.scrollIntoView({ block: 'center' }); return; }
       if (e.target.dataset.b && /\.kind$|\.rows\.\d+\.i$/.test(e.target.dataset.b)) draw();
     });
     m.addEventListener('click', function (e) {
@@ -3576,6 +3585,22 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (r.dataset.rv === 'close' || r.dataset.rv === 'back') { flatten(); saveDoc(doc, docId, true).catch(function () {}); close(); toast('Your text is saved in My Documents. You can open it again any time.', '', 5000); return; }
       if (r.dataset.rv === 'go') { flatten(); close(); designDoc(doc, docId); }
     });
+    /* the live preview of the page being edited */
+    function pvPaint() {
+      var box = $('#rv-pv', m); if (!box) return;
+      var out = []; groups.forEach(function (g) { if (g.head) out.push(g.head); out = out.concat(g.blocks); });
+      var d2 = D.clone(doc); d2.blocks = D.clone(out);
+      var sz = D.size(d2), W = Math.max(200, box.clientWidth || 420), k = W / sz.w;
+      var tmp = el('div'); tmp.style.cssText = 'position:absolute;left:-99999px;top:0;width:' + sz.w + 'px';
+      document.body.appendChild(tmp);
+      try { D.render(tmp, d2, { edit: false, gap: 0 }); } catch (er) { tmp.remove(); return; }
+      var r0 = tmp.getBoundingClientRect(), pages = $$('.dsd-page', tmp).map(function (p2) { return p2.getBoundingClientRect().top - r0.top; }).sort(function (a, b) { return a - b; });
+      var top = pages[Math.min(pages.length - 1, Math.max(0, opts.page || 0))] || 0;
+      tmp.style.cssText = 'position:absolute;left:0;top:0;width:' + sz.w + 'px;transform-origin:0 0;transform:scale(' + k + ') translateY(' + (-top) + 'px)';
+      box.innerHTML = ''; box.style.height = Math.round(sz.h * k) + 'px'; box.appendChild(tmp);
+    }
+    var pvLater = debounce(pvPaint, 250);
+    if (pgMode) body.addEventListener('input', function () { pvLater(); });
     function flatten() {
       var out = [];
       groups.forEach(function (g) { if (g.head) out.push(g.head); out = out.concat(g.blocks); });
@@ -3921,7 +3946,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     function render(keepScroll) {
       var st = canvas.scrollTop;
       try { if (D.detachArt && !D.artOn(doc)) D.detachArt(doc); } catch (er) { /* keep the drawn design */ }
-      api2 = D.render(docBox, doc, { edit: true, gap: 28 });
+      api2 = D.render(docBox, doc, { edit: true, gap: 64 });   /* room above each page for its Edit page button */
       if (LE) LE.onRender(api2);
       var sz = D.size(doc);
       docBox.style.width = sz.w + 'px';
@@ -3958,6 +3983,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       zoomBox.__pad = pad; zoomBox.__padT = padT;
       $('#dde-z', host).textContent = Math.round(zoom * 100) + '%';
       if (LE) { LE.sync(); LE.place(); }
+      placePageBtns();
     }
     function fit() { var sz = D.size(doc); zoom = Math.max(0.3, Math.min(1.5, (canvas.clientWidth - 70) / sz.w)); applyZoom(); canvas.scrollLeft = zoomBox.__pad || 0; canvas.scrollTop = Math.max(0, (zoomBox.__padT || 0) - 20); placeToolbar(); }
     /* zoom keeping the point under the pointer still (Ctrl/Cmd + wheel, trackpad pinch, Ctrl +/-) */
@@ -4006,7 +4032,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     canvas.addEventListener('pointerup', endPan, true); canvas.addEventListener('pointercancel', endPan, true);
     canvas.addEventListener('auxclick', function (e) { if (e.button === 1) e.preventDefault(); });
     function pageCount() {
-      var n = api2 ? api2.pages : 1, pageH = (D.size(doc).h + 28) * zoom, cur = Math.min(n, Math.floor((canvas.scrollTop - (zoomBox.__padT || 0) + 120) / pageH) + 1);
+      var n = api2 ? api2.pages : 1, pageH = (D.size(doc).h + 64) * zoom, cur = Math.min(n, Math.floor((canvas.scrollTop - (zoomBox.__padT || 0) + 120) / pageH) + 1);
       $('#dde-pg', host).textContent = cur + ' / ' + n;
     }
     canvas.addEventListener('scroll', function () { pageCount(); });
@@ -4028,7 +4054,43 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       sel = id; drawOutline();
       if (tab === 'block' || tab === 'ai') drawPane();
     }
-    function placeToolbar() { if (LE) LE.sync(); }
+    function placeToolbar() { if (LE) LE.sync(); placePageBtns(); }
+    /* "✎ Edit page" above every page, like "Edit + Add Points" above the slide in AI Presentation */
+    function pagesNow() { return $$('.dsd-page', docBox).filter(function (p) { return p.offsetParent && p.getBoundingClientRect().height > 20; }).sort(function (a, b) { return a.getBoundingClientRect().top - b.getBoundingClientRect().top; }); }
+    function placePageBtns() {
+      var lay = $('#dde-pgb', zoomBox);
+      if (!lay) { lay = el('div'); lay.id = 'dde-pgb'; zoomBox.appendChild(lay); }
+      var pages = pagesNow(), zr = zoomBox.getBoundingClientRect(), panels = D.design(doc.tpl).kind === 'panels';
+      while (lay.children.length > pages.length) lay.removeChild(lay.lastChild);
+      pages.forEach(function (p, i) {
+        var b = lay.children[i];
+        if (!b) { b = el('button', 'dd-pgbtn'); b.type = 'button'; lay.appendChild(b); }
+        b.dataset.pgi = i;
+        b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg> ' + (panels ? (pages.length === 2 ? (i ? 'Edit back side' : 'Edit front side') : 'Edit page ' + (i + 1)) : 'Edit + add text · page ' + (i + 1));
+        var r = p.getBoundingClientRect();
+        b.style.left = Math.round(r.left - zr.left) + 'px'; b.style.top = Math.round(r.top - zr.top - Math.min(46, Math.max(40, 64 * zoom - 6))) + 'px';
+      });
+    }
+    function blocksOnPage(i) {
+      var pages = pagesNow(), pr = pages[i] && pages[i].getBoundingClientRect(), ids = {}; if (!pr) return ids;
+      $$('.dsd-blk[data-id]', docBox).forEach(function (n) {
+        var r = n.getBoundingClientRect(); if (!r.width && !r.height) return;
+        var ov = Math.min(r.bottom, pr.bottom) - Math.max(r.top, pr.top);
+        if (ov > Math.min(r.height, 12) * 0.5) ids[n.dataset.id] = 1;
+      });
+      return ids;
+    }
+    function editPage(i) {
+      var only = blocksOnPage(i), panels = D.design(doc.tpl).kind === 'panels', n = pagesNow().length;
+      var before = JSON.stringify(doc); snapshot();
+      reviewDoc(doc, docId, {
+        only: only, page: i, title: panels && n === 2 ? (i ? 'Edit back side' : 'Edit front side') : 'Edit page ' + (i + 1),
+        onApply: function () { ensureIds(doc.blocks); changed(); render(true); fillPictures(doc, function () { render(true); }).then(function () { render(true); }); toast('Page updated.', 'ok', 1500); },
+        onCancel: function () { var d = JSON.parse(before); Object.keys(doc).forEach(function (k) { delete doc[k]; }); Object.assign(doc, d); hist.pop(); render(true); }
+      });
+    }
+    zoomBox.addEventListener('click', function (e) { var b = e.target.closest('.dd-pgbtn'); if (b) { e.stopPropagation(); editPage(+b.dataset.pgi); } });
+    zoomBox.addEventListener('mousedown', function (e) { if (e.target.closest('.dd-pgbtn')) e.stopPropagation(); }, true);
     function placeToolbarOld() {
       var node = sel && docBox.querySelector('.dsd-blk[data-id="' + sel + '"]');
       if (!node) { tb.classList.add('dd-hide'); return; }
@@ -5034,6 +5096,17 @@ body.dd-noscroll{overflow:hidden!important}
 .dd-rv .rv-hd p b{color:#e9ecf5}
 .dd-rv .rv-x{margin-left:auto;background:#1a2030;border:1px solid rgba(255,255,255,.08);color:#cbd5e1;width:36px;height:36px;border-radius:50%;font-size:20px;padding:0;flex:none}
 .dd-rv .rv-main{flex:1;display:grid;grid-template-columns:240px 1fr;min-height:0}
+.dd-rv.rv-pgm .rv-main{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+.dd-rv.rv-pgm .rv-nav{display:none}
+.dd-rv .rv-pvw{padding:20px 0 20px 26px;overflow:auto}
+.dd-rv .rv-pv{position:relative;overflow:hidden;border-radius:10px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.dd-rv .rv-pvn{margin:10px 2px 0;font-size:12.5px;color:#8b97ad}
+.dd-rv .rv-st i{font-style:normal;color:#8b97ad;font-weight:500}
+@media(max-width:800px){.dd-rv.rv-pgm .rv-main{grid-template-columns:1fr}.dd-rv .rv-pvw{padding:14px}}
+#dde-zoom{position:relative}
+#dde-pgb{position:absolute;left:0;top:0;width:0;height:0;z-index:30}
+.dd-pgbtn{position:absolute;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;padding:8px 14px;font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;text-transform:none;letter-spacing:normal}
+.dd-pgbtn:hover{background:#f3f6fb;border-color:#93c5fd}
 @media(max-width:800px){.dd-rv .rv-main{grid-template-columns:1fr}.dd-rv .rv-nav{display:none}}
 .dd-rv .rv-nav{border-right:1px solid rgba(255,255,255,.07);overflow:auto;padding:14px 10px}
 .dd-rv .rv-nav a{display:flex;gap:10px;padding:8px 10px;border-radius:9px;color:#c9d2e3;text-decoration:none;font-size:13px;line-height:1.35}
