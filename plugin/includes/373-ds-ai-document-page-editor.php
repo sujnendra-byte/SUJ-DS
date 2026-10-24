@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 13:00:00
+ * Modified   : 2026-10-24 13:30:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.8.2-linkedin' );
+define( 'DS_DOC_APP_VER', '1.8.3-linkedin' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -3104,12 +3104,13 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     var m = el('div', 'dd-gal');
     m.innerHTML = '<div class="dd-gbox dd-bk dd-li" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3><span class="inb">in</span> Fill from LinkedIn</h3><p>The AI copies your name, job title, company, location and contact details from your profile onto the card. It never makes anything up.</p></div><button type="button" class="dd-gx" data-l="x" title="Close">×</button></div>' +
       '<div class="dd-bkform" style="padding:4px 22px 10px;overflow:auto">' +
-      '<label class="dd-l">1. Your LinkedIn profile link</label><input type="text" id="li-url" placeholder="linkedin.com/in/your-name  (copy it from your browser’s address bar)">' +
-      '<div class="dd-linote">We first try your link alone. LinkedIn often asks for a sign-in and does not let other websites read profiles — if that happens, add your profile below as a <b>PDF</b> (on your profile: <b>More → Save to PDF</b>, or print the page to PDF), <b>screenshots</b> of your profile, or the profile text.</div>' +
-      '<label class="dd-l">2. Profile PDF or screenshots (if the link is not enough)</label>' +
-      '<div class="dd-lidrop" id="li-drop"><button type="button" class="dd-bkbtn" data-l="up">Upload PDF or screenshots</button><span>PDF, PNG, JPG · up to 3 screenshots</span><input type="file" id="li-file" accept=".pdf,.txt,image/png,image/jpeg,image/webp" multiple class="dd-hide"></div>' +
+      '<label class="dd-l">1. Upload your profile PDF or screenshots</label>' +
+      '<div class="dd-lidrop" id="li-drop"><button type="button" class="dd-bkbtn" data-l="up">Upload PDF or screenshots</button><span>PDF, PNG, JPG · up to 3 screenshots · or drag them here, or paste with Ctrl/Cmd+V</span><input type="file" id="li-file" accept=".pdf,.txt,image/png,image/jpeg,image/webp" multiple class="dd-hide"></div>' +
+      '<div class="dd-linote">For the PDF: open your LinkedIn profile, press <b>More → Save to PDF</b> (or print the page and choose Save as PDF). LinkedIn does not let other websites read profiles from a link, so this is the reliable way.</div>' +
       '<div class="dd-lifiles" id="li-files"></div>' +
-      '<label class="dd-l">…or paste your profile text</label><textarea id="li-text" rows="5" maxlength="20000" placeholder="Name, headline, current job, location, contact info…"></textarea>' +
+      '<label class="dd-l">…or paste your profile text</label><textarea id="li-text" rows="4" maxlength="20000" placeholder="Name, headline, current job, location, contact info…"></textarea>' +
+      '<label class="dd-l">2. Your LinkedIn link <small>(optional — shown on your card)</small></label><input type="text" id="li-url" placeholder="linkedin.com/in/your-name">' +
+      '<label class="dd-bkauto"><input type="checkbox" id="li-qr"> Use this link for the QR code (people scan it to open your LinkedIn profile)</label>' +
       '</div><div class="dd-bkft"><span class="dd-lic">Uses ' + cost + ' credit' + (cost === 1 ? '' : 's') + ' (not charged when nothing is found)</span><span class="dd-sp"></span><button type="button" class="dd-bkbtn ghost" data-l="x">Cancel</button><button type="button" class="dd-bkbtn pri" data-l="go">Get my details</button></div></div>';
     root.appendChild(m); document.body.classList.add('dd-noscroll');
     function close() { m.remove(); document.removeEventListener('keydown', key); document.body.classList.remove('dd-noscroll'); }
@@ -3152,12 +3153,15 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       if (b.dataset.l === 'go') {
         var txt = $('#li-text', m).value.trim(), url = $('#li-url', m).value.trim();
         if (!url && txt.length < 30 && !shots.length) { toast('Add your LinkedIn link, a PDF or a screenshot of your profile first.', 'err', 6000); return; }
-        b.disabled = true; b.textContent = shots.length ? 'Reading your screenshots…' : txt.length >= 30 ? 'Reading your profile…' : 'Opening your LinkedIn link…';
+        var qr = $('#li-qr', m).checked;
+        if (qr && !url) { toast('Add your LinkedIn link to use it for the QR code.', 'err', 6000); return; }
+        b.disabled = true; b.textContent = shots.length ? 'Reading your screenshots…' : txt.length >= 30 ? 'Reading your profile…' : 'Trying your LinkedIn link…';
         api('POST', 'ds/v1/doc-linkedin', { text: txt, url: url, images: shots.map(function (s) { return s.d; }) }).then(function (r) {
           if (r.credits_balance != null) setCredits(r.credits_balance);
           var c = r.card || {}, lines = [c.name, c.title, c.company, c.tagline, c.phone, c.email, c.website, c.address ? 'Address: ' + c.address : '', c.linkedin].filter(function (x) { return x && String(x).trim(); });
           if (!lines.length) throw new Error('No card details were found in that profile.');
           close();
+          S.qrLink = qr && c.linkedin ? 'https://www.' + String(c.linkedin).replace(/^https?:\/\/(www\.)?/i, '') : '';
           if (S.mode !== 'preserve') setMode('preserve');
           elTopic.value = lines.join('\n'); updateCount(); updateCost();
           toast('Your details were added from LinkedIn' + (r.from === 'link' ? ' (from your link)' : '') + '. Check them, then press Generate Document.', 'ok', 7000);
@@ -3308,6 +3312,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         job = r.job; setCredits(r.credits_balance);
         if (r.fixed) {
           doc.title = r.doc.title || D.sample(S.type).title; doc.subtitle = r.doc.subtitle || ''; doc.blocks = ensureIds(r.doc.blocks || []);
+          /* "Use this link for the QR code" from Fill from LinkedIn: the card's QR code opens the LinkedIn profile */
+          if (S.qrLink && S.type === 'business_card' && elTopic.value.indexOf(S.qrLink.replace(/^https:\/\/www\./, '')) >= 0) doc.blocks.forEach(function (b) { if (b.t === 's_qr') b.text = S.qrLink; });
           steps(plan, 2, 0.6); livePaint(doc);
           return;
         }
