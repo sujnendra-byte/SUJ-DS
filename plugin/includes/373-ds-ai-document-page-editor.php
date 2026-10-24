@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 16:30:00
+ * Modified   : 2026-10-24 23:50:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.9.3-brandfonts' );
+define( 'DS_DOC_APP_VER', '1.9.4-invites' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2774,7 +2774,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     return photoPool;
   }
   function sampleFor(type, tpl, theme) {
-    var d = D.sample(type); d.tpl = tpl; d.theme = theme || ''; d.size = S.size; d.lang = S.lang;
+    var d = D.sample(type, tpl); d.tpl = tpl; d.theme = theme || ''; d.size = S.size; d.lang = S.lang;
     if (BRAND && BRAND.logo && (BRAND.auto || theme === 'my-brand')) d.logo = { src: BRAND.logo }; /* the thumbnails show your own logo too */
     return d;
   }
@@ -3317,13 +3317,13 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     var doc = newDoc(), plan = S.mode === 'preserve' && !useAiOn() ? ['Reading your text', 'Placing your words', 'Preparing your review'] : ['Planning the document', 'Writing the content', 'Preparing your review'];
     gen = genOverlay(t.fixed ? 'Creating your ' + t.name.toLowerCase() : 'Creating your document');
     steps(plan, 0, 0.04);
-    var example = t.fixed ? stripIds(D.sample(S.type).blocks) : null;
+    var example = t.fixed ? stripIds(D.sample(S.type, S.tpl).blocks) : null;
     var job = null, refund = 0;
     api('POST', 'ds/v1/doc-start', { type: S.type, topic: S.mode === 'ai' ? topic : '', source_text: S.mode === 'preserve' ? topic : '', mode: S.mode === 'preserve' ? 'preserve' : 'ai', use_ai: S.mode === 'preserve' ? useAiOn() : true, pages: +S.pages, language: S.lang, tone: S.tone, directives: ($('#dd-dir').value || '').trim(), example: example })
       .then(function (r) {
         job = r.job; setCredits(r.credits_balance);
         if (r.fixed) {
-          doc.title = r.doc.title || D.sample(S.type).title; doc.subtitle = r.doc.subtitle || ''; doc.blocks = ensureIds(r.doc.blocks || []);
+          doc.title = r.doc.title || D.sample(S.type, S.tpl).title; doc.subtitle = r.doc.subtitle || ''; doc.blocks = ensureIds(r.doc.blocks || []);
           /* "Use this link for the QR code" from Fill from LinkedIn: the card's QR code opens the LinkedIn profile */
           if (S.qrLink && S.type === 'business_card' && elTopic.value.indexOf(S.qrLink.replace(/^https:\/\/www\./, '')) >= 0) doc.blocks.forEach(function (b) { if (b.t === 's_qr') b.text = S.qrLink; });
           steps(plan, 2, 0.6); livePaint(doc);
@@ -3388,6 +3388,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     event: 'Event', place: 'Place', price: 'Price', pre: 'Line above the name', reason: 'Reason', sections: 'Menu sections', unit: 'Unit' };
   /* designs with places (cards, flyers, brochures): name each place by what goes there, not by its text style */
   var RV_ROLE = {
+    invitation: { kicker: 'Top line (e.g. Together with their families)', title: 'Names or event name', sub: 'Invitation line', date: 'Date and time', venue: 'Venue', note: 'Note (food, dress code…)', rsvp: 'Reply line (RSVP / from)' },
     business_card: { logo: 'Logo', company: 'Company name', tagline: 'Company tagline', name: 'Your name', title: 'Job title', contact: 'Contact details', qr: 'QR code', photo: 'Photo' },
     flyer: { kicker: 'Small line above the headline', title: 'Headline', sub: 'Line under the headline', text: 'Main text', list: 'List of points', cta: 'Button text', badgeK: 'Badge – small line', badgeT: 'Badge – offer (e.g. 50% OFF)', contact: 'Contact details', photo1: 'Photo 1', photo2: 'Photo 2', photo3: 'Photo 3',
       bh1: 'Back – first heading', blist: 'Back – list of points', bh2: 'Back – second heading', btext: 'Back – text', btext2: 'Back – more text', bdet: 'Back – details', bcta: 'Back – button text', bcontact: 'Back – contact details', bphoto: 'Back – photo', stats: 'Key numbers', bstats: 'Back – key numbers' },

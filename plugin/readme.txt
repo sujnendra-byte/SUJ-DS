@@ -1,11 +1,16 @@
 === Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in ===
 Requires PHP: 7.4
-Stable tag: 42.0.7
+Stable tag: 42.0.8
 
 All active DesignStager Code Snippets packaged as a single plugin.
 
 V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
+
+NEW IN 42.0.8
+ - includes/371, 372, 373: AI Document - 250 new invitation cards: 50 styles (weddings, Indian
+   weddings, engagement, Griha Pravesh, naming, birthdays, baby shower, festivals, gala) x 5
+   different layouts, on a 5 x 7 inch card (also A5, A4, Letter). Colours follow the theme.
 
 NEW IN 42.0.7
  - includes/372: AI Document - the 5 versions of each infographic layout are now built

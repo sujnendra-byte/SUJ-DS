@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 21:30:00
+ * Modified   : 2026-10-24 23:50:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.8.3-igversions' );
+define( 'DS_DOC_ENGINE_VER', '1.9.0-invites' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -3280,10 +3280,10 @@ D.toDocx = function (doc, opts) {
           break;
         /* single pages */
         case 's_kicker': out.push(T(b.text, { bold: true, size: 11 * K, color: (onDark ? TAD : TA), caps: true, cs: Math.round(50 * K) }, { alignment: o.align, spacing: { after: Math.round(120 * K) } })); break;
-        case 's_title': out.push(T(b.text, { font: HF, bold: true, size: o.titlePt || 48, color: pc, caps: o.caps }, { alignment: o.align, spacing: { after: Math.round(160 * K), line: 240 } })); break;
-        case 's_sub': out.push(o.bc ? T(b.text, { size: 6.6, caps: true, cs: 30, color: onDark ? TAD : TS }, { alignment: o.align, spacing: { after: 60 } }) : T(b.text, { font: HF, italics: true, size: 16 * K, color: onDark ? TAD : TS }, { alignment: o.align, spacing: { after: Math.round(160 * K) } })); break;
+        case 's_title': out.push(T(b.text, { font: HF, bold: !o.thin, size: o.titlePt || 48, color: pc, caps: o.caps }, { alignment: o.align, spacing: { after: Math.round(160 * K), line: 240 } })); break;
+        case 's_sub': out.push(o.thin ? T(b.text, { italics: true, size: 11 * K, color: onDark ? '#FFFFFF' : ink }, { alignment: o.align, spacing: { after: Math.round(120 * K) } }) : o.bc ? T(b.text, { size: 6.6, caps: true, cs: 30, color: onDark ? TAD : TS }, { alignment: o.align, spacing: { after: 60 } }) : T(b.text, { font: HF, italics: true, size: 16 * K, color: onDark ? TAD : TS }, { alignment: o.align, spacing: { after: Math.round(160 * K) } })); break;
         case 's_text': out.push(T(b.text, { size: 11.5 * K, color: ink }, { alignment: o.align, spacing: { before: Math.round(120 * K), after: Math.round(160 * K), line: 320 } })); break;
-        case 's_cta': out.push(P([new X.TextRun({ text: '  ' + (b.text || '') + '  ', bold: true, size: Math.round(24 * K), color: h(D.onColor(t.a)), shading: { type: SH.CLEAR, fill: h(t.a), color: 'auto' } })], { alignment: o.align, spacing: { before: Math.round(280 * K) } })); break;
+        case 's_cta': if (o.thin) { out.push(T(b.text, { bold: true, size: 9 * K, color: onDark ? TAD : TA, caps: true, cs: 30 }, { alignment: o.align, spacing: { before: Math.round(120 * K) } })); break; } out.push(P([new X.TextRun({ text: '  ' + (b.text || '') + '  ', bold: true, size: Math.round(24 * K), color: h(D.onColor(t.a)), shading: { type: SH.CLEAR, fill: h(t.a), color: 'auto' } })], { alignment: o.align, spacing: { before: Math.round(280 * K) } })); break;
         case 's_details':
           var dw2 = Math.round(cw * 0.3);
           out.push(table((b.rows || []).map(function (r) {
@@ -3432,7 +3432,7 @@ D.toDocx = function (doc, opts) {
         var lgk = D.lgK(doc, !(PS.roles && PS.roles.logo ? PS.roles.logo[0] === pi : pi === 0));
         var zk = function (z, zi, only) {
           var f = D.panelFit(doc, pi, zi) * (z.lgTop && pics.__logo ? 0.78 : 0.92), al = z.align === 'center' ? A.CENTER : z.align === 'right' ? A.RIGHT : A.LEFT, out = [];
-          (only || grp[pi + '.' + zi] || []).forEach(function (b) { var bs = D.blockSc(b); out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f * bs), cw: tw(z.w), k: (z.k || 1) * f * bs, bc: /\bbc\b/.test(z.cls || ''), zw: z.w * bs, zh: z.h * bs, lgk: lgk * bs, fx: /\bfx\b/.test(z.cls || ''), row: /\brow\b/.test(z.cls || ''), caps: /\bup\b/.test(z.cls || '') })); });
+          (only || grp[pi + '.' + zi] || []).forEach(function (b) { var bs = D.blockSc(b); out = out.concat(block(b, { align: al, dark: z.dark, titlePt: Math.round((z.titlePt || 48) * f * bs), cw: tw(z.w), k: (z.k || 1) * f * bs, bc: /\bbc\b/.test(z.cls || ''), zw: z.w * bs, zh: z.h * bs, lgk: lgk * bs, fx: /\bfx\b/.test(z.cls || ''), row: /\brow\b/.test(z.cls || ''), thin: /\binv\b/.test(z.cls || ''), caps: /\bup\b/.test(z.cls || '') })); });
           if (only) return out;
           if (z.lgTop && pics.__logo) out = block({ t: 's_mark', id: 'lgtop' + pi + zi }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, mk: 15, lgk: lgk, after: 40 }).concat(out);
           if (!out.length && z.auto === 'mark') out = out.concat(block({ t: 's_mark', id: 'auto' + pi + zi, text: D.initials(D.panelCompany(doc)) }, { align: al, dark: z.dark, cw: tw(z.w), k: 1, small: true, lgk: lgk }));
@@ -6115,6 +6115,774 @@ D.toDocx = function (doc, opts) {
   };
 })();
 /* IG-END */
+/* INV-BEGIN */
+/* =====================================================================================
+ * Invitations (2026-10-24): 50 styles x 5 versions = 250 original invitation cards
+ * (5 x 7 inch card, also A5 and A4). Weddings (western and Indian), engagement,
+ * house-warming (Griha Pravesh), naming ceremony, birthdays, baby shower, anniversary,
+ * festivals and parties. All art is vector and takes its colours from the theme:
+ * p = main flower / ornament colour, s = leaves / second colour, a = gold / accent.
+ * Zones: k (top line), head (top line + names + invite line), d (date), info (venue, note),
+ * r (reply line). Each style's 5 versions use 5 different compositions.
+ * ===================================================================================== */
+(function () {
+  var NF = 'Arial, Helvetica, sans-serif';
+  function R0(seed) { var r = (seed || 1) * 7919 % 233280; return function () { r = (r * 9301 + 49297) % 233280; return r / 233280; }; }
+  function f1(n) { return Math.round(n * 10) / 10; }
+  function mix(a, b, k) { return D.mix(a, b, k); }
+  function lt(c, k) { return D.mix(c, '#FFFFFF', k); }
+  function dkn(c, k) { return D.mix(c, '#000000', k); }
+  function G(inner, x, y, rot, sc, op) { return '<g transform="translate(' + f1(x) + ',' + f1(y) + ')' + (rot ? ' rotate(' + f1(rot) + ')' : '') + (sc && sc !== 1 ? ' scale(' + sc + ')' : '') + '"' + (op != null ? ' opacity="' + op + '"' : '') + '>' + inner + '</g>'; }
+  function el(cx, cy, rx, ry, c, rot, op) { return '<ellipse cx="' + f1(cx) + '" cy="' + f1(cy) + '" rx="' + f1(rx) + '" ry="' + f1(ry) + '" fill="' + c + '"' + (rot ? ' transform="rotate(' + f1(rot) + ' ' + f1(cx) + ' ' + f1(cy) + ')"' : '') + (op != null ? ' fill-opacity="' + op + '"' : '') + '/>'; }
+  function pth(d, fill, stroke, sw, op, extra) { return '<path d="' + d + '" fill="' + (fill || 'none') + '"' + (stroke ? ' stroke="' + stroke + '" stroke-width="' + f1(sw || 1) + '" stroke-linecap="round" stroke-linejoin="round"' : '') + (op != null ? ' opacity="' + op + '"' : '') + (extra || '') + '/>'; }
+  function cc(cx, cy, r, c, op) { return circ(f1(cx), f1(cy), f1(Math.max(0.3, r)), c, op); }
+  function rg(cx, cy, r, c, w, op) { return ring(f1(cx), f1(cy), f1(r), c, f1(w), op); }
+  function ln(x1, y1, x2, y2, c, w, op) { return '<line x1="' + f1(x1) + '" y1="' + f1(y1) + '" x2="' + f1(x2) + '" y2="' + f1(y2) + '" stroke="' + c + '" stroke-width="' + f1(w || 1) + '" stroke-linecap="round"' + (op != null ? ' stroke-opacity="' + op + '"' : '') + '/>'; }
+  function rc(x, y, w, h, c, r, op) { return rect(f1(x), f1(y), f1(w), f1(h), c, op, r ? f1(r) : 0); }
+  function sr(x, y, w, h, c, sw, r, op, dash) { return '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(h) + '"' + (r ? ' rx="' + f1(r) + '"' : '') + ' fill="none" stroke="' + c + '" stroke-width="' + f1(sw) + '"' + (op != null ? ' stroke-opacity="' + op + '"' : '') + (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>'; }
+  function pts(a) { return a.map(function (p) { return f1(p[0]) + ',' + f1(p[1]); }).join(' '); }
+  function pg(a, c, op) { return '<polygon points="' + pts(a) + '" fill="' + c + '"' + (op != null ? ' fill-opacity="' + op + '"' : '') + '/>'; }
+  function tx(x, y, s, size, c, o) { o = o || {}; return '<text x="' + f1(x) + '" y="' + f1(y) + '" font-family="' + (o.f || NF) + '" font-weight="' + (o.w || 700) + '" font-size="' + f1(size) + '" fill="' + c + '" text-anchor="' + (o.a || 'middle') + '" dominant-baseline="central"' + (o.ls ? ' letter-spacing="' + o.ls + '"' : '') + '>' + s + '</text>'; }
+  /* a closed wavy outline: n lobes around a circle (flowers, marigolds, clouds) */
+  function lobes(cx, cy, r, n, depth, rot) {
+    var d = '', a0 = (rot || 0) * Math.PI / 180;
+    for (var k = 0; k <= n; k++) {
+      var a = a0 + k / n * Math.PI * 2, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+      if (!k) { d = 'M' + f1(x) + ' ' + f1(y); continue; }
+      var am = a0 + (k - 0.5) / n * Math.PI * 2, rr = r * (1 + depth);
+      d += ' Q' + f1(cx + rr * Math.cos(am)) + ' ' + f1(cy + rr * Math.sin(am)) + ' ' + f1(x) + ' ' + f1(y);
+    }
+    return d + 'Z';
+  }
+  function star5(cx, cy, r, c, op, rot) { var a = []; for (var k = 0; k < 10; k++) { var an = (rot || -90) * Math.PI / 180 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; a.push([cx + rr * Math.cos(an), cy + rr * Math.sin(an)]); } return pg(a, c, op); }
+  function sparkle(cx, cy, r, c, op) { var q = r * 0.22; return pth('M' + f1(cx) + ' ' + f1(cy - r) + ' Q' + f1(cx + q) + ' ' + f1(cy - q) + ' ' + f1(cx + r) + ' ' + f1(cy) + ' Q' + f1(cx + q) + ' ' + f1(cy + q) + ' ' + f1(cx) + ' ' + f1(cy + r) + ' Q' + f1(cx - q) + ' ' + f1(cy + q) + ' ' + f1(cx - r) + ' ' + f1(cy) + ' Q' + f1(cx - q) + ' ' + f1(cy - q) + ' ' + f1(cx) + ' ' + f1(cy - r) + 'Z', c, null, 0, op); }
+  function heart(cx, cy, s, c, op) { return pth('M' + f1(cx) + ' ' + f1(cy + s * 0.9) + ' C' + f1(cx - s * 1.3) + ' ' + f1(cy + s * 0.1) + ' ' + f1(cx - s * 0.9) + ' ' + f1(cy - s * 0.95) + ' ' + f1(cx) + ' ' + f1(cy - s * 0.35) + ' C' + f1(cx + s * 0.9) + ' ' + f1(cy - s * 0.95) + ' ' + f1(cx + s * 1.3) + ' ' + f1(cy + s * 0.1) + ' ' + f1(cx) + ' ' + f1(cy + s * 0.9) + 'Z', c, null, 0, op); }
+
+  /* ---------------- botanical ---------------- */
+  function leaf(x, y, len, ang, c, wd, vein, op) {
+    var w = len * (wd || 0.36), d = 'M0 0 Q' + f1(len * 0.45) + ' ' + f1(-w) + ' ' + f1(len) + ' 0 Q' + f1(len * 0.45) + ' ' + f1(w) + ' 0 0Z';
+    return G(pth(d, c, null, 0, op) + (vein ? ln(len * 0.05, 0, len * 0.85, 0, vein, Math.max(0.6, len * 0.03), 0.7) : ''), x, y, ang);
+  }
+  function spray(x, y, len, ang, c, o) {   /* a stem with leaves; o.n leaves a side, o.round for eucalyptus, o.line for line art */
+    o = o || {}; var n = o.n || 5, s = '', bend = o.bend == null ? 0.12 : o.bend, c2 = o.c2 || c;
+    var stem = 'M0 0 Q' + f1(len * 0.5) + ' ' + f1(-len * bend) + ' ' + f1(len) + ' 0';
+    s += o.line ? pth(stem, null, c, Math.max(0.8, len * 0.012)) : pth(stem, null, c, Math.max(0.8, len * 0.018));
+    for (var k = 0; k < n; k++) {
+      var tt = 0.18 + k / n * 0.75, px = len * tt, py = -len * bend * 4 * tt * (1 - tt) * 0.5 * 2 / 2, sz = len * (o.ls || 0.32) * (1 - tt * 0.45);
+      [-1, 1].forEach(function (sd, j) {
+        var lc = (k + j) % 2 ? c2 : c, a = sd * (o.ang || 38);
+        if (o.round) s += el(px + Math.cos(a * Math.PI / 180) * sz * 0.45, py + Math.sin(a * Math.PI / 180) * sz * 0.45, sz * 0.42, sz * 0.36, lc, a, o.op);
+        else if (o.line) s += G(pth('M0 0 Q' + f1(sz * 0.45) + ' ' + f1(-sz * 0.34) + ' ' + f1(sz) + ' 0 Q' + f1(sz * 0.45) + ' ' + f1(sz * 0.34) + ' 0 0Z', null, c, Math.max(0.7, len * 0.01)), px, py, a);
+        else s += leaf(px, py, sz, a, lc, o.wd || 0.36, o.vein, o.op);
+      });
+    }
+    if (!o.round && !o.line) s += leaf(len, 0, len * (o.ls || 0.32) * 0.75, 0, c, o.wd || 0.36, o.vein, o.op);
+    if (o.round) s += el(len + len * 0.05, 0, len * 0.09, len * 0.075, c2, 0, o.op);
+    return G(s, x, y, ang);
+  }
+  function rose(cx, cy, r, c, op) {
+    var base = lt(c, 0.28), mid = c, dk = dkn(c, 0.28), s = '';
+    s += pth(lobes(cx, cy, r * 0.92, 5, 0.22, 18), base, null, 0, op);
+    s += pth(lobes(cx, cy, r * 0.7, 5, 0.2, 52), mid, null, 0, op);
+    for (var k = 0; k < 4; k++) {
+      var rr = r * (0.6 - k * 0.13), a0 = k * 95, a1 = a0 + 220;
+      var x0 = cx + rr * Math.cos(a0 * Math.PI / 180), y0 = cy + rr * Math.sin(a0 * Math.PI / 180), x1 = cx + rr * Math.cos(a1 * Math.PI / 180), y1 = cy + rr * Math.sin(a1 * Math.PI / 180);
+      s += pth('M' + f1(x0) + ' ' + f1(y0) + ' A' + f1(rr) + ' ' + f1(rr) + ' 0 1 1 ' + f1(x1) + ' ' + f1(y1), null, dk, Math.max(0.7, r * 0.07), op);
+    }
+    return s + cc(cx, cy, r * 0.1, dk, op);
+  }
+  function peony(cx, cy, r, c, gold, op) {
+    return pth(lobes(cx, cy, r, 9, 0.18, 0), lt(c, 0.45), null, 0, op) + pth(lobes(cx, cy, r * 0.74, 8, 0.2, 20), lt(c, 0.2), null, 0, op) +
+      pth(lobes(cx, cy, r * 0.5, 7, 0.22, 8), c, null, 0, op) + pth(lobes(cx, cy, r * 0.28, 6, 0.25, 30), dkn(c, 0.15), null, 0, op) + (gold ? dotsRing(cx, cy, r * 0.12, 6, r * 0.04, gold) : '');
+  }
+  function blossom(cx, cy, r, c, mid, n, op) { var s = ''; n = n || 5; for (var k = 0; k < n; k++) { var a = k * 360 / n; s += el(cx + r * 0.5 * Math.cos(a * Math.PI / 180), cy + r * 0.5 * Math.sin(a * Math.PI / 180), r * 0.52, r * 0.36, c, a, op); } return s + cc(cx, cy, r * 0.22, mid || '#F4C542', op); }
+  function daisy(cx, cy, r, c, mid) { var s = ''; for (var k = 0; k < 14; k++) { var a = k * 360 / 14; s += el(cx + r * 0.55 * Math.cos(a * Math.PI / 180), cy + r * 0.55 * Math.sin(a * Math.PI / 180), r * 0.45, r * 0.12, c, a); } return s + cc(cx, cy, r * 0.25, mid); }
+  function bud(x, y, r, ang, c, leafc) { return G(el(0, -r * 0.5, r * 0.45, r * 0.7, c) + leaf(0, 0, r * 0.9, -120, leafc, 0.4) + leaf(0, 0, r * 0.9, -60, leafc, 0.4), x, y, ang); }
+  function dotsRing(cx, cy, r, n, dr, c) { var s = ''; for (var k = 0; k < n; k++) { var a = k / n * Math.PI * 2; s += cc(cx + r * Math.cos(a), cy + r * Math.sin(a), dr, c); } return s; }
+  function filler(cx, cy, r, c, seed) { var R = R0(seed), s = ''; for (var k = 0; k < 9; k++) { var a = R() * Math.PI * 2, d = R() * r; s += cc(cx + d * Math.cos(a), cy + d * Math.sin(a), r * (0.05 + R() * 0.05), c); } return s; }
+  /* a corner bouquet: sprays fan out around angle dir (degrees), flowers in the middle */
+  function bouquet(cx, cy, s, dir, P, o) {
+    o = o || {}; var R = R0(o.seed || 3), out = '', spread = o.spread || 150, n = o.n || 9, kind = o.flower || 'rose';
+    for (var k = 0; k < n; k++) {
+      var a = dir - spread / 2 + spread * (k + R() * 0.6) / n, len = s * (0.55 + R() * 0.5), c = k % 3 === 0 ? P.leaf2 : P.leaf;
+      if (k % 4 === 1 && !o.noEuc) out += spray(cx, cy, len * 0.9, a, c, { round: 1, n: 4, c2: P.leaf2 });
+      else out += spray(cx, cy, len, a, c, { n: 4, ls: 0.34, c2: P.leaf2, vein: o.vein });
+    }
+    for (var j = 0; j < 4; j++) { var ab = (dir - spread * 0.35 + j * spread * 0.23) * Math.PI / 180; out += blossom(cx + Math.cos(ab) * s * 0.62, cy + Math.sin(ab) * s * 0.62, s * 0.075, j % 2 ? P.f2 : P.f3, P.gold); }
+    var A = function (deg, d) { var r = (dir + deg) * Math.PI / 180; return [cx + Math.cos(r) * s * d, cy + Math.sin(r) * s * d]; }, p1 = A(-38, 0.28), p2 = A(40, 0.3), p3 = A(0, 0.06), p4 = A(-5, 0.5);
+    if (kind === 'peony') { out += peony(p1[0], p1[1], s * 0.2, P.f2, P.gold) + peony(p2[0], p2[1], s * 0.18, P.f3, P.gold) + peony(p3[0], p3[1], s * 0.26, P.f1, P.gold); }
+    else if (kind === 'lotus') { out += lotus(p1[0], p1[1], s * 0.24, P.f2, P.leaf) + lotus(p3[0], p3[1], s * 0.3, P.f1, P.leaf); }
+    else if (kind === 'daisy') { out += daisy(p1[0], p1[1], s * 0.17, '#FFFFFF', P.gold) + daisy(p2[0], p2[1], s * 0.15, P.f2, P.gold) + daisy(p3[0], p3[1], s * 0.2, P.f1, P.gold); }
+    else { out += rose(p1[0], p1[1], s * 0.17, P.f2) + peony(p2[0], p2[1], s * 0.17, P.f3, P.gold) + rose(p3[0], p3[1], s * 0.23, P.f1); }
+    out += bud(p4[0], p4[1], s * 0.1, dir + 90, P.f2, P.leaf) + filler(A(25, 0.45)[0], A(25, 0.45)[1], s * 0.12, lt(P.f2, 0.3), o.seed || 3);
+    return out;
+  }
+  /* a swag garland between two points (sag = how far the middle hangs) */
+  function garland(x1, y1, x2, y2, sag, P, o) {
+    o = o || {}; var s = '', n = o.n || 14, mx = (x1 + x2) / 2, my = (y1 + y2) / 2 + sag;
+    s += pth('M' + f1(x1) + ' ' + f1(y1) + ' Q' + f1(mx) + ' ' + f1(my + sag) + ' ' + f1(x2) + ' ' + f1(y2), null, P.leaf, 1.4);
+    var len = Math.hypot(x2 - x1, y2 - y1), lz = o.lz || len / n * 1.4;
+    for (var k = 0; k <= n; k++) {
+      var t = k / n, x = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * mx + t * t * x2, y = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * (my + sag) + t * t * y2;
+      var tg = Math.atan2(2 * (1 - t) * (my + sag - y1) + 2 * t * (y2 - my - sag), 2 * (1 - t) * (mx - x1) + 2 * t * (x2 - mx)) * 180 / Math.PI;
+      s += leaf(x, y, lz, tg - 40, k % 2 ? P.leaf : P.leaf2, 0.38) + leaf(x, y, lz * 0.9, tg + 40 + 180, k % 2 ? P.leaf2 : P.leaf, 0.38);
+      if (k % 4 === 2) s += o.flower === 'blossom' ? blossom(x, y, lz * 0.45, P.f2, P.gold) : rose(x, y, lz * 0.42, k % 8 === 2 ? P.f1 : P.f2);
+    }
+    return s;
+  }
+  function wreath(cx, cy, r, P, o) {
+    o = o || {}; var s = '', n = o.n || 26, gap = o.gap || 0;
+    for (var k = 0; k < n; k++) {
+      var a = 90 + gap / 2 + k / n * (360 - gap), ar = a * Math.PI / 180, x = cx + r * Math.cos(ar), y = cy + r * Math.sin(ar), sz = r * 0.2;
+      s += o.line ? G(pth('M0 0 Q' + f1(sz * 0.45) + ' ' + f1(-sz * 0.34) + ' ' + f1(sz) + ' 0 Q' + f1(sz * 0.45) + ' ' + f1(sz * 0.34) + ' 0 0Z', null, P.leaf, 1.2), x, y, a + 120) : leaf(x, y, sz, a + 125, k % 2 ? P.leaf : P.leaf2, 0.4) + leaf(x, y, sz * 0.8, a + 60, k % 2 ? P.leaf2 : P.leaf, 0.4);
+    }
+    if (!o.line) { var b = (90 + (o.fl || 0)) * Math.PI / 180, bx = cx + r * Math.cos(b), by = cy + r * Math.sin(b); s += rose(bx - r * 0.12, by, r * 0.13, P.f1) + peony(bx + r * 0.14, by - r * 0.04, r * 0.11, P.f2, P.gold) + blossom(bx, by - r * 0.15, r * 0.06, P.f3, P.gold); }
+    return s;
+  }
+  function lotus(cx, cy, s, c, leafc) {
+    var o = '', petal = function (a, l, w, col) { return G(pth('M0 0 Q' + f1(-w) + ' ' + f1(-l * 0.55) + ' 0 ' + f1(-l) + ' Q' + f1(w) + ' ' + f1(-l * 0.55) + ' 0 0Z', col), cx, cy, a); };
+    o += el(cx, cy + s * 0.05, s * 0.75, s * 0.12, leafc, 0, 0.8);
+    [-70, 70].forEach(function (a) { o += petal(a, s * 0.75, s * 0.24, lt(c, 0.35)); });
+    [-42, 42].forEach(function (a) { o += petal(a, s * 0.85, s * 0.26, lt(c, 0.15)); });
+    [-18, 18].forEach(function (a) { o += petal(a, s * 0.92, s * 0.26, c); });
+    return o + petal(0, s, s * 0.27, dkn(c, 0.08));
+  }
+  function monstera(x, y, s, ang, c, bg) {
+    var o = pth('M0 0 C' + f1(s * 0.15) + ' ' + f1(-s * 0.55) + ' ' + f1(s * 0.8) + ' ' + f1(-s * 0.6) + ' ' + f1(s) + ' ' + f1(-s * 0.02) + ' C' + f1(s * 0.8) + ' ' + f1(s * 0.55) + ' ' + f1(s * 0.15) + ' ' + f1(s * 0.5) + ' 0 0Z', c);
+    for (var k = 0; k < 5; k++) { var t = 0.22 + k * 0.15, e = 0.48 * Math.sin(Math.PI * Math.min(0.95, t + 0.04)); o += pth('M' + f1(s * (t + 0.06)) + ' ' + f1(-s * e) + ' L' + f1(s * t) + ' ' + f1(-s * 0.12) + ' M' + f1(s * (t + 0.06)) + ' ' + f1(s * e) + ' L' + f1(s * t) + ' ' + f1(s * 0.12), null, bg, s * 0.045); }
+    return G(o + ln(0, 0, s * 0.97, -s * 0.02, dkn(c, 0.2), s * 0.02), x, y, ang);
+  }
+  function palm(x, y, s, ang, c) { var o = pth('M0 0 Q' + f1(s * 0.5) + ' ' + f1(-s * 0.08) + ' ' + f1(s) + ' 0', null, c, s * 0.02); for (var k = 1; k < 14; k++) { var t = k / 14, px = s * t, l = s * 0.3 * (1 - t * 0.6); o += leaf(px, -s * 0.04 * Math.sin(t * Math.PI), l, -60 + t * 15, c, 0.16) + leaf(px, -s * 0.04 * Math.sin(t * Math.PI), l, 60 - t * 15, c, 0.16); } return G(o, x, y, ang); }
+  function maple(cx, cy, s, ang, c) { var a = [[0, -1], [0.18, -0.55], [0.55, -0.7], [0.42, -0.3], [0.85, -0.15], [0.45, 0.1], [0.55, 0.45], [0.12, 0.3], [0.05, 0.75], [-0.05, 0.75], [-0.12, 0.3], [-0.55, 0.45], [-0.45, 0.1], [-0.85, -0.15], [-0.42, -0.3], [-0.55, -0.7], [-0.18, -0.55]]; return G(pg(a.map(function (p) { return [p[0] * s, p[1] * s]; }), c) + ln(0, s * 0.3, 0, s * 1.1, dkn(c, 0.2), s * 0.05), cx, cy, ang); }
+  function lavender(x, y, len, ang, c, stem) { var o = ln(0, 0, len, 0, stem, Math.max(0.8, len * 0.015)); for (var k = 0; k < 9; k++) { var px = len * (0.55 + k * 0.05); o += el(px, -len * 0.025, len * 0.03, len * 0.018, c, -35) + el(px + len * 0.02, len * 0.025, len * 0.03, len * 0.018, dkn(c, 0.12), 35); } return G(o + leaf(len * 0.2, 0, len * 0.22, -25, stem, 0.2), x, y, ang); }
+  function wildflower(x, y, len, ang, P, k) { var o = pth('M0 0 Q' + f1(len * 0.5) + ' ' + f1(len * 0.06) + ' ' + f1(len) + ' 0', null, P.leaf, Math.max(0.7, len * 0.013)) + leaf(len * 0.35, 0, len * 0.18, -40, P.leaf2, 0.3); var cols = [P.f1, P.f2, P.f3, P.gold]; o += k % 3 === 0 ? daisy(len, 0, len * 0.09, '#FFFFFF', P.gold) : blossom(len, 0, len * 0.08, cols[k % 4], k % 2 ? P.gold : '#FFFFFF'); return G(o, x, y, ang); }
+  function babysBreath(x, y, len, ang, c, stem, seed) { var R = R0(seed || 5), o = ln(0, 0, len, 0, stem, 0.8); for (var k = 0; k < 7; k++) { var px = len * (0.4 + R() * 0.6), py = (R() - 0.5) * len * 0.4; o += ln(px * 0.8, 0, px, py, stem, 0.6) + cc(px, py, len * 0.025, c) + cc(px + len * 0.03, py - len * 0.02, len * 0.018, c); } return G(o, x, y, ang); }
+  function bananaLeaf(x, y, s, ang, c) { var o = pth('M0 0 C' + f1(s * 0.3) + ' ' + f1(-s * 0.22) + ' ' + f1(s * 0.8) + ' ' + f1(-s * 0.2) + ' ' + f1(s) + ' 0 C' + f1(s * 0.8) + ' ' + f1(s * 0.2) + ' ' + f1(s * 0.3) + ' ' + f1(s * 0.22) + ' 0 0Z', c) + ln(0, 0, s, 0, lt(c, 0.3), s * 0.015); for (var k = 1; k < 12; k++) { var px = s * k / 12; o += ln(px, 0, px + s * 0.06, -s * 0.15 * Math.sin(k / 12 * Math.PI), lt(c, 0.25), s * 0.006) + ln(px, 0, px + s * 0.06, s * 0.15 * Math.sin(k / 12 * Math.PI), lt(c, 0.25), s * 0.006); } return G(o, x, y, ang); }
+
+  /* ---------------- Indian ---------------- */
+  function marigold(cx, cy, r, c) { return pth(lobes(cx, cy, r, 16, 0.14, 0), dkn(c, 0.12)) + pth(lobes(cx, cy, r * 0.78, 14, 0.15, 10), c) + pth(lobes(cx, cy, r * 0.55, 12, 0.16, 4), lt(c, 0.18)) + pth(lobes(cx, cy, r * 0.32, 9, 0.18, 0), dkn(c, 0.06)); }
+  function marigoldString(x, y0, len, r, c, c2, leafc) {
+    var s = ln(x, y0, x, y0 + len, dkn(leafc, 0.1), 1), y = y0 + r, k = 0;
+    while (y + r < y0 + len) { s += marigold(x, y, r, k % 3 === 2 ? c2 : c); if (k % 2) s += leaf(x, y + r, r * 0.9, 60, leafc, 0.4) + leaf(x, y + r, r * 0.9, 120, leafc, 0.4); y += r * 1.75; k++; }
+    return s + pg([[x, y0 + len - r * 0.2], [x - r * 0.35, y0 + len + r * 0.8], [x + r * 0.35, y0 + len + r * 0.8]], c2);
+  }
+  function mangoLeaf(x, y, len, ang, c) { return leaf(x, y, len, ang, c, 0.3, lt(c, 0.25)); }
+  function toran(x, y, w, P, o) {   /* rope with mango leaves and marigolds hanging from it */
+    o = o || {}; var s = '', n = Math.max(4, Math.round(w / (o.step || 26))), st = w / n, h = o.h || st * 1.9;
+    s += pth('M' + f1(x) + ' ' + f1(y) + ' Q' + f1(x + w / 2) + ' ' + f1(y + (o.sag || 0)) + ' ' + f1(x + w) + ' ' + f1(y), null, P.gold, Math.max(1.2, st * 0.08));
+    for (var k = 0; k <= n; k++) {
+      var px = x + k * st, t = k / n, py = y + (o.sag || 0) * 4 * t * (1 - t) * 0.5;
+      if (k % 2) s += mangoLeaf(px, py, h, 90, k % 4 === 1 ? P.leaf : P.leaf2);
+      else s += ln(px, py, px, py + st * 0.5, P.gold, 0.8) + marigold(px, py + st * 0.65, st * 0.36, k % 4 ? P.f1 : P.f3);
+    }
+    return s;
+  }
+  function bell(cx, cy, s, c) { var d = 'M' + f1(cx - s * 0.5) + ' ' + f1(cy + s * 0.55) + ' C' + f1(cx - s * 0.45) + ' ' + f1(cy) + ' ' + f1(cx - s * 0.4) + ' ' + f1(cy - s * 0.55) + ' ' + f1(cx) + ' ' + f1(cy - s * 0.55) + ' C' + f1(cx + s * 0.4) + ' ' + f1(cy - s * 0.55) + ' ' + f1(cx + s * 0.45) + ' ' + f1(cy) + ' ' + f1(cx + s * 0.5) + ' ' + f1(cy + s * 0.55) + 'Z'; return pth(d, c) + rc(cx - s * 0.56, cy + s * 0.5, s * 1.12, s * 0.12, dkn(c, 0.18), s * 0.06) + cc(cx, cy + s * 0.75, s * 0.13, dkn(c, 0.2)) + rg(cx, cy - s * 0.68, s * 0.12, c, s * 0.06) + ln(cx - s * 0.18, cy - s * 0.2, cx - s * 0.25, cy + s * 0.35, lt(c, 0.45), s * 0.07, 0.8); }
+  function bellString(x, y0, len, s, c, beads) { var o = ln(x, y0, x, y0 + len - s * 0.7, c, Math.max(0.8, s * 0.05)); for (var y = y0 + s * 0.6; y < y0 + len - s * 1.4; y += s * 0.55) o += cc(x, y, s * 0.11, beads || c); return o + bell(x, y0 + len, s, c); }
+  function diya(cx, cy, s, c, flame) { return pth('M' + f1(cx - s * 0.6) + ' ' + f1(cy) + ' Q' + f1(cx) + ' ' + f1(cy + s * 0.75) + ' ' + f1(cx + s * 0.6) + ' ' + f1(cy) + ' Q' + f1(cx + s * 0.75) + ' ' + f1(cy - s * 0.1) + ' ' + f1(cx + s * 0.85) + ' ' + f1(cy - s * 0.12) + ' L' + f1(cx - s * 0.6) + ' ' + f1(cy) + 'Z', c) + el(cx, cy, s * 0.6, s * 0.1, dkn(c, 0.2)) + dotsRing(cx, cy + s * 0.22, 0, 1, 0, c) +
+      pth('M' + f1(cx) + ' ' + f1(cy - s * 0.85) + ' Q' + f1(cx + s * 0.22) + ' ' + f1(cy - s * 0.4) + ' ' + f1(cx) + ' ' + f1(cy - s * 0.12) + ' Q' + f1(cx - s * 0.22) + ' ' + f1(cy - s * 0.4) + ' ' + f1(cx) + ' ' + f1(cy - s * 0.85) + 'Z', flame || '#F59E0B') + el(cx, cy - s * 0.3, s * 0.06, s * 0.13, '#FFF3C4'); }
+  function kalash(cx, cy, s, c, leafc, coco) {
+    var o = '';
+    [-60, -35, -12, 12, 35, 60].forEach(function (a, k) { o += mangoLeaf(cx, cy - s * 0.55, s * 0.55, -90 + a, k % 2 ? leafc : lt(leafc, 0.2)); });
+    o += el(cx, cy - s * 0.78, s * 0.24, s * 0.3, coco || '#8B5A2B') + pth('M' + f1(cx - s * 0.12) + ' ' + f1(cy - s * 1.0) + ' Q' + f1(cx) + ' ' + f1(cy - s * 1.18) + ' ' + f1(cx + s * 0.12) + ' ' + f1(cy - s * 1.0), null, dkn(coco || '#8B5A2B', 0.3), s * 0.04);
+    o += rc(cx - s * 0.32, cy - s * 0.6, s * 0.64, s * 0.12, dkn(c, 0.12), s * 0.05) + pth('M' + f1(cx - s * 0.22) + ' ' + f1(cy - s * 0.5) + ' C' + f1(cx - s * 0.8) + ' ' + f1(cy - s * 0.3) + ' ' + f1(cx - s * 0.75) + ' ' + f1(cy + s * 0.55) + ' ' + f1(cx) + ' ' + f1(cy + s * 0.55) + ' C' + f1(cx + s * 0.75) + ' ' + f1(cy + s * 0.55) + ' ' + f1(cx + s * 0.8) + ' ' + f1(cy - s * 0.3) + ' ' + f1(cx + s * 0.22) + ' ' + f1(cy - s * 0.5) + 'Z', c);
+    o += pth('M' + f1(cx - s * 0.58) + ' ' + f1(cy + s * 0.05) + ' Q' + f1(cx) + ' ' + f1(cy + s * 0.2) + ' ' + f1(cx + s * 0.58) + ' ' + f1(cy + s * 0.05), null, lt(c, 0.5), s * 0.05) + cc(cx, cy - s * 0.1, s * 0.09, lt(c, 0.5)) + rc(cx - s * 0.3, cy + s * 0.52, s * 0.6, s * 0.1, dkn(c, 0.15), s * 0.04);
+    return o;
+  }
+  function elephant(cx, cy, s, c, acc, flip) {   /* folk-style elephant, facing right (flip = facing left), feet at cy */
+    var o = '', b = dkn(c, 0.12);
+    o += rc(-0.48 * s, -0.42 * s, 0.13 * s, 0.42 * s, b, 0.05 * s) + rc(-0.28 * s, -0.42 * s, 0.13 * s, 0.42 * s, c, 0.05 * s) + rc(0.08 * s, -0.42 * s, 0.13 * s, 0.42 * s, b, 0.05 * s) + rc(0.26 * s, -0.42 * s, 0.13 * s, 0.42 * s, c, 0.05 * s);
+    o += el(-0.05 * s, -0.55 * s, 0.52 * s, 0.32 * s, c) + pth('M' + f1(-0.55 * s) + ' ' + f1(-0.6 * s) + ' q' + f1(-0.12 * s) + ' ' + f1(0.1 * s) + ' ' + f1(-0.08 * s) + ' ' + f1(0.3 * s), null, c, 0.03 * s);
+    o += cc(0.45 * s, -0.68 * s, 0.24 * s, c) + pth('M' + f1(0.62 * s) + ' ' + f1(-0.6 * s) + ' C' + f1(0.78 * s) + ' ' + f1(-0.45 * s) + ' ' + f1(0.72 * s) + ' ' + f1(-0.12 * s) + ' ' + f1(0.86 * s) + ' ' + f1(-0.1 * s) + ' C' + f1(0.98 * s) + ' ' + f1(-0.1 * s) + ' ' + f1(0.98 * s) + ' ' + f1(-0.26 * s) + ' ' + f1(0.9 * s) + ' ' + f1(-0.28 * s), null, c, 0.13 * s);
+    o += el(0.32 * s, -0.66 * s, 0.16 * s, 0.22 * s, b, -10) + pth('M' + f1(0.58 * s) + ' ' + f1(-0.5 * s) + ' q' + f1(0.12 * s) + ' ' + f1(0.06 * s) + ' ' + f1(0.18 * s) + ' ' + f1(-0.02 * s), null, '#FFFFFF', 0.04 * s) + cc(0.53 * s, -0.75 * s, 0.03 * s, '#1A1A1A');
+    /* saddle cloth and head piece */
+    o += pth('M' + f1(-0.35 * s) + ' ' + f1(-0.86 * s) + ' L' + f1(0.18 * s) + ' ' + f1(-0.86 * s) + ' L' + f1(0.14 * s) + ' ' + f1(-0.42 * s) + ' Q' + f1(-0.1 * s) + ' ' + f1(-0.32 * s) + ' ' + f1(-0.32 * s) + ' ' + f1(-0.42 * s) + 'Z', acc) + pth(scal(-0.32 * s, -0.42 * s, 0.46 * s, 6, 0.04 * s), null, lt(acc, 0.5), 0.025 * s) + cc(-0.09 * s, -0.62 * s, 0.07 * s, lt(acc, 0.55));
+    o += pth('M' + f1(0.35 * s) + ' ' + f1(-0.9 * s) + ' Q' + f1(0.5 * s) + ' ' + f1(-0.96 * s) + ' ' + f1(0.62 * s) + ' ' + f1(-0.8 * s) + ' L' + f1(0.55 * s) + ' ' + f1(-0.62 * s) + 'Z', acc) + cc(0.57 * s, -0.62 * s, 0.03 * s, lt(acc, 0.5));
+    return G(o, cx, cy, 0, flip ? -1 : 1).replace('scale(-1)', 'scale(-1,1)');
+  }
+  function scal(x, y, w, n, d) { var s = 'M' + f1(x) + ' ' + f1(y), st = w / n; for (var k = 0; k < n; k++) s += ' q' + f1(st / 2) + ' ' + f1(d * 2) + ' ' + f1(st) + ' 0'; return s; }
+  function feather(x, y, len, ang, P) {
+    var o = ln(0, 0, len, 0, P.gold, Math.max(0.7, len * 0.012));
+    for (var k = 3; k < 20; k++) { var px = len * k / 22, l = len * 0.12 * Math.sin(k / 22 * Math.PI); o += ln(px, 0, px + len * 0.05, -l, P.leaf, Math.max(0.5, len * 0.008), 0.85) + ln(px, 0, px + len * 0.05, l, P.leaf, Math.max(0.5, len * 0.008), 0.85); }
+    o += el(len * 0.86, 0, len * 0.14, len * 0.1, P.leaf) + el(len * 0.87, 0, len * 0.1, len * 0.07, P.gold) + el(len * 0.88, 0, len * 0.065, len * 0.05, P.f1) + el(len * 0.89, 0, len * 0.035, len * 0.03, dkn(P.f1, 0.5));
+    return G(o, x, y, ang);
+  }
+  function peacock(cx, cy, s, P, flip) {   /* sitting peacock facing right with the tail trailing left-down; cy = feet */
+    var o = '';
+    for (var k = 0; k < 7; k++) o += feather(-0.05 * s, -0.25 * s, s * (0.9 + k * 0.04), 150 + k * 7, P);
+    o += pth('M' + f1(-0.25 * s) + ' ' + f1(-0.15 * s) + ' C' + f1(-0.3 * s) + ' ' + f1(-0.55 * s) + ' ' + f1(0.1 * s) + ' ' + f1(-0.6 * s) + ' ' + f1(0.15 * s) + ' ' + f1(-0.35 * s) + ' C' + f1(0.18 * s) + ' ' + f1(-0.15 * s) + ' ' + f1(0.05 * s) + ' ' + f1(-0.02 * s) + ' ' + f1(-0.25 * s) + ' ' + f1(-0.15 * s) + 'Z', P.f1);
+    o += pth('M' + f1(0.05 * s) + ' ' + f1(-0.5 * s) + ' C' + f1(0.12 * s) + ' ' + f1(-0.7 * s) + ' ' + f1(0.05 * s) + ' ' + f1(-0.85 * s) + ' ' + f1(0.18 * s) + ' ' + f1(-0.92 * s), null, P.f1, 0.09 * s) + cc(0.2 * s, -0.93 * s, 0.07 * s, P.f1) + pg([[0.26 * s, -0.95 * s], [0.34 * s, -0.92 * s], [0.26 * s, -0.9 * s]], P.gold) + cc(0.22 * s, -0.95 * s, 0.015 * s, '#FFFFFF');
+    for (var j = 0; j < 3; j++) o += ln(0.18 * s, -0.98 * s, (0.1 + j * 0.06) * s, -1.12 * s, P.f1, 0.012 * s) + cc((0.1 + j * 0.06) * s, -1.12 * s, 0.022 * s, P.gold);
+    o += el(-0.02 * s, -0.32 * s, 0.14 * s, 0.08 * s, P.leaf, -30, 0.8) + ln(0, -0.08 * s, -0.02 * s, 0, P.gold, 0.02 * s) + ln(0.06 * s, -0.08 * s, 0.07 * s, 0, P.gold, 0.02 * s);
+    return G(o, cx, cy, 0, flip ? -1 : 1).replace('scale(-1)', 'scale(-1,1)');
+  }
+  function paisley(cx, cy, s, ang, c, c2) {
+    var d = 'M0 ' + f1(s * 0.5) + ' C' + f1(-s * 0.55) + ' ' + f1(s * 0.5) + ' ' + f1(-s * 0.6) + ' ' + f1(-s * 0.15) + ' ' + f1(-s * 0.15) + ' ' + f1(-s * 0.38) + ' C' + f1(s * 0.1) + ' ' + f1(-s * 0.5) + ' ' + f1(s * 0.2) + ' ' + f1(-s * 0.75) + ' ' + f1(s * 0.05) + ' ' + f1(-s * 0.95) + ' C' + f1(s * 0.6) + ' ' + f1(-s * 0.7) + ' ' + f1(s * 0.55) + ' ' + f1(s * 0.5) + ' 0 ' + f1(s * 0.5) + 'Z';
+    return G(pth(d, c) + G(pth(d, null, c2, s * 0.05), 0, s * 0.06, 0, 0.7) + cc(0, s * 0.1, s * 0.13, c2) + dotsRing(0, s * 0.1, s * 0.22, 8, s * 0.03, c2), cx, cy, ang);
+  }
+  function mandala(cx, cy, r, c, op, fill) {
+    var o = '';
+    o += rg(cx, cy, r, c, r * 0.012, op) + rg(cx, cy, r * 0.94, c, r * 0.006, op);
+    for (var k = 0; k < 24; k++) { var a = k * 15; o += G(pth('M0 0 Q' + f1(r * 0.07) + ' ' + f1(-r * 0.1) + ' 0 ' + f1(-r * 0.2) + ' Q' + f1(-r * 0.07) + ' ' + f1(-r * 0.1) + ' 0 0Z', fill ? c : null, fill ? null : c, r * 0.008, op), cx, cy, a, 1).replace('translate(' + f1(cx) + ',' + f1(cy) + ') rotate(' + f1(a) + ')', 'translate(' + f1(cx) + ',' + f1(cy) + ') rotate(' + f1(a) + ') translate(0,' + f1(-r * 0.72) + ')'); }
+    for (var j = 0; j < 12; j++) { var b = j * 30 + 15, br = b * Math.PI / 180; o += el(cx + Math.cos(br) * r * 0.45, cy + Math.sin(br) * r * 0.45, r * 0.16, r * 0.06, c, b, op * (fill ? 0.8 : 0.5)); }
+    o += rg(cx, cy, r * 0.3, c, r * 0.008, op) + dotsRing(cx, cy, r * 0.84, 36, r * 0.012, c) + dotsRing(cx, cy, r * 0.22, 12, r * 0.02, c);
+    return '<g opacity="' + (op == null ? 1 : 1) + '">' + o + '</g>';
+  }
+  function kolam(cx, cy, r, c, n) { var o = '', g = r * 2 / (n || 5); for (var i = 0; i < (n || 5); i++) for (var j = 0; j < (n || 5); j++) { var x = cx - r + g * (i + 0.5), y = cy - r + g * (j + 0.5); o += cc(x, y, g * 0.08, c); if ((i + j) % 2 === 0) o += pth('M' + f1(x - g / 2) + ' ' + f1(y) + ' Q' + f1(x) + ' ' + f1(y - g * 0.7) + ' ' + f1(x + g / 2) + ' ' + f1(y) + ' Q' + f1(x) + ' ' + f1(y + g * 0.7) + ' ' + f1(x - g / 2) + ' ' + f1(y) + 'Z', null, c, g * 0.06); } return o + rg(cx, cy, r * 1.15, c, g * 0.05); }
+  function dhol(cx, cy, s, c, acc) { return el(cx, cy, s * 0.55, s * 0.32, c) + rc(cx - s * 0.55, cy - s * 0.32, s * 1.1, s * 0.64, c) + el(cx - s * 0.55, cy, s * 0.12, s * 0.32, dkn(c, 0.2)) + el(cx + s * 0.55, cy, s * 0.12, s * 0.32, lt(c, 0.3)) + pth('M' + f1(cx - s * 0.5) + ' ' + f1(cy - s * 0.3) + ' L' + f1(cx - s * 0.25) + ' ' + f1(cy + s * 0.3) + ' L' + f1(cx) + ' ' + f1(cy - s * 0.3) + ' L' + f1(cx + s * 0.25) + ' ' + f1(cy + s * 0.3) + ' L' + f1(cx + s * 0.5) + ' ' + f1(cy - s * 0.3), null, acc, s * 0.04); }
+  function note(cx, cy, s, c) { return el(cx, cy, s * 0.22, s * 0.16, c, -20) + ln(cx + s * 0.2, cy - s * 0.05, cx + s * 0.2, cy - s * 0.9, c, s * 0.06) + pth('M' + f1(cx + s * 0.2) + ' ' + f1(cy - s * 0.9) + ' q' + f1(s * 0.3) + ' ' + f1(s * 0.15) + ' ' + f1(s * 0.25) + ' ' + f1(s * 0.5), null, c, s * 0.06); }
+  function house(cx, cy, s, c, acc) { return pg([[cx - s * 0.6, cy - s * 0.45], [cx, cy - s], [cx + s * 0.6, cy - s * 0.45]], c) + rc(cx - s * 0.45, cy - s * 0.47, s * 0.9, s * 0.47, lt(c, 0.25)) + rc(cx - s * 0.12, cy - s * 0.3, s * 0.24, s * 0.3, dkn(c, 0.25), s * 0.03) + rc(cx - s * 0.36, cy - s * 0.38, s * 0.16, s * 0.13, '#FFFFFF', 0, 0.8) + rc(cx + s * 0.2, cy - s * 0.38, s * 0.16, s * 0.13, '#FFFFFF', 0, 0.8) + toranMini(cx - s * 0.16, cy - s * 0.33, s * 0.32, acc); }
+  function toranMini(x, y, w, c) { var o = ln(x, y, x + w, y, c, 1); for (var k = 0; k <= 4; k++) o += cc(x + w * k / 4, y + 3, Math.max(1.2, w * 0.06), c); return o; }
+
+  /* ---------------- party & festival ---------------- */
+  function balloon(cx, cy, s, c, seed) { return pth('M' + f1(cx) + ' ' + f1(cy + s * 0.62) + ' q' + f1(-s * 0.12) + ' ' + f1(s * 0.5) + ' ' + f1(s * 0.04) + ' ' + f1(s * 0.9) + ' t' + f1(-s * 0.05) + ' ' + f1(s * 0.6), null, dkn(c, 0.2), Math.max(0.6, s * 0.02)) + el(cx, cy, s * 0.42, s * 0.55, c) + pg([[cx, cy + s * 0.52], [cx - s * 0.07, cy + s * 0.64], [cx + s * 0.07, cy + s * 0.64]], dkn(c, 0.15)) + el(cx - s * 0.16, cy - s * 0.22, s * 0.08, s * 0.14, '#FFFFFF', 20, 0.45); }
+  function confetti(x, y, w, h, cols, n, seed) { var R = R0(seed || 9), o = ''; for (var k = 0; k < n; k++) { var px = x + R() * w, py = y + R() * h, c = cols[k % cols.length], z = 2 + R() * 5; o += k % 3 ? G(rc(-z, -z * 0.4, z * 2, z * 0.8, c), px, py, R() * 180) : cc(px, py, z * 0.6, c); } return o; }
+  function cake(cx, cy, s, P) { var o = rc(cx - s * 0.55, cy - s * 0.35, s * 1.1, s * 0.35, P.f1, s * 0.04) + rc(cx - s * 0.4, cy - s * 0.68, s * 0.8, s * 0.33, P.f2, s * 0.04) + pth(scal(cx - s * 0.55, cy - s * 0.35, s * 1.1, 7, s * 0.04), '#FFFFFF') + pth(scal(cx - s * 0.4, cy - s * 0.68, s * 0.8, 5, s * 0.04), '#FFFFFF') + rc(cx - s * 0.65, cy, s * 1.3, s * 0.06, P.gold, s * 0.03); for (var k = -1; k <= 1; k++) o += rc(cx + k * s * 0.22 - s * 0.03, cy - s * 0.92, s * 0.06, s * 0.24, P.f3) + el(cx + k * s * 0.22, cy - s * 0.98, s * 0.04, s * 0.07, '#F59E0B'); return o; }
+  function gift(cx, cy, s, c, rib) { return rc(cx - s * 0.5, cy - s * 0.5, s, s * 0.9, c, s * 0.05) + rc(cx - s * 0.56, cy - s * 0.62, s * 1.12, s * 0.22, dkn(c, 0.1), s * 0.04) + rc(cx - s * 0.08, cy - s * 0.62, s * 0.16, s * 1.02, rib) + el(cx - s * 0.2, cy - s * 0.7, s * 0.2, s * 0.1, rib, -25) + el(cx + s * 0.2, cy - s * 0.7, s * 0.2, s * 0.1, rib, 25); }
+  function rings2(cx, cy, s, c) { return rg(cx - s * 0.28, cy, s * 0.42, c, s * 0.08) + rg(cx + s * 0.28, cy, s * 0.42, c, s * 0.08) + pg([[cx - s * 0.28, cy - s * 0.42], [cx - s * 0.4, cy - s * 0.56], [cx - s * 0.28, cy - s * 0.66], [cx - s * 0.16, cy - s * 0.56]], lt(c, 0.6)); }
+  function moon(cx, cy, r, c) { return pth('M' + f1(cx + r * 0.3) + ' ' + f1(cy - r) + ' A' + f1(r) + ' ' + f1(r) + ' 0 1 0 ' + f1(cx + r * 0.3) + ' ' + f1(cy + r) + ' A' + f1(r * 0.8) + ' ' + f1(r * 0.8) + ' 0 1 1 ' + f1(cx + r * 0.3) + ' ' + f1(cy - r) + 'Z', c); }
+  function lantern(cx, cy, s, c, glow) { var o = ln(cx, cy - s * 1.6, cx, cy - s * 0.85, c, Math.max(0.7, s * 0.03)) + pth('M' + f1(cx - s * 0.25) + ' ' + f1(cy - s * 0.7) + ' Q' + f1(cx) + ' ' + f1(cy - s * 1.05) + ' ' + f1(cx + s * 0.25) + ' ' + f1(cy - s * 0.7) + 'Z', c); o += pg([[cx - s * 0.35, cy - s * 0.7], [cx + s * 0.35, cy - s * 0.7], [cx + s * 0.42, cy - s * 0.1], [cx + s * 0.3, cy + s * 0.4], [cx - s * 0.3, cy + s * 0.4], [cx - s * 0.42, cy - s * 0.1]], c) + pg([[cx - s * 0.22, cy - s * 0.58], [cx + s * 0.22, cy - s * 0.58], [cx + s * 0.27, cy - s * 0.1], [cx + s * 0.18, cy + s * 0.28], [cx - s * 0.18, cy + s * 0.28], [cx - s * 0.27, cy - s * 0.1]], glow || '#FCD34D', 0.9) + ln(cx, cy - s * 0.58, cx, cy + s * 0.28, c, s * 0.04) + pg([[cx - s * 0.18, cy + s * 0.4], [cx + s * 0.18, cy + s * 0.4], [cx, cy + s * 0.7]], c); return o; }
+  function rakhi(cx, cy, s, P) { return pth('M' + f1(cx - s * 1.6) + ' ' + f1(cy + s * 0.1) + ' Q' + f1(cx - s * 0.8) + ' ' + f1(cy - s * 0.15) + ' ' + f1(cx) + ' ' + f1(cy) + ' Q' + f1(cx + s * 0.8) + ' ' + f1(cy - s * 0.15) + ' ' + f1(cx + s * 1.6) + ' ' + f1(cy + s * 0.1), null, P.f1, s * 0.06) + dotsRing(cx, cy, s * 0.62, 16, s * 0.05, P.gold) + marigold(cx, cy, s * 0.48, P.f2) + cc(cx, cy, s * 0.16, P.gold) + cc(cx - s * 1.6, cy + s * 0.1, s * 0.08, P.gold) + cc(cx + s * 1.6, cy + s * 0.1, s * 0.08, P.gold); }
+  function kite(cx, cy, s, c, c2) { return pth('M' + f1(cx) + ' ' + f1(cy + s * 0.75) + ' q' + f1(-s * 0.3) + ' ' + f1(s * 0.4) + ' ' + f1(s * 0.05) + ' ' + f1(s * 0.8) + ' t' + f1(-s * 0.1) + ' ' + f1(s * 0.7), null, c2, Math.max(0.6, s * 0.015)) + pg([[cx, cy - s * 0.75], [cx + s * 0.55, cy], [cx, cy + s * 0.75], [cx - s * 0.55, cy]], c) + pg([[cx, cy - s * 0.75], [cx + s * 0.55, cy], [cx, cy]], lt(c, 0.25)) + ln(cx, cy - s * 0.75, cx, cy + s * 0.75, dkn(c, 0.25), s * 0.02) + ln(cx - s * 0.55, cy, cx + s * 0.55, cy, dkn(c, 0.25), s * 0.02) + pg([[cx - s * 0.12, cy + s * 0.95], [cx + s * 0.12, cy + s * 1.05], [cx - s * 0.12, cy + s * 1.15]], c2); }
+  function splash(cx, cy, r, c, seed, op) { var R = R0(seed || 4), d = '', n = 18; for (var k = 0; k <= n; k++) { var a = k / n * Math.PI * 2, rr = r * (0.7 + R() * 0.5); d += (k ? ' L' : 'M') + f1(cx + rr * Math.cos(a)) + ' ' + f1(cy + rr * Math.sin(a)); } var o = pth(d + 'Z', c, null, 0, op); for (var j = 0; j < 7; j++) { var b = R() * Math.PI * 2, dd = r * (1.2 + R() * 0.5); o += cc(cx + dd * Math.cos(b), cy + dd * Math.sin(b), r * (0.05 + R() * 0.1), c, op); } return o; }
+  function blob(cx, cy, r, c, id) { return '<circle cx="' + f1(cx) + '" cy="' + f1(cy) + '" r="' + f1(r) + '" fill="url(#' + id + ')"/>'; }
+  function pine(x, y, len, ang, c) { var o = ln(0, 0, len, 0, dkn(c, 0.3), Math.max(0.8, len * 0.02)); for (var k = 1; k < 16; k++) { var px = len * k / 16; o += ln(px, 0, px + len * 0.08, -len * 0.12, c, Math.max(0.6, len * 0.012)) + ln(px, 0, px + len * 0.08, len * 0.12, c, Math.max(0.6, len * 0.012)); } return G(o, x, y, ang); }
+  function bauble(cx, cy, r, c, gold) { return ln(cx, cy - r * 2.2, cx, cy - r * 1.05, gold, Math.max(0.6, r * 0.06)) + rc(cx - r * 0.25, cy - r * 1.2, r * 0.5, r * 0.25, gold) + cc(cx, cy, r, c) + pth('M' + f1(cx - r) + ' ' + f1(cy) + ' Q' + f1(cx) + ' ' + f1(cy + r * 0.35) + ' ' + f1(cx + r) + ' ' + f1(cy), null, gold, r * 0.1) + el(cx - r * 0.35, cy - r * 0.35, r * 0.15, r * 0.25, '#FFFFFF', 30, 0.5); }
+  function cloud(cx, cy, s, c, op) { return cc(cx - s * 0.35, cy + s * 0.05, s * 0.28, c, op) + cc(cx, cy - s * 0.12, s * 0.38, c, op) + cc(cx + s * 0.38, cy + s * 0.05, s * 0.26, c, op) + rc(cx - s * 0.62, cy + s * 0.05, s * 1.25, s * 0.27, c, s * 0.13, op); }
+  function crib(cx, cy, s, c) { return moon(cx, cy - s * 0.2, s * 0.5, c) + star5(cx + s * 0.55, cy - s * 0.65, s * 0.12, c) + star5(cx + s * 0.75, cy - s * 0.2, s * 0.08, c); }
+  function tricolor(x, y, w, h, P) { var o = ''; [P.f1, '#FFFFFF', P.leaf].forEach(function (c, k) { var yy = y + k * h / 3; o += pth('M' + f1(x) + ' ' + f1(yy + h * 0.1) + ' Q' + f1(x + w * 0.25) + ' ' + f1(yy - h * 0.05) + ' ' + f1(x + w * 0.5) + ' ' + f1(yy + h * 0.1) + ' T' + f1(x + w) + ' ' + f1(yy + h * 0.1) + ' V' + f1(yy + h / 3 + h * 0.1) + ' Q' + f1(x + w * 0.75) + ' ' + f1(yy + h / 3 + h * 0.25) + ' ' + f1(x + w * 0.5) + ' ' + f1(yy + h / 3 + h * 0.1) + ' T' + f1(x) + ' ' + f1(yy + h / 3 + h * 0.1) + 'Z', c); }); return o; }
+  function wheel(cx, cy, r, c) { var o = rg(cx, cy, r, c, r * 0.1) + cc(cx, cy, r * 0.15, c); for (var k = 0; k < 24; k++) { var a = k * 15 * Math.PI / 180; o += ln(cx, cy, cx + r * Math.cos(a), cy + r * Math.sin(a), c, r * 0.04); } return o; }
+  function sun(cx, cy, r, c, rays) { var o = cc(cx, cy, r, c); if (rays) for (var k = 0; k < 16; k++) { var a = k * 22.5 * Math.PI / 180; o += ln(cx + r * 1.2 * Math.cos(a), cy + r * 1.2 * Math.sin(a), cx + r * 1.55 * Math.cos(a), cy + r * 1.55 * Math.sin(a), c, r * 0.08); } return o; }
+  function rainbow(cx, cy, r, cols, w) { var o = ''; cols.forEach(function (c, k) { var rr = r - k * w; o += pth('M' + f1(cx - rr) + ' ' + f1(cy) + ' A' + f1(rr) + ' ' + f1(rr) + ' 0 0 1 ' + f1(cx + rr) + ' ' + f1(cy), null, c, w * 0.92); }); return o; }
+  function glass2(cx, cy, s, c) { var g = function (x, a) { return G(pth('M' + f1(-s * 0.18) + ' ' + f1(-s * 0.9) + ' L' + f1(s * 0.18) + ' ' + f1(-s * 0.9) + ' L' + f1(s * 0.12) + ' ' + f1(-s * 0.35) + ' Q0 ' + f1(-s * 0.25) + ' ' + f1(-s * 0.12) + ' ' + f1(-s * 0.35) + 'Z', lt(c, 0.5), c, s * 0.03) + ln(0, -s * 0.3, 0, 0, c, s * 0.04) + ln(-s * 0.15, 0, s * 0.15, 0, c, s * 0.04), x, cy, a); }; return g(cx - s * 0.14, -12) + g(cx + s * 0.14, 12) + sparkle(cx, cy - s * 1.05, s * 0.12, c); }
+  function dove(cx, cy, s, c, flip) {
+    var P2 = function (a) { return a.map(function (v, k) { return f1(v * s); }); };
+    var b = P2([-0.5, 0.05, -0.3, -0.12, 0.2, -0.15, 0.35, -0.1, 0.42, -0.2, 0.55, -0.2, 0.58, -0.1, 0.7, -0.06, 0.57, -0.03, 0.5, 0.12, 0.1, 0.2, -0.2, 0.12, -0.6, 0.24]);
+    var o = pth('M' + b[0] + ' ' + b[1] + ' C' + b[2] + ' ' + b[3] + ' ' + b[4] + ' ' + b[5] + ' ' + b[6] + ' ' + b[7] + ' C' + b[8] + ' ' + b[9] + ' ' + b[10] + ' ' + b[11] + ' ' + b[12] + ' ' + b[13] + ' L' + b[14] + ' ' + b[15] + ' L' + b[16] + ' ' + b[17] + ' C' + b[18] + ' ' + b[19] + ' ' + b[20] + ' ' + b[21] + ' ' + b[22] + ' ' + b[23] + ' L' + b[24] + ' ' + b[25] + 'Z', c);
+    var w = P2([-0.12, -0.06, -0.2, -0.5, 0.02, -0.78, 0.26, -0.82, 0.14, -0.56, 0.2, -0.3, 0.16, -0.08]);
+    o += pth('M' + w[0] + ' ' + w[1] + ' C' + w[2] + ' ' + w[3] + ' ' + w[4] + ' ' + w[5] + ' ' + w[6] + ' ' + w[7] + ' C' + w[8] + ' ' + w[9] + ' ' + w[10] + ' ' + w[11] + ' ' + w[12] + ' ' + w[13] + 'Z', lt(c, 0.25)) + cc(0.5 * s, -0.13 * s, 0.025 * s, dkn(c, 0.6));
+    return G(o, cx, cy, 0, flip ? -1 : 1).replace('scale(-1)', 'scale(-1,1)');
+  }
+
+  /* ---------------- frames & shapes ---------------- */
+  function archD(x, y, w, h, kind) {
+    var X = function (k) { return f1(x + w * k); }, Y = function (k) { return f1(y + h * k); };
+    if (kind === 'round') return 'M' + X(0) + ' ' + Y(1) + ' V' + f1(y + w / 2) + ' A' + f1(w / 2) + ' ' + f1(w / 2) + ' 0 0 1 ' + X(1) + ' ' + f1(y + w / 2) + ' V' + Y(1) + 'Z';
+    if (kind === 'mughal') { var sh = Math.min(h * 0.3, w * 0.62); return 'M' + X(0) + ' ' + Y(1) + ' V' + f1(y + sh) + ' C' + X(0) + ' ' + f1(y + sh * 0.35) + ' ' + X(0.36) + ' ' + f1(y + sh * 0.3) + ' ' + X(0.5) + ' ' + f1(y) + ' C' + X(0.64) + ' ' + f1(y + sh * 0.3) + ' ' + X(1) + ' ' + f1(y + sh * 0.35) + ' ' + X(1) + ' ' + f1(y + sh) + ' V' + Y(1) + 'Z'; }
+    if (kind === 'cusped') { var r = w / 2, cy = y + r, d = 'M' + X(0) + ' ' + Y(1) + ' V' + f1(cy), n = 7; for (var k = 1; k <= n; k++) { var a = Math.PI + k / n * Math.PI, px = x + r + r * Math.cos(a), py = cy + r * Math.sin(a); d += ' A' + f1(r * 0.26) + ' ' + f1(r * 0.26) + ' 0 0 1 ' + f1(px) + ' ' + f1(py); } return d + ' V' + Y(1) + 'Z'; }
+    if (kind === 'dome') return 'M' + X(0) + ' ' + Y(1) + ' V' + f1(y + w * 0.62) + ' Q' + X(0) + ' ' + f1(y + w * 0.1) + ' ' + X(0.5) + ' ' + f1(y) + ' Q' + X(1) + ' ' + f1(y + w * 0.1) + ' ' + X(1) + ' ' + f1(y + w * 0.62) + ' V' + Y(1) + 'Z';
+    if (kind === 'oval') return 'M' + X(0.5) + ' ' + Y(0) + ' A' + f1(w / 2) + ' ' + f1(h / 2) + ' 0 1 1 ' + X(0.5) + ' ' + Y(1) + ' A' + f1(w / 2) + ' ' + f1(h / 2) + ' 0 1 1 ' + X(0.5) + ' ' + Y(0) + 'Z';
+    if (kind === 'octagon') { var c = Math.min(w, h) * 0.18; return 'M' + f1(x + c) + ' ' + f1(y) + ' H' + f1(x + w - c) + ' L' + f1(x + w) + ' ' + f1(y + c) + ' V' + f1(y + h - c) + ' L' + f1(x + w - c) + ' ' + f1(y + h) + ' H' + f1(x + c) + ' L' + f1(x) + ' ' + f1(y + h - c) + ' V' + f1(y + c) + 'Z'; }
+    if (kind === 'notch') { var q = Math.min(w, h) * 0.08; return 'M' + f1(x + q) + ' ' + f1(y) + ' H' + f1(x + w - q) + ' A' + f1(q) + ' ' + f1(q) + ' 0 0 0 ' + f1(x + w) + ' ' + f1(y + q) + ' V' + f1(y + h - q) + ' A' + f1(q) + ' ' + f1(q) + ' 0 0 0 ' + f1(x + w - q) + ' ' + f1(y + h) + ' H' + f1(x + q) + ' A' + f1(q) + ' ' + f1(q) + ' 0 0 0 ' + f1(x) + ' ' + f1(y + h - q) + ' V' + f1(y + q) + ' A' + f1(q) + ' ' + f1(q) + ' 0 0 0 ' + f1(x + q) + ' ' + f1(y) + 'Z'; }
+    if (kind === 'scallop') { var n2 = Math.max(6, Math.round(w / 26)), st = w / n2, m = Math.max(6, Math.round(h / st)), sv = h / m, d2 = 'M' + f1(x) + ' ' + f1(y), j; for (j = 0; j < n2; j++) d2 += ' q' + f1(st / 2) + ' ' + f1(-st * 0.45) + ' ' + f1(st) + ' 0'; for (j = 0; j < m; j++) d2 += ' q' + f1(sv * 0.45) + ' ' + f1(sv / 2) + ' 0 ' + f1(sv); for (j = 0; j < n2; j++) d2 += ' q' + f1(-st / 2) + ' ' + f1(st * 0.45) + ' ' + f1(-st) + ' 0'; for (j = 0; j < m; j++) d2 += ' q' + f1(-sv * 0.45) + ' ' + f1(-sv / 2) + ' 0 ' + f1(-sv); return d2 + 'Z'; }
+    if (kind === 'tag') return 'M' + X(0) + ' ' + Y(0) + ' H' + X(1) + ' V' + Y(0.92) + ' L' + X(0.5) + ' ' + Y(1) + ' L' + X(0) + ' ' + Y(0.92) + 'Z';
+    return 'M' + X(0) + ' ' + Y(0) + ' H' + X(1) + ' V' + Y(1) + ' H' + X(0) + 'Z';
+  }
+  function decoCorner(x, y, s, rot, c, sw) { var o = pth('M0 ' + f1(s) + ' V0 H' + f1(s), null, c, sw) + pth('M' + f1(s * 0.14) + ' ' + f1(s * 0.75) + ' V' + f1(s * 0.14) + ' H' + f1(s * 0.75), null, c, sw * 0.6) + pg([[s * 0.28, s * 0.18], [s * 0.38, s * 0.28], [s * 0.28, s * 0.38], [s * 0.18, s * 0.28]], c) + ln(s * 0.38, s * 0.28, s * 0.62, s * 0.28, c, sw * 0.5) + ln(s * 0.28, s * 0.38, s * 0.28, s * 0.62, c, sw * 0.5); return G(o, x, y, rot); }
+  function decoFan(cx, cy, r, c, sw, n) { var o = pth('M' + f1(cx - r) + ' ' + f1(cy) + ' A' + f1(r) + ' ' + f1(r) + ' 0 0 1 ' + f1(cx + r) + ' ' + f1(cy), null, c, sw) + pth('M' + f1(cx - r * 0.65) + ' ' + f1(cy) + ' A' + f1(r * 0.65) + ' ' + f1(r * 0.65) + ' 0 0 1 ' + f1(cx + r * 0.65) + ' ' + f1(cy), null, c, sw * 0.6); n = n || 9; for (var k = 1; k < n; k++) { var a = Math.PI + k / n * Math.PI; o += ln(cx + r * 0.25 * Math.cos(a), cy + r * 0.25 * Math.sin(a), cx + r * Math.cos(a), cy + r * Math.sin(a), c, sw * 0.5); } return o + cc(cx, cy, r * 0.12, c); }
+  function flourish(cx, cy, w, c, sw) { var h = w * 0.08; return pth('M' + f1(cx - w / 2) + ' ' + f1(cy) + ' C' + f1(cx - w * 0.3) + ' ' + f1(cy - h * 2) + ' ' + f1(cx - w * 0.15) + ' ' + f1(cy + h * 2) + ' ' + f1(cx - w * 0.05) + ' ' + f1(cy) + ' M' + f1(cx + w / 2) + ' ' + f1(cy) + ' C' + f1(cx + w * 0.3) + ' ' + f1(cy - h * 2) + ' ' + f1(cx + w * 0.15) + ' ' + f1(cy + h * 2) + ' ' + f1(cx + w * 0.05) + ' ' + f1(cy), null, c, sw) + pg([[cx, cy - h], [cx + h * 0.8, cy], [cx, cy + h], [cx - h * 0.8, cy]], c); }
+  function laceEdge(x, y, w, h, c, step) { var o = '', st = step || 14, k; for (k = 0; k * st <= w; k++) { o += cc(x + k * st, y, st * 0.42, c) + cc(x + k * st, y + h, st * 0.42, c); } for (k = 0; k * st <= h; k++) { o += cc(x, y + k * st, st * 0.42, c) + cc(x + w, y + k * st, st * 0.42, c); } return o; }
+  function marble(W, H, c, seed) { var R = R0(seed || 2), o = ''; for (var k = 0; k < 9; k++) { var y = R() * H, d = 'M' + f1(-20) + ' ' + f1(y); for (var x = 0; x <= W + 40; x += 40) d += ' Q' + f1(x + 20) + ' ' + f1(y + (R() - 0.5) * 70) + ' ' + f1(x + 40) + ' ' + f1(y + (R() - 0.5) * 30); o += pth(d, null, c, 0.6 + R() * 1.4, 0.18 + R() * 0.2); } return o; }
+
+  D.INV_ORN = { G: G, el: el, pth: pth, cc: cc, rg: rg, ln: ln, rc: rc, sr: sr, pg: pg, tx: tx, lobes: lobes, star5: star5, sparkle: sparkle, heart: heart, leaf: leaf, spray: spray, rose: rose, peony: peony,
+    blossom: blossom, daisy: daisy, bud: bud, dotsRing: dotsRing, filler: filler, bouquet: bouquet, garland: garland, wreath: wreath, lotus: lotus, monstera: monstera, palm: palm, maple: maple, lavender: lavender,
+    wildflower: wildflower, babysBreath: babysBreath, bananaLeaf: bananaLeaf, marigold: marigold, marigoldString: marigoldString, mangoLeaf: mangoLeaf, toran: toran, bell: bell, bellString: bellString,
+    diya: diya, kalash: kalash, elephant: elephant, feather: feather, peacock: peacock, paisley: paisley, mandala: mandala, kolam: kolam, dhol: dhol, note: note, house: house, balloon: balloon,
+    confetti: confetti, cake: cake, gift: gift, rings2: rings2, moon: moon, lantern: lantern, rakhi: rakhi, kite: kite, splash: splash, blob: blob, pine: pine, bauble: bauble, cloud: cloud, crib: crib,
+    tricolor: tricolor, wheel: wheel, sun: sun, rainbow: rainbow, glass2: glass2, dove: dove, archD: archD, decoCorner: decoCorner, decoFan: decoFan, flourish: flourish, laceEdge: laceEdge, marble: marble,
+    scal: scal, R0: R0, f1: f1, lt: lt, dkn: dkn };
+})();
+(function () {
+  var O = D.INV_ORN, f1 = O.f1, lt = O.lt, dkn = O.dkn;
+  D.FONTS['Edwardian Script ITC'] = D.FONTS['Edwardian Script ITC'] || { web: 'Great Vibes', kind: 'script' };
+  D.FONTS['Vivaldi'] = D.FONTS['Vivaldi'] || { web: 'Parisienne', kind: 'script' };
+  D.FONTS['Engravers MT'] = D.FONTS['Engravers MT'] || { web: 'Cinzel', kind: 'serif' };
+
+  /* ---------------- text zones ---------------- */
+  function TZ(c, tag, x, y, w, h, o) {
+    o = o || {}; var bg = o.bg || c.paper, dk = D.lum(bg) < 0.4, t = c.t;
+    var tc = o.tc || (dk ? t.a : c.st.tcol === 'a' ? t.a : c.st.tcol === 's' ? t.s : t.p), kc = o.kc || (dk ? lt(t.a, 0.2) : c.st.kcol === 'p' ? t.p : t.a), xc = dk ? '#FFFFFF' : t.ink;
+    var vars = '--ti:' + D.readable(tc, bg, 3.2) + ';--ki:' + D.readable(kc, bg, 4.6) + ';--tx:' + D.readable(xc, bg, 6);
+    return { tag: tag, x: x, y: y, w: w, h: h, al: o.al || 'center', v: o.v || 'center', dk: dk, tf: o.tf, tmax: o.tmax, k: o.k, cls: 'inv' + (o.cls ? ' ' + o.cls : '') + (c.st.caps && (D.FONTS[t.head] || {}).kind !== 'script' ? ' caps' : '') + (c.st.font === 'fun' ? ' fun' : ''), vars: vars };
+  }
+  /* the usual stack: top line + names + invite line, a divider, the date, venue and note, then the reply line */
+  function stack(c, x, y, w, h, o) {
+    o = o || {}; var z = [], s = '', hh = o.hh || 0.5, al = o.al || 'center', ky = 0;
+    if (o.k) { z.push(TZ(c, 'k', x, y, w, h * 0.08, { al: al, bg: o.kbg || o.bg, cls: 'kk' })); ky = h * 0.09; }
+    z.push(TZ(c, 'head', x, y + ky, w, h * hh - ky, { al: al, bg: o.bg, tf: o.tf || (c.st.caps ? 0.1 : 0.15), tmax: o.tmax || (c.st.caps ? 52 : 72), cls: 'hd' }));
+    var dy = y + h * (hh + 0.06);
+    s += div(c, al === 'center' ? x + w / 2 : al === 'left' ? x + w * 0.12 : x + w * 0.88, y + h * (hh + 0.025), Math.min(w * 0.5, c.W * 0.32), o.bg);
+    z.push(TZ(c, 'd', x, dy, w, h * 0.1, { al: al, bg: o.bg, cls: 'dt' }));
+    if (o.dateLines !== false && al === 'center') { var lc = D.lum(o.bg || c.paper) < 0.4 ? c.t.a : c.st.dk ? c.t.a : D.mix(c.t.a, c.t.ink, 0.2); s += O.ln(x + w * 0.06, dy, x + w * 0.94, dy, lc, 1, 0.6) + O.ln(x + w * 0.06, dy + h * 0.1, x + w * 0.94, dy + h * 0.1, lc, 1, 0.6); }
+    z.push(TZ(c, 'info', x, dy + h * 0.115, w, h * (0.84 - hh - 0.06 - 0.115 + 0.06), { al: al, bg: o.bg, cls: 'nf' }));
+    z.push(TZ(c, 'r', x, y + h * 0.9, w, h * 0.1, { al: al, bg: o.bg, cls: 'rs' }));
+    return { s: s, z: z };
+  }
+  function div(c, cx, y, w, bg) {
+    var k = c.st.div || 'flourish', g = D.lum(bg || c.paper) < 0.4 ? c.t.a : D.readable(c.t.a, bg || c.paper, 2.2), P = c.P, u = c.u;
+    switch (k) {
+      case 'leafs': return O.leaf(cx - u, y, u * 5, 200, P.leaf, 0.38) + O.leaf(cx + u, y, u * 5, -20, P.leaf2, 0.38) + O.blossom(cx, y, u * 1.4, P.f1, P.gold);
+      case 'heart': return O.ln(cx - w / 2, y, cx - u * 3, y, g, 1) + O.ln(cx + u * 3, y, cx + w / 2, y, g, 1) + O.heart(cx, y, u * 1.6, P.f1);
+      case 'dots': return O.cc(cx - u * 3, y, u * 0.6, g) + O.cc(cx, y, u * 0.9, g) + O.cc(cx + u * 3, y, u * 0.6, g);
+      case 'lotus': return O.ln(cx - w / 2, y, cx - u * 4, y, g, 1) + O.ln(cx + u * 4, y, cx + w / 2, y, g, 1) + O.lotus(cx, y + u, u * 3.4, P.f1, P.leaf);
+      case 'diamond': return O.ln(cx - w / 2, y, cx + w / 2, y, g, 1) + O.pg([[cx, y - u * 1.4], [cx + u, y], [cx, y + u * 1.4], [cx - u, y]], g);
+      case 'marigold': return O.ln(cx - w / 2, y, cx + w / 2, y, g, 1) + O.marigold(cx - u * 3, y, u * 1.3, P.f1) + O.marigold(cx, y, u * 1.7, P.f3) + O.marigold(cx + u * 3, y, u * 1.3, P.f1);
+      case 'stars': return O.sparkle(cx - u * 4, y, u * 1.2, g) + O.sparkle(cx, y, u * 2, g) + O.sparkle(cx + u * 4, y, u * 1.2, g);
+      case 'line': return O.ln(cx - w / 2, y, cx + w / 2, y, g, 1.2);
+      default: return O.flourish(cx, y, w, g, Math.max(1, u * 0.3));
+    }
+  }
+
+  /* ---------------- style ornaments (by kind) ---------------- */
+  function corner(c, x, y, s, dir, kind) {
+    var P = c.P, k = kind || c.st.corner || 'bouquet', sd = (c.v + 1) * 7 + Math.round(x + y) % 11;
+    switch (k) {
+      case 'bouquet': return O.bouquet(x, y, s, dir, P, { seed: sd });
+      case 'peony': return O.bouquet(x, y, s, dir, P, { seed: sd, flower: 'peony' });
+      case 'daisy': return O.bouquet(x, y, s, dir, P, { seed: sd, flower: 'daisy', noEuc: 1 });
+      case 'lotus': return O.bouquet(x, y, s, dir, P, { seed: sd, flower: 'lotus', noEuc: 1 });
+      case 'greenery': var g = ''; for (var i = 0; i < 7; i++) g += i % 2 ? O.spray(x, y, s * (0.7 + i * 0.05), dir - 60 + i * 20, P.leaf2, { round: 1, n: 5, c2: P.leaf }) : O.spray(x, y, s * (0.75 + i * 0.04), dir - 60 + i * 20, P.leaf, { n: 5, c2: P.leaf2 }); return g + O.blossom(x + Math.cos(dir * Math.PI / 180) * s * 0.2, y + Math.sin(dir * Math.PI / 180) * s * 0.2, s * 0.06, '#FFFFFF', P.gold);
+      case 'lavender': var l = ''; for (var j = 0; j < 6; j++) l += O.lavender(x, y, s * (0.8 + j * 0.05), dir - 40 + j * 16, P.f1, P.leaf); return l + O.spray(x, y, s * 0.7, dir - 55, P.leaf2, { n: 4 }) + O.spray(x, y, s * 0.7, dir + 50, P.leaf, { n: 4 });
+      case 'wild': var w = ''; for (var m = 0; m < 9; m++) w += O.wildflower(x, y, s * (0.6 + (m % 3) * 0.18), dir - 55 + m * 13, P, m + sd); return w;
+      case 'tropical': return O.monstera(x, y, s * 0.75, dir - 25, P.leaf, c.paper) + O.palm(x, y, s, dir + 25, P.leaf2) + O.monstera(x, y, s * 0.55, dir + 55, lt(P.leaf, 0.15), c.paper) + O.blossom(x + Math.cos(dir * Math.PI / 180) * s * 0.18, y + Math.sin(dir * Math.PI / 180) * s * 0.18, s * 0.12, P.f1, P.gold, 5);
+      case 'autumn': var a = ''; for (var q = 0; q < 5; q++) a += O.spray(x, y, s * 0.8, dir - 50 + q * 25, P.leaf, { n: 4, c2: P.leaf2 }); return a + O.maple(x + Math.cos((dir - 20) * Math.PI / 180) * s * 0.35, y + Math.sin((dir - 20) * Math.PI / 180) * s * 0.35, s * 0.17, dir, P.f1) + O.maple(x + Math.cos((dir + 25) * Math.PI / 180) * s * 0.5, y + Math.sin((dir + 25) * Math.PI / 180) * s * 0.5, s * 0.13, dir + 40, P.f3) + O.maple(x, y, s * 0.15, dir - 30, P.f2);
+      case 'lineart': var la = ''; for (var r = 0; r < 4; r++) la += O.spray(x, y, s * (0.8 + r * 0.06), dir - 40 + r * 26, c.lineC, { line: 1, n: 5 }); return la;
+      case 'marigold': var mg = ''; [-50, -20, 10, 40].forEach(function (aa, ii) { mg += O.mangoLeaf(x, y, s * 0.65, dir + aa, ii % 2 ? P.leaf : P.leaf2); }); return mg + O.marigold(x + Math.cos(dir * Math.PI / 180) * s * 0.15, y + Math.sin(dir * Math.PI / 180) * s * 0.15, s * 0.16, P.f1) + O.marigold(x + Math.cos((dir - 35) * Math.PI / 180) * s * 0.36, y + Math.sin((dir - 35) * Math.PI / 180) * s * 0.36, s * 0.12, P.f3) + O.marigold(x + Math.cos((dir + 35) * Math.PI / 180) * s * 0.36, y + Math.sin((dir + 35) * Math.PI / 180) * s * 0.36, s * 0.12, P.f2);
+      case 'paisley': return O.paisley(x + Math.cos(dir * Math.PI / 180) * s * 0.3, y + Math.sin(dir * Math.PI / 180) * s * 0.3, s * 0.42, dir + 45, P.f1, P.gold) + O.paisley(x + Math.cos((dir - 40) * Math.PI / 180) * s * 0.55, y + Math.sin((dir - 40) * Math.PI / 180) * s * 0.55, s * 0.24, dir, P.leaf, P.gold) + O.paisley(x + Math.cos((dir + 40) * Math.PI / 180) * s * 0.55, y + Math.sin((dir + 40) * Math.PI / 180) * s * 0.55, s * 0.24, dir + 90, P.leaf, P.gold);
+      case 'feathers': var fe = ''; for (var n = 0; n < 5; n++) fe += O.feather(x, y, s * (0.85 + n * 0.04), dir - 40 + n * 20, P); return fe;
+      case 'mandala': return O.mandala(x, y, s * 0.8, c.gold, 0.9);
+      case 'deco': return O.decoCorner(x, y, s * 0.45, dir - 45, c.gold, Math.max(1, c.u * 0.35));
+      case 'confetti': return O.confetti(x - s * 0.5, y - s * 0.5, s, s, [P.f1, P.f3, P.leaf, P.gold], 26, sd);
+      case 'balloons': return O.balloon(x + Math.cos(dir * Math.PI / 180) * s * 0.35, y + Math.sin(dir * Math.PI / 180) * s * 0.35, s * 0.3, P.f1) + O.balloon(x + Math.cos((dir - 30) * Math.PI / 180) * s * 0.6, y + Math.sin((dir - 30) * Math.PI / 180) * s * 0.6, s * 0.24, P.leaf) + O.balloon(x + Math.cos((dir + 30) * Math.PI / 180) * s * 0.6, y + Math.sin((dir + 30) * Math.PI / 180) * s * 0.6, s * 0.22, P.f3);
+      case 'stars': var st = ''; for (var b = 0; b < 7; b++) { var aa2 = (dir - 50 + b * 17) * Math.PI / 180, dd = s * (0.2 + (b % 3) * 0.2); st += b % 2 ? O.sparkle(x + Math.cos(aa2) * dd, y + Math.sin(aa2) * dd, s * 0.07, c.gold) : O.star5(x + Math.cos(aa2) * dd, y + Math.sin(aa2) * dd, s * 0.06, c.gold); } return st;
+      case 'holi': return O.splash(x, y, s * 0.35, P.f1, sd, 0.85) + O.splash(x + Math.cos(dir * Math.PI / 180) * s * 0.4, y + Math.sin(dir * Math.PI / 180) * s * 0.4, s * 0.22, P.leaf, sd + 3, 0.85) + O.splash(x + Math.cos((dir + 40) * Math.PI / 180) * s * 0.45, y + Math.sin((dir + 40) * Math.PI / 180) * s * 0.45, s * 0.16, P.f3, sd + 5, 0.85);
+      case 'pine': var pn = ''; for (var e = 0; e < 4; e++) pn += O.pine(x, y, s * 0.85, dir - 40 + e * 26, P.leaf); return pn + O.bauble(x + Math.cos(dir * Math.PI / 180) * s * 0.35, y + Math.sin(dir * Math.PI / 180) * s * 0.35 + s * 0.15, s * 0.07, P.f1, c.gold) + O.bauble(x + Math.cos((dir + 30) * Math.PI / 180) * s * 0.55, y + Math.sin((dir + 30) * Math.PI / 180) * s * 0.55 + s * 0.15, s * 0.055, P.f3, c.gold);
+      case 'clouds': return O.cloud(x + Math.cos(dir * Math.PI / 180) * s * 0.3, y + Math.sin(dir * Math.PI / 180) * s * 0.3, s * 0.4, P.f2, 0.9) + O.star5(x + Math.cos((dir - 30) * Math.PI / 180) * s * 0.6, y + Math.sin((dir - 30) * Math.PI / 180) * s * 0.6, s * 0.06, c.gold) + O.star5(x + Math.cos((dir + 30) * Math.PI / 180) * s * 0.55, y + Math.sin((dir + 30) * Math.PI / 180) * s * 0.55, s * 0.05, c.gold);
+      case 'babysbreath': var bb = ''; for (var h = 0; h < 6; h++) bb += O.babysBreath(x, y, s * (0.7 + h * 0.06), dir - 45 + h * 18, '#FFFFFF', P.leaf, sd + h); return bb + O.spray(x, y, s * 0.8, dir - 55, P.leaf, { n: 4 }) + O.spray(x, y, s * 0.75, dir + 50, P.leaf2, { round: 1, n: 4 });
+      case 'boho': return O.rainbow(x, y, s * 0.5, [P.f1, P.f3, P.leaf2], s * 0.08) + O.spray(x, y, s * 0.9, dir - 40, P.leaf, { n: 5 }) + O.spray(x, y, s * 0.8, dir + 40, P.leaf2, { n: 5 }) + O.cc(x + Math.cos(dir * Math.PI / 180) * s * 0.55, y + Math.sin(dir * Math.PI / 180) * s * 0.55, s * 0.08, P.f3);
+      case 'banana': return O.bananaLeaf(x, y, s, dir - 20, P.leaf) + O.bananaLeaf(x, y, s * 0.8, dir + 30, P.leaf2) + O.marigold(x + Math.cos(dir * Math.PI / 180) * s * 0.15, y + Math.sin(dir * Math.PI / 180) * s * 0.15, s * 0.12, P.f3);
+      case 'lantern': return O.lantern(x + Math.cos(dir * Math.PI / 180) * s * 0.3, y + s * 0.5, s * 0.25, c.gold) + O.moon(x + Math.cos(dir * Math.PI / 180) * s * 0.6, y + s * 0.25, s * 0.13, c.gold);
+      case 'bells': return O.bellString(x + Math.cos(dir * Math.PI / 180) * s * 0.25, y - s * 0.05, s * 0.75, s * 0.13, c.gold, P.f1) + O.bellString(x + Math.cos(dir * Math.PI / 180) * s * 0.5, y - s * 0.05, s * 0.5, s * 0.1, c.gold, P.f1);
+      default: return O.bouquet(x, y, s, dir, P, { seed: sd });
+    }
+  }
+  function band(c, x, y, w, h, flip, kind) {
+    var P = c.P, k = kind || c.st.band || 'garland', s = '', u = c.u;
+    switch (k) {
+      case 'toran': s = O.toran(x, y + h * 0.1, w, P, { step: Math.max(18, w / 16), h: h * 0.7 }); break;
+      case 'marigold': for (var i = 0; i <= 10; i++) { var px = x + w * i / 10; s += O.ln(px, y, px, y + h * (0.35 + (i % 2) * 0.3), P.gold, 1) + O.marigold(px, y + h * (0.45 + (i % 2) * 0.3), h * 0.13, i % 3 ? P.f1 : P.f3); } s = O.ln(x, y + 2, x + w, y + 2, P.gold, 2) + s; break;
+      case 'bells': s = O.ln(x, y + 2, x + w, y + 2, c.gold, 2); for (var j = 0; j < 7; j++) s += O.bellString(x + w * (j + 0.5) / 7, y + 2, h * (0.55 + (j % 2) * 0.3), h * 0.18, c.gold, P.f1); break;
+      case 'lace': for (var q = 0; q * u * 3 <= w; q++) s += O.cc(x + q * u * 3, y + h * 0.4, u * 1.4, lt(P.f1, 0.5)) + O.cc(x + q * u * 3, y + h * 0.4 + u * 1.6, u * 0.45, P.f1); s += O.ln(x, y + h * 0.4, x + w, y + h * 0.4, P.f1, 1); break;
+      case 'deco': s = O.ln(x, y + h * 0.5, x + w, y + h * 0.5, c.gold, 1.4) + O.ln(x, y + h * 0.5 + u, x + w, y + h * 0.5 + u, c.gold, 0.8) + O.decoFan(x + w / 2, y + h * 0.5, h * 0.45, c.gold, Math.max(1, u * 0.3)); break;
+      case 'flowerRow': for (var m = 0; m <= 12; m++) { var fx = x + w * m / 12; s += O.leaf(fx, y + h * 0.5, h * 0.35, m % 2 ? -30 : 210, P.leaf, 0.4) + (m % 2 ? O.rose(fx, y + h * 0.5, h * 0.2, P.f1) : O.blossom(fx, y + h * 0.5, h * 0.16, P.f2, P.gold)); } break;
+      case 'bunting': s = O.pth('M' + f1(x) + ' ' + f1(y + h * 0.15) + ' Q' + f1(x + w / 2) + ' ' + f1(y + h * 0.5) + ' ' + f1(x + w) + ' ' + f1(y + h * 0.15), null, c.t.ink, 1.2); for (var b = 0; b < 11; b++) { var tt = (b + 0.5) / 11, bx = x + w * tt, by = y + h * 0.15 + h * 0.7 * tt * (1 - tt); s += O.pg([[bx - w * 0.035, by], [bx + w * 0.035, by], [bx, by + h * 0.5]], [P.f1, P.f3, P.leaf, P.gold][b % 4]); } break;
+      case 'tricolor': s = O.tricolor(x, y, w, h * 0.8, P); break;
+      case 'lanterns': s = O.ln(x, y + 2, x + w, y + 2, c.gold, 1.5); for (var l = 0; l < 5; l++) s += O.lantern(x + w * (l + 0.5) / 5, y + h * (0.55 + (l % 2) * 0.2), h * 0.22, c.gold); break;
+      case 'paisleyRow': for (var p = 0; p < 8; p++) s += O.paisley(x + w * (p + 0.5) / 8, y + h * 0.5, h * 0.36, p % 2 ? 30 : -30, p % 2 ? P.f1 : P.leaf, P.gold); s += O.ln(x, y + h * 0.1, x + w, y + h * 0.1, c.gold, 1) + O.ln(x, y + h * 0.92, x + w, y + h * 0.92, c.gold, 1); break;
+      case 'stars': for (var st = 0; st < 14; st++) s += st % 2 ? O.sparkle(x + w * (st + 0.5) / 14, y + h * (0.3 + (st % 3) * 0.2), h * 0.1, c.gold) : O.star5(x + w * (st + 0.5) / 14, y + h * (0.3 + (st % 4) * 0.15), h * 0.08, c.gold); break;
+      case 'balloons': for (var bl = 0; bl < 6; bl++) s += O.balloon(x + w * (bl + 0.5) / 6, y + h * (0.35 + (bl % 2) * 0.15), h * 0.28, [P.f1, P.f3, P.leaf, P.gold, P.f2, P.leaf2][bl]); break;
+      case 'mandala': s = O.mandala(x + w / 2, y + (flip ? h : 0), Math.min(w * 0.45, h * 1.6), c.gold, 0.8); break;
+      case 'pine': s = O.garland(x, y + h * 0.1, x + w, y + h * 0.1, h * 0.25, { leaf: P.leaf, leaf2: lt(P.leaf, 0.2), f1: P.f1, f2: P.f3, f3: P.f3, gold: c.gold }, { n: 18, flower: 'blossom' }); for (var bb = 1; bb < 6; bb++) s += O.bauble(x + w * bb / 6, y + h * 0.6, h * 0.1, bb % 2 ? P.f1 : P.f3, c.gold); break;
+      case 'leaves': for (var lv = 0; lv < 9; lv++) s += O.spray(x + w * lv / 8, y + h * 0.1, h * 0.85, 60 + (lv % 3) * 25, lv % 2 ? P.leaf2 : P.leaf, { n: 4, round: lv % 3 === 1 }); break;
+      case 'kolam': for (var ko = 0; ko < 5; ko++) s += O.kolam(x + w * (ko + 0.5) / 5, y + h * 0.5, h * 0.32, c.gold, 3); break;
+      case 'mgrow': s = O.ln(x, y + h * 0.5, x + w, y + h * 0.5, P.gold, 1); for (var mr = 0; mr <= 12; mr++) { var mx = x + w * mr / 12; s += mr % 2 ? O.mangoLeaf(mx - h * 0.3, y + h * 0.5, h * 0.6, mr % 4 === 1 ? -15 : 15, P.leaf) : O.marigold(mx, y + h * 0.5, h * 0.2, mr % 4 ? P.f1 : P.f3); } break;
+      case 'confettiRow': s = O.confetti(x, y, w, h, [P.f1, P.f3, P.leaf, P.gold], 40, 17); break;
+      case 'wave': s = '<path d="M' + f1(x) + ' ' + f1(y) + ' H' + f1(x + w) + ' V' + f1(y + h * 0.55) + ' Q' + f1(x + w * 0.75) + ' ' + f1(y + h * 0.95) + ' ' + f1(x + w * 0.5) + ' ' + f1(y + h * 0.6) + ' T' + f1(x) + ' ' + f1(y + h * 0.6) + 'Z" fill="' + P.f2 + '" fill-opacity="0.55"/>' + '<path d="M' + f1(x) + ' ' + f1(y) + ' H' + f1(x + w) + ' V' + f1(y + h * 0.35) + ' Q' + f1(x + w * 0.7) + ' ' + f1(y + h * 0.7) + ' ' + f1(x + w * 0.45) + ' ' + f1(y + h * 0.4) + ' T' + f1(x) + ' ' + f1(y + h * 0.4) + 'Z" fill="' + P.f1 + '" fill-opacity="0.55"/>'; break;
+      default: s = O.garland(x - u * 2, y + h * 0.15, x + w + u * 2, y + h * 0.15, h * 0.25, P, { n: 16 }) + O.garland(x + w * 0.2, y + h * 0.1, x + w * 0.8, y + h * 0.1, h * 0.15, P, { n: 10 });
+    }
+    return flip ? '<g transform="translate(0,' + f1(2 * y + h) + ') scale(1,-1)">' + s + '</g>' : s;
+  }
+  function motif(c, cx, cy, s, kind) {
+    var P = c.P, k = kind || c.st.motif || 'rings', g = c.gold;
+    switch (k) {
+      case 'rings': return O.rings2(cx, cy, s * 0.5, g);
+      case 'heart': return O.heart(cx - s * 0.18, cy, s * 0.22, P.f1) + O.heart(cx + s * 0.18, cy + s * 0.05, s * 0.18, P.f2);
+      case 'kalash': return O.kalash(cx, cy + s * 0.25, s * 0.55, g, P.leaf);
+      case 'diya': return O.diya(cx, cy + s * 0.15, s * 0.45, dkn(g, 0.15)) + O.diya(cx - s * 0.55, cy + s * 0.25, s * 0.28, dkn(g, 0.15)) + O.diya(cx + s * 0.55, cy + s * 0.25, s * 0.28, dkn(g, 0.15));
+      case 'lotus': return O.lotus(cx, cy + s * 0.25, s * 0.55, P.f1, P.leaf);
+      case 'elephants': return O.elephant(cx - s * 0.5, cy + s * 0.35, s * 0.5, P.f2 === '#FFFFFF' ? P.leaf : lt(P.f1, 0.25), g, false) + O.elephant(cx + s * 0.5, cy + s * 0.35, s * 0.5, lt(P.f1, 0.25), g, true) + O.marigold(cx, cy, s * 0.12, g);
+      case 'peacock': return O.peacock(cx + s * 0.25, cy + s * 0.4, s * 0.55, P);
+      case 'mandala': return O.mandala(cx, cy, s * 0.5, g, 0.95, true);
+      case 'crest': return O.wreath(cx, cy, s * 0.42, P, { line: c.st.dk, n: 22, gap: 60 }) + O.rg(cx, cy, s * 0.3, g, Math.max(1, c.u * 0.3)) + O.pg([[cx, cy - s * 0.12], [cx + s * 0.08, cy], [cx, cy + s * 0.12], [cx - s * 0.08, cy]], g);
+      case 'doves': return O.dove(cx - s * 0.28, cy, s * 0.5, lt(P.f1, 0.3)) + O.dove(cx + s * 0.28, cy, s * 0.5, lt(P.f1, 0.5), true) + O.heart(cx, cy - s * 0.32, s * 0.1, P.f1);
+      case 'cake': return O.cake(cx, cy + s * 0.35, s * 0.6, P);
+      case 'balloons': return O.balloon(cx - s * 0.3, cy - s * 0.05, s * 0.3, P.f1) + O.balloon(cx + s * 0.3, cy - s * 0.1, s * 0.28, P.leaf) + O.balloon(cx, cy - s * 0.22, s * 0.32, P.f3);
+      case 'moon': return O.moon(cx - s * 0.15, cy, s * 0.3, g) + O.lantern(cx + s * 0.3, cy + s * 0.2, s * 0.25, g) + O.star5(cx + s * 0.05, cy - s * 0.15, s * 0.05, g);
+      case 'rakhi': return O.rakhi(cx, cy, s * 0.22, P);
+      case 'kite': return O.kite(cx, cy - s * 0.1, s * 0.3, P.f1, P.leaf);
+      case 'house': return O.house(cx, cy + s * 0.35, s * 0.6, P.f1, g) + O.toran(cx - s * 0.45, cy - s * 0.35, s * 0.9, P, { step: s * 0.12, h: s * 0.18 });
+      case 'crib': return O.cloud(cx, cy + s * 0.12, s * 0.6, P.f2, 0.85) + O.moon(cx + s * 0.25, cy - s * 0.2, s * 0.17, g) + O.star5(cx - s * 0.3, cy - s * 0.28, s * 0.06, g) + O.star5(cx - s * 0.05, cy - s * 0.38, s * 0.04, g);
+      case 'glasses': return O.glass2(cx, cy + s * 0.4, s * 0.55, g);
+      case 'gift': return O.gift(cx, cy + s * 0.05, s * 0.45, P.f1, g);
+      case 'bauble': return O.bauble(cx, cy + s * 0.15, s * 0.2, P.f1, g) + O.pine(cx - s * 0.5, cy - s * 0.25, s * 0.5, 10, P.leaf) + O.pine(cx + s * 0.5, cy - s * 0.25, s * 0.5, 170, P.leaf);
+      case 'sun': return O.sun(cx, cy, s * 0.22, P.f3, true);
+      case 'rainbow': return O.rainbow(cx, cy + s * 0.25, s * 0.45, [P.f1, P.f3, P.leaf, P.f2], s * 0.08) + O.cloud(cx - s * 0.38, cy + s * 0.25, s * 0.22, '#FFFFFF') + O.cloud(cx + s * 0.38, cy + s * 0.25, s * 0.22, '#FFFFFF');
+      case 'dhol': return O.dhol(cx, cy, s * 0.45, P.f1, g) + O.note(cx - s * 0.45, cy - s * 0.15, s * 0.22, g) + O.note(cx + s * 0.45, cy - s * 0.2, s * 0.18, g);
+      case 'wheel': return O.wheel(cx, cy, s * 0.22, P.leaf === '#FFFFFF' ? '#1E3A8A' : c.t.a);
+      case 'marigold': return O.marigold(cx, cy, s * 0.25, P.f1) + O.marigold(cx - s * 0.36, cy + s * 0.08, s * 0.16, P.f3) + O.marigold(cx + s * 0.36, cy + s * 0.08, s * 0.16, P.f3) + O.mangoLeaf(cx, cy - s * 0.15, s * 0.3, -130, P.leaf) + O.mangoLeaf(cx, cy - s * 0.15, s * 0.3, -50, P.leaf);
+      case 'flower': return O.spray(cx, cy, s * 0.5, -150, P.leaf, { n: 4 }) + O.spray(cx, cy, s * 0.5, -30, P.leaf2, { n: 4 }) + O.rose(cx, cy, s * 0.18, P.f1) + O.blossom(cx - s * 0.2, cy + s * 0.08, s * 0.07, P.f2, P.gold) + O.blossom(cx + s * 0.2, cy + s * 0.06, s * 0.07, P.f2, P.gold);
+      case 'bells': return O.bellString(cx - s * 0.25, cy - s * 0.45, s * 0.7, s * 0.14, g, P.f1) + O.bellString(cx, cy - s * 0.45, s * 0.85, s * 0.17, g, P.f1) + O.bellString(cx + s * 0.25, cy - s * 0.45, s * 0.7, s * 0.14, g, P.f1);
+      case 'paisley': return O.paisley(cx - s * 0.18, cy, s * 0.3, -25, P.f1, g) + O.paisley(cx + s * 0.18, cy, s * 0.3, 25, P.leaf, g).replace('rotate(25)', 'rotate(25) scale(-1,1)');
+      case 'fan': return O.decoFan(cx, cy + s * 0.25, s * 0.45, g, Math.max(1, c.u * 0.35), 11);
+      case 'star': return O.star5(cx, cy, s * 0.22, g) + O.sparkle(cx - s * 0.35, cy + s * 0.1, s * 0.08, g) + O.sparkle(cx + s * 0.35, cy - s * 0.05, s * 0.1, g);
+      case 'splash': return O.splash(cx - s * 0.2, cy, s * 0.22, P.f1, 3, 0.9) + O.splash(cx + s * 0.18, cy - s * 0.05, s * 0.18, P.leaf, 7, 0.9) + O.splash(cx, cy + s * 0.15, s * 0.14, P.f3, 11, 0.9);
+      case 'feather': return O.feather(cx - s * 0.4, cy + s * 0.1, s * 0.85, -12, P);
+      default: return O.rings2(cx, cy, s * 0.5, g);
+    }
+  }
+  function side(c, x, y, len, flip, kind) {
+    var P = c.P, k = kind || c.st.side || 'marigold', u = c.u;
+    switch (k) {
+      case 'bells': return O.bellString(x, y, len, u * 4, c.gold, P.f1);
+      case 'vine': return O.spray(x, y, len, 90 + (flip ? 4 : -4), P.leaf, { n: 7, c2: P.leaf2, ls: 0.22, bend: 0.06 }) + O.blossom(x, y + len * 0.4, u * 2, P.f2, P.gold) + O.rose(x, y + len * 0.75, u * 2.6, P.f1);
+      case 'lanterns': return O.lantern(x, y + len, u * 5, c.gold).replace(/<line[^>]*\/>/, O.ln(x, y, x, y + len - u * 5, c.gold, 1));
+      case 'balloons': return O.balloon(x, y + len * 0.45, u * 7, P.f1) + O.balloon(x + (flip ? -1 : 1) * u * 6, y + len * 0.62, u * 6, P.f3);
+      case 'stars': var s = O.ln(x, y, x, y + len, c.gold, 0.8); return s + O.star5(x, y + len, u * 2.2, c.gold) + O.ln(x + u * 4, y, x + u * 4, y + len * 0.6, c.gold, 0.6) + O.sparkle(x + u * 4, y + len * 0.6, u * 1.6, c.gold);
+      case 'flowers': var f = O.ln(x, y, x, y + len, P.leaf, 1); for (var yy = y + u * 3; yy < y + len; yy += u * 4.5) f += O.blossom(x, yy, u * 1.7, (yy / u) % 9 < 4.5 ? P.f1 : P.f2, P.gold) + O.leaf(x, yy + u * 2, u * 2.4, flip ? 150 : 30, P.leaf, 0.4); return f;
+      case 'feathers': return O.feather(x, y, len, 90 + (flip ? -6 : 6), P);
+      case 'paisley': var p = O.ln(x, y, x, y + len, c.gold, 1); for (var py = y + u * 5; py < y + len; py += u * 8) p += O.paisley(x, py, u * 3.4, flip ? 160 : 20, P.f1, c.gold); return p;
+      case 'pine': return O.pine(x, y, len, 90, P.leaf) + O.bauble(x, y + len * 0.9, u * 2.2, P.f1, c.gold);
+      default: return O.marigoldString(x, y, len, u * 2.3, P.f1, P.f3, P.leaf);
+    }
+  }
+  function scene(c, x, y, w, h, kind) {
+    var P = c.P, k = kind || c.st.scene || 'bouquets', u = c.u, s = '';
+    switch (k) {
+      case 'elephants': s += O.elephant(x + w * 0.2, y + h, h * 0.7, lt(P.f1, 0.3), c.gold, false) + O.elephant(x + w * 0.8, y + h, h * 0.7, lt(P.f1, 0.3), c.gold, true) + O.kalash(x + w / 2, y + h * 0.95, h * 0.45, c.gold, P.leaf); return s;
+      case 'peacocks': return O.peacock(x + w * 0.32, y + h, h * 0.8, P) + O.peacock(x + w * 0.68, y + h, h * 0.8, P, true) + O.lotus(x + w / 2, y + h * 0.95, h * 0.3, P.f2, P.leaf);
+      case 'lotus': for (var i = 0; i < 5; i++) s += O.lotus(x + w * (i + 0.5) / 5, y + h * (0.85 + (i % 2) * 0.1), h * (0.35 + (i % 2) * 0.1), i % 2 ? P.f2 : P.f1, P.leaf); return '<path d="M' + f1(x) + ' ' + f1(y + h * 0.7) + ' Q' + f1(x + w / 2) + ' ' + f1(y + h * 0.55) + ' ' + f1(x + w) + ' ' + f1(y + h * 0.7) + ' V' + f1(y + h) + ' H' + f1(x) + 'Z" fill="' + lt(P.leaf, 0.6) + '" fill-opacity="0.5"/>' + s;
+      case 'diyas': for (var d = 0; d < 5; d++) s += O.diya(x + w * (d + 0.5) / 5, y + h * 0.8, h * 0.25, dkn(c.gold, 0.15)); return O.rc(x, y + h * 0.88, w, h * 0.12, dkn(c.gold, 0.4), 0, 0.3) + s;
+      case 'balloons': for (var b = 0; b < 7; b++) s += O.balloon(x + w * (b + 0.5) / 7, y + h * (0.35 + (b % 3) * 0.12), h * 0.22, [P.f1, P.f3, P.leaf, P.gold, P.f2, P.leaf2, P.f1][b]); return s;
+      case 'meadow': for (var m = 0; m < 18; m++) s += O.wildflower(x + w * m / 17, y + h, h * (0.5 + (m % 4) * 0.12), -90 + (m % 5 - 2) * 6, P, m); return s;
+      case 'palms': return O.palm(x, y + h, h * 1.1, -60, P.leaf) + O.monstera(x + w * 0.15, y + h, h * 0.7, -80, P.leaf2, c.paper) + O.palm(x + w, y + h, h * 1.1, -120, P.leaf) + O.monstera(x + w * 0.85, y + h, h * 0.7, -100, P.leaf2, c.paper);
+      case 'clouds': return O.cloud(x + w * 0.2, y + h * 0.6, h * 0.5, P.f2, 0.8) + O.cloud(x + w * 0.55, y + h * 0.75, h * 0.6, '#FFFFFF', 0.9) + O.cloud(x + w * 0.85, y + h * 0.55, h * 0.45, P.leaf2, 0.8);
+      case 'splashes': return O.splash(x + w * 0.15, y + h * 0.6, h * 0.3, P.f1, 2, 0.85) + O.splash(x + w * 0.45, y + h * 0.75, h * 0.25, P.f3, 5, 0.85) + O.splash(x + w * 0.75, y + h * 0.6, h * 0.32, P.leaf, 8, 0.85) + O.splash(x + w * 0.95, y + h * 0.85, h * 0.2, P.f2, 11, 0.85);
+      case 'skyline': var sk = ''; for (var q = 0; q < 12; q++) { var bw = w / 12, bh = h * (0.3 + ((q * 37) % 50) / 80); sk += O.rc(x + q * bw, y + h - bh, bw * 0.9, bh, lt(c.paper, 0.12)); for (var wy = y + h - bh + u * 2; wy < y + h - u; wy += u * 3) sk += O.rc(x + q * bw + bw * 0.25, wy, bw * 0.15, u * 1.2, c.gold, 0, 0.6) + O.rc(x + q * bw + bw * 0.55, wy, bw * 0.15, u * 1.2, c.gold, 0, 0.35); } return sk;
+      case 'houses': return O.house(x + w * 0.5, y + h, h * 0.75, P.f1, c.gold) + O.spray(x + w * 0.25, y + h, h * 0.6, -110, P.leaf, { n: 4 }) + O.spray(x + w * 0.75, y + h, h * 0.6, -70, P.leaf2, { n: 4 }) + O.kalash(x + w * 0.12, y + h, h * 0.28, c.gold, P.leaf) + O.kalash(x + w * 0.88, y + h, h * 0.28, c.gold, P.leaf);
+      case 'kolam': return O.kolam(x + w / 2, y + h * 0.55, h * 0.4, c.gold, 6);
+      default: return O.bouquet(x + w * 0.12, y + h, h * 1.05, -60, P, { seed: 5 }) + O.bouquet(x + w * 0.88, y + h, h * 1.05, -120, P, { seed: 9, flower: 'peony' }) + O.bouquet(x + w * 0.5, y + h * 1.08, h * 0.8, -90, P, { seed: 13 });
+    }
+  }
+  function ringOrn(c, cx, cy, r, kind) {
+    var P = c.P, k = kind || c.st.ring || 'wreath';
+    switch (k) {
+      case 'leafring': return O.wreath(cx, cy, r, P, { line: 1, n: 30 });
+      case 'marigold': var s = ''; for (var i = 0; i < 22; i++) { var a = i / 22 * Math.PI * 2; s += O.marigold(cx + r * Math.cos(a), cy + r * Math.sin(a), r * 0.1, i % 3 ? P.f1 : P.f3); } return s;
+      case 'gold': return O.rg(cx, cy, r, c.gold, Math.max(1.2, c.u * 0.4)) + O.rg(cx, cy, r * 0.93, c.gold, Math.max(0.8, c.u * 0.2)) + O.dotsRing(cx, cy, r * 1.06, 48, c.u * 0.35, c.gold);
+      case 'mandala': return O.mandala(cx, cy, r * 1.15, c.gold, 0.7);
+      case 'lace': return O.dotsRing(cx, cy, r, 40, r * 0.06, lt(P.f1, 0.45)) + O.rg(cx, cy, r * 0.92, P.f1, 1);
+      default: return O.wreath(cx, cy, r, P, { n: 30, gap: 0 });
+    }
+  }
+  function pattern(c, W, H, kind) {
+    var P = c.P, k = kind || c.st.pattern || 'dots', u = c.u, on = D.lum(c.panel) < 0.4 ? '#FFFFFF' : c.t.ink, s = '';
+    switch (k) {
+      case 'mandala': return O.mandala(W / 2, H / 2, W * 0.75, c.gold, 0.25) + O.mandala(0, 0, W * 0.4, c.gold, 0.2) + O.mandala(W, H, W * 0.4, c.gold, 0.2);
+      case 'paisley': for (var y = u * 6; y < H; y += u * 14) for (var x = ((y / u / 14) % 2) * u * 8 + u * 4; x < W; x += u * 16) s += O.paisley(x, y, u * 3.5, 30, on === '#FFFFFF' ? lt(c.panel, 0.12) : dkn(c.panel, 0.08), on === '#FFFFFF' ? lt(c.panel, 0.2) : dkn(c.panel, 0.12)); return s;
+      case 'stripes': for (var sx = 0; sx < W; sx += u * 6) s += O.rc(sx, 0, u * 3, H, on, 0, 0.06); return s;
+      case 'marble': return O.marble(W, H, D.lum(c.panel) < 0.4 ? c.gold : '#9AA0A6', 3);
+      case 'blobs': return '';
+      case 'confetti': return O.confetti(0, 0, W, H, [P.f1, P.f3, P.leaf, c.gold], 90, 21);
+      case 'kolam': for (var ky = u * 8; ky < H; ky += u * 18) for (var kx = u * 9; kx < W; kx += u * 18) s += O.kolam(kx, ky, u * 4, on, 3).replace(/stroke-width/g, 'stroke-opacity="0.25" stroke-width').replace(/fill="#FFFFFF"/g, 'fill="#FFFFFF" fill-opacity="0.25"'); return s;
+      case 'stars': var R = O.R0(5); for (var n = 0; n < 60; n++) s += O.cc(R() * W, R() * H, u * (0.15 + R() * 0.35), c.gold, 0.3 + R() * 0.6); return s;
+      case 'leaves': var R2 = O.R0(7); for (var m = 0; m < 26; m++) s += O.leaf(R2() * W, R2() * H, u * (3 + R2() * 3), R2() * 360, on, 0.36, null, 0.08); return s;
+      default: for (var dy = u * 3; dy < H; dy += u * 5) for (var dx = ((dy / u / 5) % 2) * u * 2.5 + u * 2; dx < W; dx += u * 5) s += O.cc(dx, dy, u * 0.35, on, 0.12); return s;
+    }
+  }
+  function blobs(c, W, H, defs) { defs.push('<radialGradient id="ivb1"><stop offset="0" stop-color="' + c.P.f2 + '" stop-opacity="0.75"/><stop offset="1" stop-color="' + c.P.f2 + '" stop-opacity="0"/></radialGradient><radialGradient id="ivb2"><stop offset="0" stop-color="' + c.P.leaf2 + '" stop-opacity="0.6"/><stop offset="1" stop-color="' + c.P.leaf2 + '" stop-opacity="0"/></radialGradient><radialGradient id="ivb3"><stop offset="0" stop-color="' + c.P.f3 + '" stop-opacity="0.5"/><stop offset="1" stop-color="' + c.P.f3 + '" stop-opacity="0"/></radialGradient>'); return O.blob(W * 0.1, H * 0.08, W * 0.4, '', 'ivb1') + O.blob(W * 0.95, H * 0.15, W * 0.35, '', 'ivb2') + O.blob(W * 0.05, H * 0.95, W * 0.45, '', 'ivb2') + O.blob(W * 0.9, H * 0.9, W * 0.4, '', 'ivb1') + O.blob(W * 0.5, H * 1.02, W * 0.3, '', 'ivb3'); }
+  function tileBorder(c, x, y, w, h, kind) {
+    var P = c.P, k = kind || c.st.tile || 'blossom', u = c.u, st = u * 6, s = '', put = function (px, py, i) {
+      switch (k) {
+        case 'marigold': return O.marigold(px, py, u * 2, i % 3 ? P.f1 : P.f3);
+        case 'paisley': return O.paisley(px, py, u * 2.6, i * 40, i % 2 ? P.f1 : P.leaf, c.gold);
+        case 'lotus': return O.lotus(px, py + u, u * 2.6, P.f1, P.leaf);
+        case 'heart': return O.heart(px, py, u * 1.5, i % 2 ? P.f1 : P.f2);
+        case 'star': return O.star5(px, py, u * 1.6, c.gold);
+        case 'leaf': return O.leaf(px - u * 1.5, py, u * 3, i % 2 ? 20 : -20, i % 2 ? P.leaf : P.leaf2, 0.4);
+        case 'diamond': return O.pg([[px, py - u * 1.6], [px + u * 1.1, py], [px, py + u * 1.6], [px - u * 1.1, py]], c.gold) + O.cc(px, py, u * 0.4, c.paper);
+        default: return O.blossom(px, py, u * 1.8, i % 2 ? P.f1 : P.f2, c.gold);
+      }
+    }, i = 0, xx, yy;
+    for (xx = x; xx <= x + w + 0.1; xx += w / Math.round(w / st)) { s += put(xx, y, i++) + put(xx, y + h, i++); }
+    for (yy = y + h / Math.round(h / st); yy < y + h - 0.1; yy += h / Math.round(h / st)) { s += put(x, yy, i++) + put(x + w, yy, i++); }
+    return s;
+  }
+
+  /* ---------------- compositions (each version of a style uses a different one) ---------------- */
+  var C = {};
+  C.corners = function (c) {   /* double border, big flowers at two opposite corners */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + O.sr(u * 4, u * 4, W - u * 8, H - u * 8, c.gold, Math.max(1, u * 0.35)) + O.sr(u * 5.3, u * 5.3, W - u * 10.6, H - u * 10.6, c.gold, Math.max(0.6, u * 0.15));
+    s += corner(c, u * 2, u * 2, W * 0.36, 45) + corner(c, W - u * 2, H - u * 2, W * 0.36, 225);
+    var t = stack(c, W * 0.15, H * 0.22, W * 0.7, H * 0.6); return { s: s + t.s, z: t.z };
+  };
+  C.corners4 = function (c) {   /* thin frame, small ornaments in all four corners */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + O.sr(u * 6, u * 6, W - u * 12, H - u * 12, c.gold, Math.max(1, u * 0.25), u * 2);
+    s += corner(c, u * 6, u * 6, W * 0.3, 45) + corner(c, W - u * 6, u * 6, W * 0.3, 135) + corner(c, u * 6, H - u * 6, W * 0.3, -45) + corner(c, W - u * 6, H - u * 6, W * 0.3, -135);
+    var t = stack(c, W * 0.16, H * 0.17, W * 0.68, H * 0.68); return { s: s + t.s, z: t.z };
+  };
+  C.topbottom = function (c) {   /* ornament bands at the top and bottom, a small motif above the names */
+    var W = c.W, H = c.H, u = c.u, bk = c.st.band || 'garland', low = { toran: 'mgrow', marigold: 'mgrow', bells: 'mgrow', lanterns: 'stars', balloons: 'confettiRow', bunting: 'confettiRow' }[bk];
+    var s = O.rc(0, 0, W, H, c.paper) + band(c, 0, 0, W, H * 0.16) + (low ? band(c, 0, H * 0.86, W, H * 0.12, false, low) : band(c, 0, H * 0.84, W, H * 0.16, true)) + motif(c, W / 2, H * 0.215, W * 0.2);
+    var t = stack(c, W * 0.12, H * 0.315, W * 0.76, H * 0.53, { hh: 0.48 }); return { s: s + t.s, z: t.z };
+  };
+  C.arch = function (c) {   /* an arch window holding the text, flowers at its feet */
+    var W = c.W, H = c.H, u = c.u, kind = c.st.arch || 'round', ax = W * 0.12, ay = H * 0.06, aw = W * 0.76, ah = H * 0.86, outer = c.st.dk ? c.paper : c.tintBg;
+    var s = O.rc(0, 0, W, H, outer) + (c.st.dk ? pattern(c, W, H) : '') + O.pth(O.archD(ax, ay, aw, ah, kind), c.st.dk ? lt(c.paper, 0.06) : '#FFFFFF') + O.pth(O.archD(ax + u * 1.6, ay + u * 1.6, aw - u * 3.2, ah - u * 3.2, kind), null, c.gold, Math.max(1, u * 0.3));
+    s += corner(c, ax + u, ay + ah - u, W * 0.28, -60) + corner(c, ax + aw - u, ay + ah - u, W * 0.28, -120);
+    var top = kind === 'mughal' || kind === 'cusped' || kind === 'round' || kind === 'dome' ? ay + aw * 0.36 : ay + u * 6;
+    var t = stack(c, ax + aw * 0.12, top, aw * 0.76, ay + ah - top - H * 0.18, { bg: c.st.dk ? lt(c.paper, 0.06) : '#FFFFFF', hh: 0.48 }); return { s: s + t.s, z: t.z };
+  };
+  C.medallion = function (c) {   /* a big motif on top, text below, a simple frame */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + O.sr(u * 4, u * 4, W - u * 8, H - u * 8, c.gold, Math.max(1, u * 0.3)) + O.cc(W / 2, H * 0.18, W * 0.17, c.st.dk ? lt(c.paper, 0.08) : c.tintBg) + O.rg(W / 2, H * 0.18, W * 0.17, c.gold, Math.max(1, u * 0.3)) + motif(c, W / 2, H * 0.18, W * 0.3);
+    s += O.cc(W / 2, H - u * 4, u * 1.2, c.gold) + O.ln(W * 0.3, H - u * 4, W * 0.46, H - u * 4, c.gold, 1) + O.ln(W * 0.54, H - u * 4, W * 0.7, H - u * 4, c.gold, 1);
+    var t = stack(c, W * 0.12, H * 0.33, W * 0.76, H * 0.6, { hh: 0.46 }); return { s: s + t.s, z: t.z };
+  };
+  C.sidepanel = function (c) {   /* a decorated colour strip on the left, text on the right */
+    var W = c.W, H = c.H, u = c.u, pw = W * 0.3, flip = c.v % 2 === 1, px = flip ? W - pw : 0; c.panel = D.mix(c.panel, '#000000', c.st.dk ? 0.2 : 0.32); var s = O.rc(0, 0, W, H, c.paper) + O.rc(px, 0, pw, H, c.panel) + pattern(c, pw, H);
+    if (flip) s = O.rc(0, 0, W, H, c.paper) + O.rc(px, 0, pw, H, c.panel) + '<g transform="translate(' + f1(px) + ',0)">' + pattern(c, pw, H) + '</g>';
+    s += side(c, px + pw * 0.3, 0, H * 0.45, flip) + side(c, px + pw * 0.62, 0, H * 0.3, !flip) + side(c, px + pw * 0.48, 0, H * 0.62, flip);
+    s += O.rc(flip ? px - u * 0.8 : pw, 0, u * 0.8, H, c.gold);
+    var tx = flip ? W * 0.07 : pw + W * 0.07, t = stack(c, tx, H * 0.1, W - pw - W * 0.14, H * 0.82, { al: 'left', hh: 0.5, dateLines: false }); return { s: s + t.s, z: t.z };
+  };
+  C.hanging = function (c) {   /* strings hanging from the top on both sides */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + O.rc(0, 0, W, u * 1.4, c.gold);
+    [[0.07, 0.32], [0.15, 0.5], [0.23, 0.22], [0.77, 0.22], [0.85, 0.5], [0.93, 0.32]].forEach(function (p, i) { s += side(c, W * p[0], u * 1.4, H * p[1], i > 2); });
+    s += O.ln(W * 0.32, H * 0.94, W * 0.68, H * 0.94, c.gold, 1);
+    var t = stack(c, W * 0.26, H * 0.12, W * 0.48, H * 0.8, { hh: 0.5, tf: c.st.caps ? 0.12 : 0.17 }); return { s: s + t.s, z: t.z };
+  };
+  C.wreath = function (c) {   /* names inside a ring on top, details below */
+    var W = c.W, H = c.H, u = c.u, r = W * 0.3, cy = H * 0.3, s = O.rc(0, 0, W, H, c.paper) + O.cc(W / 2, cy, r * 0.88, c.st.dk ? lt(c.paper, 0.05) : '#FFFFFF') + ringOrn(c, W / 2, cy, r);
+    s += corner(c, W / 2, H + u * 2, W * 0.22, -90, c.st.corner2);
+    var z = [TZ(c, 'head', W / 2 - r * 0.72, cy - r * 0.62, r * 1.44, r * 1.24, { bg: c.st.dk ? lt(c.paper, 0.05) : '#FFFFFF', tf: c.st.caps ? 0.1 : 0.15, tmax: 60, cls: 'hd' })];
+    s += div(c, W / 2, cy + r + H * 0.04, W * 0.3);
+    z.push(TZ(c, 'd', W * 0.12, cy + r + H * 0.065, W * 0.76, H * 0.06, { cls: 'dt' }), TZ(c, 'info', W * 0.12, cy + r + H * 0.13, W * 0.76, H * 0.13, { cls: 'nf' }), TZ(c, 'r', W * 0.16, cy + r + H * 0.265, W * 0.68, H * 0.05, { cls: 'rs' }));
+    return { s: s, z: z };
+  };
+  C.inset = function (c) {   /* patterned colour page with a paper card inside */
+    var W = c.W, H = c.H, u = c.u, kind = c.st.card || 'notch', cx = W * 0.1, cy = H * 0.07, cw = W * 0.8, ch = H * 0.86, card = c.st.dk ? lt(c.panel, 0.08) : '#FFFFFF';
+    var s = O.rc(0, 0, W, H, c.panel) + pattern(c, W, H) + O.pth(O.archD(cx, cy, cw, ch, kind), card) + O.pth(O.archD(cx + u * 1.8, cy + u * 1.8, cw - u * 3.6, ch - u * 3.6, kind), null, c.gold, Math.max(1, u * 0.3));
+    s += corner(c, cx + u * 2, cy + u * 2, W * 0.22, 45, c.st.corner2) + corner(c, cx + cw - u * 2, cy + ch - u * 2, W * 0.22, 225, c.st.corner2);
+    var t = stack(c, cx + cw * 0.12, cy + ch * 0.12, cw * 0.76, ch * 0.8, { bg: card, hh: 0.5 }); return { s: s + t.s, z: t.z };
+  };
+  C.scene = function (c) {   /* a wide illustration along the bottom, text above */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + O.ln(W * 0.2, u * 6, W * 0.8, u * 6, c.gold, 1) + O.cc(W / 2, u * 6, u, c.gold) + scene(c, 0, H * 0.7, W, H * 0.3);
+    var t = stack(c, W * 0.12, H * 0.08, W * 0.76, H * 0.62, { hh: 0.48, k: !!c.st.ktop }); return { s: s + t.s, z: t.z };
+  };
+  C.diag = function (c) {   /* big flowers top right and bottom left, text left of centre */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + corner(c, W + u * 2, -u * 2, W * 0.5, 135) + corner(c, -u * 2, H + u * 2, W * 0.46, -45);
+    var t = stack(c, W * 0.12, H * 0.26, W * 0.72, H * 0.56, { hh: 0.5 }); return { s: s + t.s, z: t.z };
+  };
+  C.deco = function (c) {   /* art deco frame: stepped corners, a fan on top, gold lines */
+    var W = c.W, H = c.H, u = c.u, g = c.gold, sw = Math.max(1, u * 0.3), s = O.rc(0, 0, W, H, c.st.dk ? c.paper : c.panel) + O.sr(u * 4, u * 4, W - u * 8, H - u * 8, g, sw) + O.sr(u * 6, u * 6, W - u * 12, H - u * 12, g, sw * 0.6);
+    s += O.decoCorner(u * 6, u * 6, W * 0.16, 0, g, sw) + O.decoCorner(W - u * 6, u * 6, W * 0.16, 90, g, sw) + O.decoCorner(W - u * 6, H - u * 6, W * 0.16, 180, g, sw) + O.decoCorner(u * 6, H - u * 6, W * 0.16, 270, g, sw);
+    s += O.decoFan(W / 2, H * 0.2, W * 0.16, g, sw, 13) + O.ln(W * 0.2, H * 0.2, W * 0.8, H * 0.2, g, sw * 0.7) + O.pg([[W / 2, H * 0.9], [W / 2 + u * 2, H * 0.92], [W / 2, H * 0.94], [W / 2 - u * 2, H * 0.92]], g) + O.ln(W * 0.25, H * 0.92, W * 0.45, H * 0.92, g, sw * 0.6) + O.ln(W * 0.55, H * 0.92, W * 0.75, H * 0.92, g, sw * 0.6);
+    var bg = c.st.dk ? c.paper : c.panel, t = stack(c, W * 0.14, H * 0.24, W * 0.72, H * 0.64, { bg: bg, hh: 0.48 }); return { s: s + t.s, z: t.z };
+  };
+  C.circle = function (c) {   /* text inside a big double circle, ornaments outside it */
+    var W = c.W, H = c.H, u = c.u, r = W * 0.42, cy = H * 0.5, s = O.rc(0, 0, W, H, c.st.dk ? c.paper : c.tintBg) + (c.st.dk ? pattern(c, W, H) : '') + O.cc(W / 2, cy, r, c.st.dk ? lt(c.paper, 0.06) : '#FFFFFF') + O.rg(W / 2, cy, r, c.gold, Math.max(1, u * 0.4)) + O.rg(W / 2, cy, r - u * 1.6, c.gold, Math.max(0.6, u * 0.18));
+    s += corner(c, W / 2 - r * 0.75, cy - r * 0.75, W * 0.3, 225) + corner(c, W / 2 + r * 0.75, cy + r * 0.75, W * 0.3, 45);
+    s += motif(c, W / 2, H * 0.1, W * 0.16) + band(c, W * 0.2, H * 0.88, W * 0.6, H * 0.08, false, 'stars');
+    var bg = c.st.dk ? lt(c.paper, 0.06) : '#FFFFFF', t = stack(c, W / 2 - r * 0.7, cy - r * 0.68, r * 1.4, r * 1.36, { bg: bg, hh: 0.48, tf: c.st.caps ? 0.1 : 0.14 }); return { s: s + t.s, z: t.z };
+  };
+  C.split = function (c) {   /* colour top half with the names, paper bottom half with the details */
+    var W = c.W, H = c.H, u = c.u, sy = H * 0.5, s = O.rc(0, 0, W, H, c.paper) + O.rc(0, 0, W, sy, c.panel) + pattern(c, W, sy);
+    s += '<path d="' + O.scal(0, sy, W, 10, u * 1.2) + ' V' + f1(sy - 1) + ' H0Z" fill="' + c.panel + '"/>' + band(c, 0, 0, W, H * 0.12);
+    s += corner(c, W / 2, H + u * 2, W * 0.22, -90, c.st.corner2);
+    var z = [TZ(c, 'head', W * 0.1, H * 0.14, W * 0.8, sy - H * 0.17, { bg: c.panel, tf: c.st.caps ? 0.1 : 0.15, cls: 'hd' })];
+    s += div(c, W / 2, sy + H * 0.06, W * 0.3);
+    z.push(TZ(c, 'd', W * 0.12, sy + H * 0.085, W * 0.76, H * 0.06, { cls: 'dt' }), TZ(c, 'info', W * 0.12, sy + H * 0.15, W * 0.76, H * 0.13, { cls: 'nf' }), TZ(c, 'r', W * 0.14, sy + H * 0.285, W * 0.72, H * 0.05, { cls: 'rs' }));
+    return { s: s, z: z };
+  };
+  C.scroll = function (c) {   /* a hanging scroll with gold rods and tassels */
+    var W = c.W, H = c.H, u = c.u, g = c.gold, x = W * 0.14, w = W * 0.72, y0 = H * 0.08, y1 = H * 0.92, s = O.rc(0, 0, W, H, c.st.dk ? dkn(c.paper, 0.2) : c.tintBg) + (c.st.dk ? pattern(c, W, H) : '');
+    s += O.rc(x, y0, w, y1 - y0, c.panel) + O.sr(x + u * 2, y0 + u * 2, w - u * 4, y1 - y0 - u * 4, g, Math.max(1, u * 0.3)) + O.rc(x - u * 3, y0 - u * 1.5, w + u * 6, u * 3, g, u * 1.5) + O.rc(x - u * 3, y1 - u * 1.5, w + u * 6, u * 3, g, u * 1.5);
+    s += O.cc(x - u * 3.5, y0, u * 2, dkn(g, 0.15)) + O.cc(x + w + u * 3.5, y0, u * 2, dkn(g, 0.15)) + O.cc(x - u * 3.5, y1, u * 2, dkn(g, 0.15)) + O.cc(x + w + u * 3.5, y1, u * 2, dkn(g, 0.15));
+    s += O.ln(W / 2 - u * 8, y0, W / 2, y0 - u * 6, g, 1) + O.ln(W / 2 + u * 8, y0, W / 2, y0 - u * 6, g, 1) + O.cc(W / 2, y0 - u * 6, u, g);
+    [x + u * 2, x + w - u * 2].forEach(function (tx) { s += O.ln(tx, y1, tx, y1 + u * 4, c.P.f1, 1.2) + O.pg([[tx, y1 + u * 3.5], [tx - u * 1.2, y1 + u * 7], [tx + u * 1.2, y1 + u * 7]], c.P.f1); });
+    s += motif(c, W / 2, y0 + H * 0.1, W * 0.2) + band(c, x + u * 3, y1 - H * 0.1, w - u * 6, H * 0.08, true, c.st.band2 || 'paisleyRow');
+    var t = stack(c, x + w * 0.1, y0 + H * 0.19, w * 0.8, H * 0.55, { bg: c.panel, hh: 0.5 }); return { s: s + t.s, z: t.z };
+  };
+  C.border = function (c) {   /* a border made of small repeated motifs */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + O.sr(u * 9, u * 9, W - u * 18, H - u * 18, c.gold, Math.max(0.8, u * 0.2)) + tileBorder(c, u * 5, u * 5, W - u * 10, H - u * 10);
+    s += motif(c, W / 2, H * 0.17, W * 0.2);
+    var t = stack(c, W * 0.16, H * 0.25, W * 0.68, H * 0.62, { hh: 0.48 }); return { s: s + t.s, z: t.z };
+  };
+  C.wash = function (c, defs) {   /* soft watercolour washes in the corners, a small bouquet on top */
+    var W = c.W, H = c.H, u = c.u, s = O.rc(0, 0, W, H, c.paper) + blobs(c, W, H, defs) + corner(c, W / 2, H * 0.02, W * 0.27, 90, c.st.corner2);
+    var t = stack(c, W * 0.12, H * 0.27, W * 0.76, H * 0.66, { hh: 0.48 }); return { s: s + t.s, z: t.z };
+  };
+  C.frame2 = function (c) {   /* an inner shaped frame (octagon / oval / scallop) with flowers on top and bottom */
+    var W = c.W, H = c.H, u = c.u, kind = c.st.frame || 'octagon', s = O.rc(0, 0, W, H, c.paper) + O.pth(O.archD(W * 0.1, H * 0.1, W * 0.8, H * 0.8, kind), null, c.gold, Math.max(1, u * 0.4)) + O.pth(O.archD(W * 0.12, H * 0.115, W * 0.76, H * 0.77, kind), null, c.gold, Math.max(0.6, u * 0.15));
+    s += corner(c, W / 2, H * 0.1, W * 0.24, -90, c.st.corner2) + corner(c, W / 2, H * 0.9, W * 0.24, 90, c.st.corner2);
+    var t = stack(c, W * 0.18, H * 0.2, W * 0.64, H * 0.62, { hh: 0.48 }); return { s: s + t.s, z: t.z };
+  };
+
+  /* ---------------- styles: 50 x 5 ---------------- */
+  /* id, name, occasion, theme, options (ornament kinds, 5 compositions, dark, arch / card kinds) */
+  var ST = [
+    ['Blush Roses', 'wedding', 'inv01', { corner: 'bouquet', band: 'garland', motif: 'flower', ring: 'wreath', div: 'flourish', scene: 'bouquets', tile: 'blossom', comps: ['corners', 'arch', 'wreath', 'wash', 'scene'], arch: 'round' }],
+    ['Sage Greenery', 'wedding', 'inv02', { corner: 'greenery', band: 'leaves', motif: 'crest', ring: 'leafring', div: 'leafs', scene: 'meadow', tile: 'leaf', comps: ['corners4', 'frame2', 'wreath', 'diag', 'topbottom'], frame: 'oval' }],
+    ['Dusty Blue Peony', 'wedding', 'inv03', { corner: 'peony', band: 'garland', motif: 'flower', ring: 'wreath', comps: ['diag', 'arch', 'circle', 'corners', 'wash'], arch: 'dome' }],
+    ['Peach Blossom', 'engagement', 'inv04', { corner: 'peony', band: 'flowerRow', motif: 'rings', ring: 'wreath', comps: ['frame2', 'topbottom', 'corners', 'medallion', 'wreath'], frame: 'scallop' }],
+    ['Burgundy Bloom', 'wedding', 'inv05', { dk: 1, corner: 'bouquet', band: 'garland', motif: 'crest', ring: 'gold', pattern: 'dots', comps: ['corners', 'deco', 'arch', 'circle', 'frame2'], arch: 'round', frame: 'notch' }],
+    ['Wildflower Meadow', 'wedding', 'inv01', { corner: 'wild', band: 'flowerRow', motif: 'flower', scene: 'meadow', div: 'leafs', comps: ['scene', 'corners4', 'arch', 'wash', 'diag'], arch: 'dome' }],
+    ['Lavender Fields', 'wedding', 'inv17', { corner: 'lavender', band: 'leaves', motif: 'crest', ring: 'leafring', comps: ['corners', 'frame2', 'diag', 'wreath', 'topbottom'], frame: 'octagon' }],
+    ['Tropical Leaves', 'wedding', 'inv29', { corner: 'tropical', band: 'leaves', motif: 'flower', scene: 'palms', comps: ['diag', 'scene', 'arch', 'corners4', 'inset'], arch: 'round', card: 'notch', pattern: 'leaves' }],
+    ['Autumn Leaves', 'wedding', 'inv28', { corner: 'autumn', band: 'leaves', motif: 'flower', comps: ['corners', 'diag', 'wreath', 'frame2', 'topbottom'], ring: 'leafring', frame: 'oval' }],
+    ['Line Botanical', 'wedding', 'inv32', { corner: 'lineart', band: 'leaves', motif: 'crest', ring: 'leafring', div: 'line', comps: ['corners4', 'diag', 'wreath', 'arch', 'frame2'], arch: 'round', frame: 'octagon', line: 1 }],
+    ['Modern Arch', 'wedding', 'inv18', { corner: 'boho', band: 'leaves', motif: 'sun', div: 'dots', comps: ['arch', 'inset', 'split', 'sidepanel', 'circle'], arch: 'round', card: 'tag', pattern: 'stripes', side: 'vine' }],
+    ['Boho Sun', 'wedding', 'inv18', { corner: 'boho', band: 'leaves', motif: 'rainbow', div: 'dots', comps: ['corners', 'medallion', 'arch', 'diag', 'topbottom'], arch: 'dome' }],
+    ['Gold Geometric', 'wedding', 'inv19', { corner: 'deco', band: 'deco', motif: 'fan', div: 'diamond', comps: ['frame2', 'deco', 'circle', 'corners4', 'inset'], frame: 'octagon', card: 'octagon', pattern: 'marble', caps: 1 }],
+    ['Art Deco Noir', 'gala', 'inv08', { dk: 1, corner: 'deco', band: 'deco', motif: 'fan', div: 'diamond', pattern: 'stripes', comps: ['deco', 'frame2', 'circle', 'inset', 'medallion'], frame: 'octagon', card: 'octagon', caps: 1 }],
+    ['Navy Royal', 'wedding', 'inv06', { dk: 1, corner: 'bouquet', band: 'garland', motif: 'crest', ring: 'gold', pattern: 'dots', comps: ['arch', 'corners', 'wreath', 'deco', 'frame2'], arch: 'mughal', frame: 'notch', caps: 1 }],
+    ['Emerald Gold', 'wedding', 'inv07', { dk: 1, corner: 'greenery', band: 'leaves', motif: 'crest', ring: 'gold', pattern: 'leaves', comps: ['frame2', 'arch', 'diag', 'circle', 'corners4'], arch: 'dome', frame: 'oval' }],
+    ['Classic Monogram', 'wedding', 'inv19', { corner: 'greenery', band: 'lace', motif: 'crest', ring: 'gold', div: 'diamond', comps: ['medallion', 'border', 'circle', 'frame2', 'corners4'], tile: 'diamond', frame: 'notch', caps: 1 }],
+    ['Lace & Pearls', 'wedding', 'inv01', { corner: 'babysbreath', band: 'lace', motif: 'heart', ring: 'lace', div: 'dots', comps: ['topbottom', 'wreath', 'border', 'frame2', 'corners4'], tile: 'heart', frame: 'scallop' }],
+    ['Marble & Gold', 'wedding', 'inv32', { corner: 'greenery', band: 'deco', motif: 'crest', ring: 'gold', pattern: 'marble', comps: ['inset', 'frame2', 'circle', 'medallion', 'diag'], card: 'notch', frame: 'octagon', caps: 1 }],
+    ['Watercolour Wash', 'wedding', 'inv03', { corner: 'bouquet', band: 'wave', motif: 'flower', comps: ['wash', 'topbottom', 'diag', 'circle', 'arch'], arch: 'round' }],
+    ['Save the Date Hearts', 'savedate', 'inv20', { corner: 'bouquet', band: 'flowerRow', motif: 'heart', div: 'heart', tile: 'heart', comps: ['border', 'medallion', 'split', 'wash', 'circle'], pattern: 'dots' }],
+    ['Rustic Kraft', 'wedding', 'inv30', { corner: 'babysbreath', band: 'leaves', motif: 'crest', ring: 'leafring', div: 'leafs', paper: 'kraft', comps: ['corners', 'wreath', 'frame2', 'diag', 'topbottom'], frame: 'notch' }],
+    ['Royal Mughal Arch', 'iwedding', 'inv09', { dk: 1, corner: 'marigold', band: 'toran', motif: 'kalash', side: 'bells', ring: 'mandala', pattern: 'mandala', div: 'marigold', comps: ['arch', 'inset', 'deco', 'scroll', 'hanging'], arch: 'mughal', card: 'notch', ktop: 1, caps: 1 }],
+    ['Marigold Toran', 'iwedding', 'inv10', { corner: 'marigold', band: 'toran', motif: 'marigold', side: 'marigold', div: 'marigold', ring: 'marigold', comps: ['hanging', 'topbottom', 'arch', 'wreath', 'sidepanel'], arch: 'cusped', pattern: 'paisley' }],
+    ['Elephant Procession', 'iwedding', 'inv13', { corner: 'marigold', band: 'toran', motif: 'elephants', side: 'bells', scene: 'elephants', div: 'marigold', comps: ['scene', 'medallion', 'arch', 'split', 'hanging'], arch: 'mughal', pattern: 'paisley' }],
+    ['Peacock Garden', 'iwedding', 'inv11', { corner: 'feathers', band: 'paisleyRow', motif: 'peacock', side: 'feathers', scene: 'peacocks', div: 'flourish', comps: ['scene', 'corners', 'arch', 'sidepanel', 'circle'], arch: 'dome', pattern: 'paisley' }],
+    ['Lotus Pond', 'iwedding', 'inv12', { corner: 'lotus', band: 'flowerRow', motif: 'lotus', scene: 'lotus', div: 'lotus', tile: 'lotus', comps: ['scene', 'border', 'arch', 'medallion', 'wash'], arch: 'cusped' }],
+    ['Golden Mandala', 'iwedding', 'inv09', { dk: 1, corner: 'mandala', band: 'mandala', motif: 'mandala', ring: 'mandala', pattern: 'mandala', div: 'diamond', comps: ['circle', 'inset', 'medallion', 'deco', 'frame2'], card: 'octagon', frame: 'oval', caps: 1 }],
+    ['Paisley Henna', 'mehendi', 'inv16', { corner: 'paisley', band: 'paisleyRow', motif: 'paisley', side: 'paisley', tile: 'paisley', pattern: 'paisley', div: 'flourish', comps: ['border', 'sidepanel', 'corners', 'scroll', 'arch'], arch: 'mughal' }],
+    ['Temple Bells', 'iwedding', 'inv13', { corner: 'bells', band: 'bells', motif: 'bells', side: 'bells', div: 'marigold', comps: ['hanging', 'topbottom', 'arch', 'inset', 'medallion'], arch: 'cusped', card: 'scallop', pattern: 'mandala', ktop: 1 }],
+    ['Kalash Blessings', 'puja', 'inv13', { corner: 'marigold', band: 'toran', motif: 'kalash', side: 'marigold', div: 'marigold', comps: ['medallion', 'topbottom', 'arch', 'scroll', 'border'], arch: 'mughal', tile: 'marigold', ktop: 1 }],
+    ['Haldi Yellow', 'haldi', 'inv15', { corner: 'marigold', band: 'marigold', motif: 'marigold', side: 'marigold', div: 'marigold', ring: 'marigold', pattern: 'dots', comps: ['hanging', 'wreath', 'inset', 'topbottom', 'diag'], card: 'scallop' }],
+    ['Mehendi Night', 'mehendi', 'inv16', { dk: 1, corner: 'paisley', band: 'paisleyRow', motif: 'paisley', side: 'lanterns', pattern: 'paisley', div: 'flourish', comps: ['hanging', 'arch', 'inset', 'circle', 'scroll'], arch: 'cusped', card: 'notch' }],
+    ['Sangeet Night', 'sangeet', 'inv31', { dk: 1, corner: 'stars', band: 'lanterns', motif: 'dhol', side: 'lanterns', pattern: 'stars', div: 'stars', comps: ['hanging', 'medallion', 'deco', 'split', 'circle'], caps: 1 }],
+    ['Kolam & Banana Leaf', 'iwedding', 'inv13', { corner: 'banana', band: 'kolam', motif: 'kalash', side: 'marigold', pattern: 'kolam', scene: 'kolam', div: 'marigold', comps: ['corners', 'inset', 'topbottom', 'scene', 'sidepanel'], card: 'notch', ktop: 1 }],
+    ['Rajasthani Jharokha', 'iwedding', 'inv14', { corner: 'marigold', band: 'toran', motif: 'elephants', side: 'bells', pattern: 'paisley', div: 'marigold', comps: ['arch', 'inset', 'scroll', 'hanging', 'scene'], arch: 'cusped', card: 'tag', scene: 'elephants', ktop: 1 }],
+    ['Griha Pravesh', 'griha', 'inv10', { corner: 'marigold', band: 'toran', motif: 'house', side: 'marigold', scene: 'houses', div: 'marigold', comps: ['scene', 'topbottom', 'medallion', 'hanging', 'arch'], arch: 'mughal', ktop: 1 }],
+    ['Little Star Naming', 'naming', 'inv22', { corner: 'clouds', band: 'stars', motif: 'crib', side: 'stars', scene: 'clouds', div: 'stars', comps: ['scene', 'hanging', 'medallion', 'circle', 'wash'] }],
+    ['Diwali Diyas', 'diwali', 'inv31', { dk: 1, corner: 'marigold', band: 'lanterns', motif: 'diya', side: 'lanterns', scene: 'diyas', pattern: 'stars', div: 'stars', comps: ['scene', 'hanging', 'medallion', 'circle', 'inset'], card: 'scallop' }],
+    ['Ganesh Utsav', 'ganesh', 'inv13', { corner: 'marigold', band: 'toran', motif: 'kalash', side: 'marigold', scene: 'diyas', div: 'marigold', ring: 'marigold', comps: ['hanging', 'wreath', 'topbottom', 'arch', 'border'], arch: 'mughal', tile: 'marigold', ktop: 1 }],
+    ['Holi Colours', 'holi', 'inv26', { corner: 'holi', band: 'bunting', motif: 'splash', scene: 'splashes', div: 'dots', comps: ['corners', 'scene', 'medallion', 'diag', 'topbottom'], font: 'fun' }],
+    ['Eid Lanterns', 'eid', 'inv25', { dk: 1, corner: 'lantern', band: 'lanterns', motif: 'moon', side: 'lanterns', pattern: 'stars', div: 'stars', comps: ['hanging', 'arch', 'medallion', 'inset', 'circle'], arch: 'mughal', card: 'octagon', caps: 1 }],
+    ['Christmas Cheer', 'christmas', 'inv24', { corner: 'pine', band: 'pine', motif: 'bauble', side: 'pine', pattern: 'stars', div: 'stars', comps: ['topbottom', 'corners', 'hanging', 'wreath', 'medallion'], ring: 'wreath' }],
+    ['Raksha Bandhan', 'rakhi', 'inv14', { corner: 'marigold', band: 'flowerRow', motif: 'rakhi', side: 'flowers', div: 'marigold', comps: ['medallion', 'topbottom', 'hanging', 'split', 'border'], tile: 'marigold', pattern: 'paisley' }],
+    ['Republic Day', 'nation', 'inv27', { corner: 'stars', band: 'tricolor', motif: 'wheel', side: 'flowers', div: 'diamond', comps: ['topbottom', 'medallion', 'split', 'circle', 'corners4'], caps: 1 }],
+    ['Balloon Party', 'kids', 'inv21', { corner: 'balloons', band: 'bunting', motif: 'balloons', side: 'balloons', scene: 'balloons', div: 'stars', comps: ['scene', 'topbottom', 'hanging', 'corners', 'circle'], font: 'fun' }],
+    ['Glam Birthday', 'birthday', 'inv08', { dk: 1, corner: 'confetti', band: 'stars', motif: 'glasses', side: 'stars', pattern: 'confetti', div: 'stars', comps: ['medallion', 'deco', 'hanging', 'circle', 'corners4'], caps: 1 }],
+    ['Baby Shower Clouds', 'baby', 'inv22', { corner: 'clouds', band: 'bunting', motif: 'rainbow', side: 'stars', scene: 'clouds', div: 'heart', comps: ['scene', 'topbottom', 'medallion', 'wash', 'hanging'] }],
+    ['Silver Anniversary', 'anniversary', 'inv32', { corner: 'bouquet', band: 'garland', motif: 'rings', ring: 'gold', div: 'heart', comps: ['wreath', 'corners', 'circle', 'medallion', 'frame2'], frame: 'oval' }],
+    ['Midnight Gala', 'gala', 'inv23', { dk: 1, corner: 'stars', band: 'stars', motif: 'star', side: 'stars', scene: 'skyline', pattern: 'stars', div: 'stars', comps: ['scene', 'deco', 'hanging', 'frame2', 'medallion'], frame: 'octagon', caps: 1 }]
+  ];
+  /* sample wording per occasion: top line, names / title, invite line, date, venue, note, reply */
+  var OCC = {
+    wedding: ['Together with their families', 'Aarav & Meera', 'request the pleasure of your company at their wedding', 'Saturday · 12 December 2026 · 7 PM', 'The Grand Palace, Jaipur', 'Dinner and celebrations to follow', 'RSVP · +91 98765 43210'],
+    iwedding: ['|| Shree Ganeshaya Namah ||', 'Rohan & Ananya', 'invite you to bless them on their wedding', 'Sunday · 24 January 2027 · 11 AM', 'Shubh Vatika, Udaipur', 'Lunch to follow · Your presence is our blessing', 'With love · The Sharma & Verma families'],
+    engagement: ['Please join us to celebrate the engagement of', 'Kabir & Isha', 'as they begin their journey together', 'Friday · 5 March 2027 · 6:30 PM', 'Lotus Banquet, Pune', 'Dinner and music', 'RSVP · +91 98200 12345'],
+    savedate: ['Save the date', 'Liam & Emma', 'are getting married', '18 · 09 · 2027', 'Lake Como, Italy', 'Formal invitation to follow', 'liamandemma.com'],
+    griha: ['|| Shubh Griha Pravesh ||', 'Our New Home', 'The Mehta family invites you to bless our new home', 'Thursday · 15 April 2027 · 9 AM', 'Flat 1204, Green Heights, Ahmedabad', 'Puja followed by lunch', 'Contact · +91 99887 76655'],
+    naming: ['Naming ceremony', 'Baby Aadhya', 'Join us as we celebrate our little blessing', 'Sunday · 9 May 2027 · 11 AM', 'Our home, Indiranagar, Bengaluru', 'Lunch to follow', 'With love · Priya & Arjun'],
+    birthday: ['You are invited to', "Sara's 30th Birthday", 'an evening of food, music and good friends', 'Saturday · 20 March 2027 · 8 PM', 'Skyline Lounge, Mumbai', 'Dress code: glam', 'RSVP · +91 98111 22233'],
+    kids: ["Let's celebrate!", 'Aryan turns 5', 'Join us for games, cake and fun', 'Sunday · 14 February 2027 · 4 PM', 'Funland Party Hall, Delhi', 'Bring your smile!', 'RSVP to Neha · 98765 11122'],
+    baby: ['Oh baby!', 'Baby Shower', 'honouring mom-to-be Kavya', 'Saturday · 6 March 2027 · 3 PM', 'The Garden Café, Chennai', 'Snacks, games and sweet surprises', 'RSVP · Meera · 98450 33221'],
+    anniversary: ['Celebrating 25 years of love', 'Raj & Simran', 'invite you to their silver anniversary', 'Saturday · 10 July 2027 · 7 PM', 'Taj Lands End, Mumbai', 'Dinner and dancing', 'RSVP · +91 98200 55667'],
+    diwali: ['Happy Diwali', 'Diwali Night', 'Join us for an evening of lights, sweets and joy', 'Friday · 29 October 2027 · 7 PM', 'The Kapoor Residence, Noida', 'Ethnic wear · Dinner served', 'RSVP · +91 98100 77788'],
+    ganesh: ['Ganpati Bappa Morya', 'Ganesh Chaturthi', 'You are invited for darshan and aarti', 'Tuesday · 14 September 2027 · 7 PM', 'Patil Wada, Pune', 'Prasad will be served', 'The Patil family'],
+    holi: ["Let's play with colours", 'Holi Party', 'Colours, music, thandai and fun', 'Monday · 22 March 2027 · 10 AM', 'Green Lawns, Jaipur', 'Wear white · Organic colours only', 'RSVP · 98290 11223'],
+    eid: ['Eid Mubarak', 'Eid Dinner', 'Join us to celebrate with family and friends', 'Wednesday · 10 March 2027 · 8 PM', 'The Khan Residence, Hyderabad', 'Dinner will be served', 'RSVP · +91 98490 44556'],
+    christmas: ['Merry Christmas', 'Christmas Party', 'Cookies, carols and cheer', 'Saturday · 25 December 2027 · 7 PM', "The D'Souza Home, Goa", 'Secret Santa gifts welcome', 'RSVP · 98220 66778'],
+    rakhi: ['Raksha Bandhan', 'Rakhi Celebration', 'A day of love between brothers and sisters', 'Monday · 16 August 2027 · 11 AM', 'Our home, Lucknow', 'Lunch to follow', 'With love · The Gupta family'],
+    nation: ['Celebrate with us', 'Republic Day', 'Flag hoisting and cultural programme', 'Tuesday · 26 January 2027 · 8 AM', 'Society Garden, Sector 21', 'Breakfast for all', 'Organised by the Residents Committee'],
+    haldi: ['Haldi ceremony', 'Rohan & Ananya', 'Join us for a splash of yellow and laughter', 'Friday · 22 January 2027 · 10 AM', 'Shubh Vatika, Udaipur', 'Dress code: yellow', 'With love · The Sharma family'],
+    mehendi: ['Mehendi night', 'Ananya weds Rohan', 'Music, mehendi and celebration', 'Friday · 22 January 2027 · 6 PM', 'Shubh Vatika, Udaipur', 'Dinner to follow', 'With love · The Verma family'],
+    sangeet: ['Sangeet night', 'Rohan & Ananya', 'An evening of music and dance', 'Saturday · 23 January 2027 · 7 PM', 'Shubh Vatika, Udaipur', 'Dress code: Indo-western', 'RSVP · +91 98290 55443'],
+    puja: ['You are invited to', 'Satyanarayan Puja', 'Seek blessings with our family', 'Sunday · 18 April 2027 · 10 AM', 'Our home, Jayanagar, Bengaluru', 'Prasad and lunch to follow', 'The Rao family'],
+    gala: ['You are cordially invited', 'Annual Gala Night', 'An evening of celebration and awards', 'Friday · 3 December 2027 · 7 PM', 'The Oberoi Ballroom, Delhi', 'Black tie', 'RSVP by 25 November · events@company.com']
+  };
+  /* palettes: id, name, p (flowers / main), s (leaves / second), a (gold / accent), title font, body font */
+  function ivp(id, name, p, s, a, head, body) { var ink = D.mix(p, '#121318', 0.84), x = th(id, name, p, s, a, ink, D.mix(ink, '#FFFFFF', 0.38), D.mix(p, '#FFFFFF', 0.9), D.mix(p, '#FFFFFF', 0.75), head, body); x.hide = 1; return x; }
+  var IVP = [
+    ivp('inv01', 'Blush Rose', '#C2557A', '#7C9A7E', '#C9A227', 'Edwardian Script ITC', 'Garamond'), ivp('inv02', 'Sage Garden', '#B7798A', '#6E8B74', '#B8975A', 'Vivaldi', 'Garamond'),
+    ivp('inv03', 'Dusty Blue', '#5B7DB1', '#7E998F', '#B89B5E', 'Edwardian Script ITC', 'Garamond'), ivp('inv04', 'Peach Bloom', '#E07E62', '#86A383', '#C99A4B', 'Vivaldi', 'Garamond'),
+    ivp('inv05', 'Burgundy Gold', '#7A1F3D', '#5E7A5A', '#D4AF37', 'Edwardian Script ITC', 'Garamond'), ivp('inv06', 'Navy Gold', '#1B2A4A', '#4F7A6A', '#D4AF37', 'Engravers MT', 'Garamond'),
+    ivp('inv07', 'Emerald Gold', '#0F5132', '#3F8F6B', '#D4AF37', 'Edwardian Script ITC', 'Garamond'), ivp('inv08', 'Black Gold', '#1A1A1A', '#5A5A5A', '#D4AF37', 'Engravers MT', 'Century Gothic'),
+    ivp('inv09', 'Royal Maroon', '#8B1E2D', '#5C7A3A', '#E0A526', 'Engravers MT', 'Book Antiqua'), ivp('inv10', 'Marigold', '#E8590C', '#4D7C0F', '#F59F00', 'Edwardian Script ITC', 'Book Antiqua'),
+    ivp('inv11', 'Peacock', '#0E5E6F', '#1F9D8A', '#D4A72C', 'Edwardian Script ITC', 'Book Antiqua'), ivp('inv12', 'Lotus Pink', '#D6457A', '#5E8C61', '#E0A526', 'Vivaldi', 'Garamond'),
+    ivp('inv13', 'Saffron', '#C2410C', '#3F7D32', '#E0A526', 'Edwardian Script ITC', 'Book Antiqua'), ivp('inv14', 'Rani Pink', '#C2185B', '#388E3C', '#F2A900', 'Edwardian Script ITC', 'Book Antiqua'),
+    ivp('inv15', 'Haldi Yellow', '#E8A100', '#5A8F29', '#E8590C', 'Vivaldi', 'Century Gothic'), ivp('inv16', 'Mehendi Green', '#4C6B22', '#7A9A3A', '#C08A2E', 'Edwardian Script ITC', 'Garamond'),
+    ivp('inv17', 'Lavender', '#8E6FB8', '#7D9C82', '#C9A227', 'Vivaldi', 'Garamond'), ivp('inv18', 'Terracotta', '#C0643F', '#8C9A6B', '#E3A857', 'Vivaldi', 'Century Gothic'),
+    ivp('inv19', 'Champagne', '#9C7A45', '#94A584', '#C9A227', 'Edwardian Script ITC', 'Garamond'), ivp('inv20', 'Coral Mint', '#E05A57', '#4FA58C', '#F2B84B', 'Vivaldi', 'Century Gothic'),
+    ivp('inv21', 'Rainbow', '#EF476F', '#06A77D', '#FFC233', 'Arial Black', 'Century Gothic'), ivp('inv22', 'Baby Blue', '#5B8FD0', '#E79AAE', '#E7B23E', 'Vivaldi', 'Century Gothic'),
+    ivp('inv23', 'Midnight', '#141B3D', '#2B3A75', '#E6C068', 'Engravers MT', 'Century Gothic'), ivp('inv24', 'Festive Red', '#B91C1C', '#166534', '#D4AF37', 'Edwardian Script ITC', 'Garamond'),
+    ivp('inv25', 'Eid Teal', '#0F4C5C', '#1F7A6D', '#E3B448', 'Engravers MT', 'Century Gothic'), ivp('inv26', 'Holi', '#E91E63', '#00A0A0', '#FFB300', 'Arial Black', 'Century Gothic'),
+    ivp('inv27', 'Tricolour', '#F97316', '#15803D', '#1E3A8A', 'Engravers MT', 'Century Gothic'), ivp('inv28', 'Autumn', '#B5541C', '#7A6A2E', '#D9A23B', 'Vivaldi', 'Garamond'),
+    ivp('inv29', 'Tropical', '#E76F51', '#2A7F62', '#F4A261', 'Vivaldi', 'Century Gothic'), ivp('inv30', 'Kraft', '#8B5E3C', '#6B7F5A', '#C9A66B', 'Edwardian Script ITC', 'Garamond'),
+    ivp('inv31', 'Royal Purple', '#4A1D6E', '#7B3FA0', '#E8B84A', 'Engravers MT', 'Century Gothic'), ivp('inv32', 'Silver Sage', '#56606E', '#8FA58F', '#B8A27A', 'Engravers MT', 'Garamond')
+  ];
+  IVP.forEach(function (x) { D.THEMES.push(x); });
+
+  /* ---------------- panel ---------------- */
+  function kOf(sz) { return Math.max(0.9, Math.min(1.3, Math.sqrt(sz.w * sz.h) / 700)); }
+  function Zs(list, sz) {
+    var k0 = kOf(sz);
+    return list.filter(function (z) { return z.w > 0 && z.h > 0; }).map(function (z) {
+      var o = { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: z.al, v: z.v, dark: z.dk, k: (z.k || 1) * k0, cls: 'fx ' + z.cls + (z.dk ? ' dark' : '') };
+      if (z.vars) o.vars = z.vars;
+      o.titlePt = Math.round(Math.max(14, Math.min(z.tmax || 64, z.w * (z.tf || 0.14))));
+      return o;
+    });
+  }
+  function at(zs, tags) { tags = [].concat(tags); for (var j = 0; j < tags.length; j++) for (var i = 0; i < zs.length; i++) if (zs[i].tag === tags[j]) return [0, i]; return null; }
+  var ROLES = { kicker: ['k', 'head'], title: 'head', sub: 'head', date: ['d', 'info'], venue: 'info', note: 'info', rsvp: ['r', 'info'] };
+  D.PANEL.inv = function (doc, t, W, H, dz, sz) {
+    var st = dz.st || {}, u = W / 100, dk = !!st.dk;
+    var P = { f1: t.p, f2: D.mix(t.p, '#FFFFFF', 0.5), f3: D.mix(t.a, '#FFFFFF', 0.25), leaf: t.s, leaf2: D.mix(t.s, '#FFFFFF', 0.35), gold: t.a };
+    if (st.line) P.leaf = D.mix(t.s, '#000000', 0.15);
+    var paper = dk ? D.mix(t.p, '#05060A', 0.45) : st.paper === 'kraft' ? D.mix(t.p, '#EAD9BF', 0.82) : D.mix(t.tint, '#FFFDF8', 0.55);
+    var c = { t: t, W: W, H: H, u: u, P: P, st: st, v: dz.iv || 0, paper: paper, gold: dk ? t.a : D.mix(t.a, '#7A5A10', 0.12), panel: dk ? D.mix(t.p, '#000000', 0.15) : t.p, tintBg: D.mix(t.p, '#FFFFFF', 0.82), lineC: D.mix(t.s, '#000000', 0.1) };
+    if (!dk && D.lum(c.panel) > 0.55) c.panel = D.mix(t.p, '#000000', 0.25);
+    var defs = [], f = (C[dz.comp] || C.corners)(c, defs);
+    var zs = Zs(f.z, sz), roles = {};
+    Object.keys(ROLES).forEach(function (k) { roles[k] = at(zs, ROLES[k]); });
+    return { pages: [{ svg: svg(W, H, f.s, defs.join('')), zones: zs }], ownLogo: true, roles: roles };
+  };
+
+  /* ---------------- styles (look of the text) ---------------- */
+  D.CSS += '.fx.inv{color:var(--tx)}.fx.inv .dsd-s-k{font-family:var(--bodyf)!important;--ff:var(--bodyf);font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ki)!important;font-size:calc(8.5pt*var(--k,1)*var(--fit,1));margin:0 0 calc(5pt*var(--k,1)*var(--fit,1))}' +
+    '.fx.inv .dsd-s-t{font-family:var(--headf);font-weight:400;line-height:1.08;color:var(--ti)!important;letter-spacing:0}.fx.inv.caps .dsd-s-t{text-transform:uppercase;letter-spacing:.06em;line-height:1.15}.fx.inv.fun .dsd-s-t{line-height:1.05}' +
+    '.fx.inv .dsd-s-s{text-transform:none!important;letter-spacing:0!important;font-family:var(--bodyf)!important;--ff:var(--bodyf);font-style:italic;font-size:calc(11pt*var(--k,1)*var(--fit,1));color:var(--tx)!important;margin-top:calc(6pt*var(--k,1)*var(--fit,1));line-height:1.35}' +
+    '.fx.inv .dsd-s-x{font-family:var(--bodyf)!important;--ff:var(--bodyf);font-size:calc(10.5pt*var(--k,1)*var(--fit,1));line-height:1.45;color:var(--tx)!important;margin:0 0 calc(3pt*var(--k,1)*var(--fit,1))}' +
+    '.fx.inv.dt .dsd-s-x{font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ki)!important;font-size:calc(10pt*var(--k,1)*var(--fit,1));margin:0}' +
+    '.fx.inv.kk .dsd-s-k{margin:0;letter-spacing:.14em}.fx.inv.nf .dsd-blk:first-child .dsd-s-x{font-weight:700;font-size:calc(11pt*var(--k,1)*var(--fit,1))}' +
+    '.fx.inv .dsd-s-c{background:none!important;color:var(--ki)!important;padding:0!important;font-family:var(--bodyf);font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:calc(8.5pt*var(--k,1)*var(--fit,1))}';
+
+  /* ---------------- size: the usual 5 x 7 inch card ---------------- */
+  D.SIZES.Card57 = { w: 480, h: 672, tw: 7200, th: 10080, label: 'Invitation card (5 × 7 in)' };
+  /* only the new designs list it (des sizes below); the older invitation designs keep their sizes */
+
+  /* ---------------- designs ---------------- */
+  var ROM = ['', ' II', ' III', ' IV', ' V'], nI = 0, CN = { corners: 'corner flowers', corners4: 'four corners', topbottom: 'top and bottom borders', arch: 'arch window', medallion: 'motif on top', sidepanel: 'side panel', hanging: 'hanging strings', wreath: 'names in a wreath', inset: 'card on a pattern', scene: 'scene at the bottom', diag: 'diagonal flowers', deco: 'art deco frame', circle: 'circle frame', split: 'colour top half', scroll: 'hanging scroll', border: 'motif border', wash: 'watercolour wash', frame2: 'shaped frame' };
+  var NEWD = [];
+  ST.forEach(function (x, si) {
+    x[3].comps.forEach(function (comp, v) {
+      var st = Object.assign({}, x[3]);
+      NEWD.push(des('ma-invite-' + (++nI), x[0] + ROM[v], 'panels', ['invitation'], x[2], { layout: 'inv', comp: comp, st: st, iv: v, occ: x[1], coll: 'events', sizes: ['Card57', 'A5', 'A4', 'Letter'], desc: x[0] + ' · ' + CN[comp] + (st.dk ? ' · dark' : '') }));
+    });
+  });
+  /* the new cards come first in the list; the older invitation designs follow them */
+  var firstOld = -1; D.DESIGNS.forEach(function (d, i) { if (firstOld < 0 && d.types.indexOf('invitation') >= 0) firstOld = i; });
+  if (firstOld < 0) D.DESIGNS = D.DESIGNS.concat(NEWD); else D.DESIGNS = D.DESIGNS.slice(0, firstOld).concat(NEWD, D.DESIGNS.slice(firstOld));
+
+  /* ---------------- sample wording, by the occasion of the design ---------------- */
+  var sample4 = D.sample;
+  D.sample = function (type, tpl) {
+    var doc = sample4(type, tpl), dz = tpl && D.design(tpl);
+    if (type !== 'invitation' || !dz || dz.layout !== 'inv') return doc;
+    var w = OCC[dz.occ] || OCC.wedding, R = function (tt, o, role) { var b = D.B(tt, o); b.role = role; return b; };
+    doc.title = 'Invitation';
+    doc.blocks = [R('s_kicker', { text: w[0] }, 'kicker'), R('s_title', { text: w[1] }, 'title'), R('s_sub', { text: w[2] }, 'sub'), R('s_text', { text: w[3] }, 'date'),
+      R('s_text', { text: w[4] }, 'venue'), R('s_text', { text: w[5] }, 'note'), R('s_cta', { text: w[6] }, 'rsvp')];
+    return doc;
+  };
+})();
+/* INV-END */
 
 window.DSDOC=D;})();
 
