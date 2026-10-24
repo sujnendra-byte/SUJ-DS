@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 17:45:00
+ * Modified   : 2026-10-24 21:30:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.8.1-infographics150' );
+define( 'DS_DOC_ENGINE_VER', '1.8.3-igversions' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -5261,289 +5261,211 @@ D.toDocx = function (doc, opts) {
   function foot(W, H, o) { return T('foot', W * 0.08, H * 0.962, W * 0.84, H * 0.03, Object.assign({ al: 'center', v: 'center', k: 0.9, cls: 'ft' }, o || {})); }
   function items(n, y0, y1, gap) { var h = (y1 - y0 - gap * (n - 1)) / n, out = []; for (var i = 0; i < n; i++) out.push({ y: y0 + i * (h + gap), h: h }); return out; }
 
+  /* ---- style variants: the 5 designs of a layout differ in card shape, background pattern, header and side ---- */
+  var CV = 0, CF = 0, CT = null;
+  function CARD(x, y, w, h, col, r, dk) {
+    var t = CT || {}, fill = dk ? '#FFFFFF' : col, op = dk ? 0.07 : 1, a = t.a || '#888888';
+    switch (CV) {
+      case 1: return rr(x, y, w, h, dk ? '#FFFFFF' : '#FFFFFF', r, dk ? 0.03 : 1) + stroke(x, y, w, h, a, 2.5, r, dk ? 0.85 : 1);
+      case 2: return rr(x, y, w, h, fill, 4, op) + rect(x, y, 8, h, a);
+      case 3: return rr(x + 6, y + 8, w, h, dk ? a : '#0B1020', r * 1.5, dk ? 0.18 : 0.12) + rr(x, y, w, h, dk ? '#FFFFFF' : '#FFFFFF', r * 1.5, dk ? 0.09 : 1);
+      case 4: var c = Math.min(28, h * 0.25); return path('M' + (x + c) + ' ' + y + ' H' + (x + w) + ' V' + (y + h - c) + ' L' + (x + w - c) + ' ' + (y + h) + ' H' + x + ' V' + (y + c) + ' Z', fill, op, a, 1.5);
+      default: return rr(x, y, w, h, fill, r, op);
+    }
+  }
+  function DECO(t, W, H, dk) {
+    var c = dk ? '#FFFFFF' : t.p, op = dk ? 0.07 : 0.06, s = '';
+    if (CV === 1) { s += dots(W * 0.72, H * 0.015, 8, 6, W * 0.03, 3, c, op * 2) + dots(W * 0.03, H * 0.955, 8, 3, W * 0.03, 3, c, op * 2); }
+    if (CV === 2) { for (var k = 1; k <= 6; k++) s += ring(0, 0, W * 0.09 * k, c, 2, op * 1.4); }
+    if (CV === 3) { for (var j = 0; j < 14; j++) s += line(W * 0.62 + j * 26, 0, W * 0.62 + j * 26 - 160, 160, c, 3, op * 1.5); }
+    if (CV === 4) s += circ(W * 1.02, H * 0.42, W * 0.32, t.a, dk ? 0.1 : 0.08) + circ(-W * 0.05, H * 0.7, W * 0.28, t.a, dk ? 0.1 : 0.08);
+    return s;
+  }
+
   var L = {};
-  /* 1. dark gradient, glowing circles, stacked glass cards with a numbered icon disc */
+  /* arrangement of the points for this version: 0 stacked, 1 stacked (pictures on the other side),
+   * 2 two-column grid, 3 alternating indent, 4 narrower column on a numbered rail */
+  function ARR(n, y0, y1, gap, W) {
+    var out = [], v = CV;
+    if (v === 2) {
+      var rows = Math.ceil(n / 2), rs = items(rows, y0, y1, gap);
+      for (var i = 0; i < n; i++) { var r = Math.floor(i / 2), c = i % 2, last = i === n - 1 && n % 2 === 1; out.push({ x: last ? W * 0.285 : W * 0.06 + c * W * 0.45, w: W * 0.43, y: rs[r].y, h: rs[r].h, i: i, grid: 1 }); }
+      return out;
+    }
+    items(n, y0, y1, gap).forEach(function (b, i) {
+      var x = W * 0.07, w = W * 0.86;
+      if (v === 3) { x = i % 2 ? W * 0.17 : W * 0.05; w = W * 0.78; }
+      if (v === 4) { x = W * 0.2; w = W * 0.74; }
+      out.push({ x: x, w: w, y: b.y, h: b.h, i: i, rail: v === 4 });
+    });
+    return out;
+  }
+  function RAIL(bx, W, c, onc, lineC) {
+    if (!bx.length || !bx[0].rail) return '';
+    var y0 = bx[0].y + bx[0].h / 2, y1 = bx[bx.length - 1].y + bx[bx.length - 1].h / 2, s = rect(W * 0.1 - 2, y0, 4, y1 - y0, lineC || c, 0.6);
+    bx.forEach(function (b) { var cy = b.y + b.h / 2; s += circ(W * 0.1, cy, W * 0.045, c) + txt(W * 0.1, cy, num(b.i), W * 0.032, onc) + line(W * 0.145, cy, b.x, cy, lineC || c, 2, 0.6); });
+    return s;
+  }
+  /* where the icon and the text go inside a box */
+  function SLOT(b, W, iconW) {
+    if (b.grid) return { ix: b.x + b.w / 2, iy: b.y + b.h * 0.2, tx: b.x + W * 0.03, ty: b.y + b.h * 0.36, tw: b.w - W * 0.06, th: b.h * 0.6, al: 'center' };
+    var right = CF === 1, cy = b.y + b.h / 2, gapW = iconW + W * 0.06;
+    return { ix: right ? b.x + b.w - iconW / 2 - W * 0.04 : b.x + iconW / 2 + W * 0.04, iy: cy, tx: right ? b.x + W * 0.05 : b.x + gapW, ty: b.y + b.h * 0.1, tw: b.w - gapW - W * 0.05, th: b.h * 0.8, al: 'left' };
+  }
+  /* 1. dark gradient, glowing circles, glass cards with an icon disc */
   L.glass = function (t, W, H, o) {
     var bg = dark0(t), s = rect(0, 0, W, H, 'url(#igb)') + glow('igg', W * 0.85, H * 0.08, W * 0.55) + glow('igg', W * 0.05, H * 0.55, W * 0.5) + glow('igg', W * 0.9, H * 0.9, W * 0.45), z = [head(W, H * 0.035, H * 0.15, { dk: 1, cls: 'acc' })];
     s += grid(0, 0, W, H * 0.2, 40, '#FFFFFF', 0.05);
-    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
-      var x = W * 0.07, w = W * 0.86;
-      s += rr(x, b.y, w, b.h, '#FFFFFF', 22, 0.07) + stroke(x, b.y, w, b.h, '#FFFFFF', 1.5, 22, 0.18);
-      s += circ(x + W * 0.1, b.y + b.h / 2, W * 0.062, t.a) + ic(i, x + W * 0.1, b.y + b.h / 2, W * 0.06, D.onColor(t.a), 2.2) + txt(x + w - W * 0.06, b.y + W * 0.045, num(i), W * 0.035, '#FFFFFF', { op: 0.35 });
-      z.push(T('i' + (i + 1), x + W * 0.2, b.y + b.h * 0.1, w - W * 0.28, b.h * 0.8, { v: 'center', dk: 1, cls: 'acc', k: 1 }));
+    var bx = ARR(o.n || 6, H * 0.2, H * 0.94, H * 0.016, W);
+    s += RAIL(bx, W, t.a, D.onColor(t.a), '#FFFFFF');
+    bx.forEach(function (b) {
+      var r = CV === 3 ? 40 : 22, R = W * (b.grid ? 0.05 : 0.06), sl = SLOT(b, W, R * 2);
+      s += rr(b.x, b.y, b.w, b.h, '#FFFFFF', r, 0.07) + stroke(b.x, b.y, b.w, b.h, '#FFFFFF', 1.5, r, 0.18);
+      s += circ(sl.ix, sl.iy, R, t.a) + ic(b.i, sl.ix, sl.iy, R * 0.95, D.onColor(t.a), 2.2);
+      if (!b.rail) s += txt(CF ? b.x + W * 0.05 : b.x + b.w - W * 0.05, b.y + W * 0.04, num(b.i), W * 0.032, '#FFFFFF', { op: 0.35 });
+      z.push(T('i' + (b.i + 1), sl.tx, sl.ty, sl.tw, sl.th, { al: sl.al, v: 'center', dk: 1, cls: 'acc', k: b.grid ? 0.9 : 1 }));
     });
     z.push(foot(W, H, { dk: 1 }));
     return { s: s, defs: grad('igb', bg, D.mix(t.s, bg, 0.35), 0.3, 1) + rgrad('igg', t.s, 0.55), z: z };
   };
-  /* 2. zigzag: big outlined numbers that alternate sides, cards linked by a dashed line */
-  L.zigzag = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.19, dk ? D.mix(t.p, bg, 0.5) : t.p) + circ(W * 0.92, H * 0.02, W * 0.22, t.a, 0.25), z = [head(W, H * 0.025, H * 0.14, { dk: 1, cls: 'acc' })];
-    var its = items(o.n || 5, H * 0.215, H * 0.94, H * 0.02), pth = '';
-    its.forEach(function (b, i) {
-      var left = i % 2 === 0, cw = W * 0.6, cx = left ? W * 0.32 : W * 0.08, nx = left ? W * 0.16 : W * 0.84;
-      s += rr(cx, b.y, cw, b.h, dk ? '#FFFFFF' : t.tint, 26, dk ? 0.08 : 1) + rect(left ? cx : cx + cw - 10, b.y + b.h * 0.2, 10, b.h * 0.6, t.a);
-      s += txt(nx, b.y + b.h / 2, num(i), W * 0.16, 'none', {}).replace('fill="none"', 'fill="none" stroke="' + (dk ? t.a : t.p) + '" stroke-width="3"');
-      pth += (i ? ' L' : 'M') + nx + ' ' + (b.y + b.h / 2);
-      z.push(T('i' + (i + 1), cx + W * 0.05, b.y + b.h * 0.1, cw - W * 0.1, b.h * 0.8, { v: 'center', dk: dk, k: 1 }));
-    });
-    s = s.replace(rect(0, 0, W, H * 0.19, dk ? D.mix(t.p, bg, 0.5) : t.p), rect(0, 0, W, H * 0.19, dk ? D.mix(t.p, bg, 0.5) : t.p) + '<path d="' + pth + '" fill="none" stroke="' + t.a + '" stroke-width="3" stroke-dasharray="10 10" stroke-opacity="0.6"/>');
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 3. timeline: centre line with dots, points on alternating sides */
-  L.timeline = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.15, { dk: dk })];
-    s += rect(W / 2 - 3, H * 0.2, 6, H * 0.74, t.a) + rr(W * 0.3, H * 0.185, W * 0.4, 8, t.p, 4);
-    items(o.n || 6, H * 0.21, H * 0.94, H * 0.014).forEach(function (b, i) {
-      var left = i % 2 === 0, cy = b.y + b.h / 2;
-      s += circ(W / 2, cy, W * 0.045, t.p) + ring(W / 2, cy, W * 0.058, t.a, 4) + txt(W / 2, cy, num(i), W * 0.034, D.onColor(t.p));
-      var bx = left ? W * 0.06 : W * 0.58, bw = W * 0.36;
-      s += rr(bx, b.y + b.h * 0.06, bw, b.h * 0.88, dk ? '#FFFFFF' : '#FFFFFF', 20, dk ? 0.07 : 1) + line(left ? bx + bw : bx, cy, left ? W / 2 - W * 0.058 : W / 2 + W * 0.058, cy, t.a, 3);
-      z.push(T('i' + (i + 1), bx + W * 0.03, b.y + b.h * 0.12, bw - W * 0.06, b.h * 0.76, { v: 'center', dk: dk, al: left ? 'right' : 'left', k: 0.92 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 4. grid of six tiles, icon on top */
-  L.tiles = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#F6F8FC', s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.5, H * 0.1, W * 0.7) : rect(0, 0, W, H * 0.22, t.p)), z = [head(W, H * 0.03, H * 0.15, { dk: 1, cls: 'acc' })];
-    z.push(T('intro', W * 0.1, H * 0.235, W * 0.8, H * 0.07, { al: 'center', v: 'center', dk: dk, k: 0.95 }));
-    var cw = W * 0.4, gx = W * 0.07, ys = items(3, H * 0.32, H * 0.94, H * 0.02);
-    ys.forEach(function (b, r) { for (var c = 0; c < 2; c++) {
-      var i = r * 2 + c, x = gx + c * (cw + W * 0.06);
-      s += rr(x, b.y, cw, b.h, dk ? '#FFFFFF' : '#FFFFFF', 24, dk ? 0.07 : 1) + (dk ? stroke(x, b.y, cw, b.h, t.a, 1.5, 24, 0.5) : rr(x, b.y, cw, 10, t.a, 5));
-      s += circ(x + cw / 2, b.y + b.h * 0.2, W * 0.055, dk ? t.a : t.tint) + ic(i, x + cw / 2, b.y + b.h * 0.2, W * 0.055, dk ? D.onColor(t.a) : t.p, 2.2);
-      z.push(T('i' + (i + 1), x + W * 0.03, b.y + b.h * 0.36, cw - W * 0.06, b.h * 0.6, { al: 'center', dk: dk, k: 0.9 }));
-    } });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, defs: rgrad('igg', t.s, 0.6), z: z };
-  };
-  /* 5. puzzle: bold colour blocks with large numbers */
-  L.blocks = function (t, W, H, o) {
-    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, '#000000', 0.25), D.mix(t.a, '#FFFFFF', 0.25)], s = rect(0, 0, W, H, dark0(t)), z = [head(W, H * 0.025, H * 0.15, { dk: 1 })];
-    s += circ(W * 0.12, H * 0.03, W * 0.04, t.a) + circ(W * 0.9, H * 0.16, W * 0.02, t.a);
-    var ys = items(3, H * 0.19, H * 0.95, 0);
-    ys.forEach(function (b, r) { for (var c = 0; c < 2; c++) {
-      var i = r * 2 + c, x = c * W / 2, col = cols[(i + r) % cols.length], dk = onDark(col);
-      s += rect(x, b.y, W / 2, b.h, col) + txt(x + W * 0.25, b.y + b.h * 0.2, String(i + 1), W * 0.16, dk ? '#FFFFFF' : '#14161B', { op: 0.9 });
-      if (c === 0) s += circ(W / 2, b.y + b.h * 0.5, W * 0.035, col);
-      z.push(T('i' + (i + 1), x + W * 0.05, b.y + b.h * 0.36, W * 0.4, b.h * 0.58, { al: 'center', dk: dk, k: 0.9 }));
-    } });
-    z.push(foot(W, H, { dk: 1 }));
-    return { s: s, z: z };
-  };
-  /* 6. neon: near-black, outlined boxes with cut corners and a tab heading */
+  /* 6. neon: near-black, outlined boxes with cut corners and a number tab */
   L.neon = function (t, W, H, o) {
     var bg = '#07090F', ac = D.mix(t.a, '#FFFFFF', 0.1), s = rect(0, 0, W, H, bg) + grid(0, 0, W, H, 50, ac, 0.05) + glow('igg', W * 0.5, H * 0.06, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
-    items(o.n || 5, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
-      var x = W * 0.08, w = W * 0.84, c = 26, y = b.y, h = b.h;
-      s += path('M' + (x + c) + ' ' + y + ' H' + (x + w) + ' V' + (y + h - c) + ' L' + (x + w - c) + ' ' + (y + h) + ' H' + x + ' V' + (y + c) + ' Z', ac, 0.05, ac, 2);
-      s += rr(x + W * 0.04, y - 16, W * 0.12, 32, ac, 16) + txt(x + W * 0.1, y, num(i), 18, D.onColor(ac));
-      s += ic(i, x + w - W * 0.09, y + h / 2, W * 0.08, ac, 1.8);
-      z.push(T('i' + (i + 1), x + W * 0.05, y + h * 0.14, w - W * 0.2, h * 0.76, { v: 'center', dk: 1, cls: 'acc', k: 1 }));
+    var bx = ARR(o.n || 5, H * 0.2, H * 0.94, H * 0.022, W);
+    s += RAIL(bx, W, ac, D.onColor(ac));
+    bx.forEach(function (b) {
+      var x = b.x, w = b.w, c = CV === 1 ? b.h / 2 : 26, y = b.y, h = b.h, sl = SLOT(b, W, W * 0.08);
+      if (CV === 1) s += rr(x, y, w, h, ac, Math.min(h / 2, 60), 0.05) + stroke(x, y, w, h, ac, 2, Math.min(h / 2, 60));   /* capsule boxes */
+      else s += path('M' + (x + c) + ' ' + y + ' H' + (x + w) + ' V' + (y + h - c) + ' L' + (x + w - c) + ' ' + (y + h) + ' H' + x + ' V' + (y + c) + ' Z', ac, 0.05, ac, 2);
+      if (!b.rail) s += rr(b.grid ? x + w / 2 - W * 0.06 : x + W * 0.04, y - 16, W * 0.12, 32, ac, 16) + txt(b.grid ? x + w / 2 : x + W * 0.1, y, num(b.i), 18, D.onColor(ac));
+      s += ic(b.i, sl.ix, sl.iy, W * (b.grid ? 0.06 : 0.07), ac, 1.8);
+      z.push(T('i' + (b.i + 1), sl.tx, sl.ty + (b.grid ? 0 : h * 0.04), sl.tw, sl.th - (b.grid ? 0 : h * 0.04), { al: sl.al, v: 'center', dk: 1, cls: 'acc', k: b.grid ? 0.9 : 1 }));
     });
     z.push(foot(W, H, { dk: 1 }));
     return { s: s, defs: rgrad('igg', ac, 0.35), z: z };
   };
-  /* 7. photo rows: photo and text alternate sides */
-  L.photos = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.17, t.p) + rect(0, H * 0.17, W, 10, t.a), z = [head(W, H * 0.02, H * 0.13, { dk: 1, cls: 'acc' })];
-    items(o.n || 5, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
-      var left = i % 2 === 0, px = left ? W * 0.06 : W * 0.56, tx = left ? W * 0.5 : W * 0.06, pw = W * 0.38;
-      s += rr(left ? W * 0.04 : W * 0.04, b.y, W * 0.92, b.h, dk ? '#FFFFFF' : t.tint, 26, dk ? 0.06 : 1) + rr(px - 6, b.y + b.h * 0.1 - 6, pw + 12, b.h * 0.8 + 12, t.a, 22);
-      z.push(PH('p' + (i + 1), px, b.y + b.h * 0.1, pw, b.h * 0.8, 'round'));
-      z.push(T('i' + (i + 1), tx + W * 0.02, b.y + b.h * 0.1, W * 0.4, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 8. pills: capsule heading tabs on a vertical connector */
-  L.pills = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.tint, '#FFFFFF', 0.4), s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.2, H * 0.1, W * 0.7) : ''), z = [head(W, H * 0.03, H * 0.15, { dk: dk, cls: 'acc' })];
-    s += rect(W * 0.12, H * 0.2, 4, H * 0.72, t.a, 0.7);
-    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
-      s += circ(W * 0.12 + 2, b.y + 30, 14, t.a) + rr(W * 0.18, b.y, W * 0.74, b.h, dk ? '#FFFFFF' : '#FFFFFF', 22, dk ? 0.07 : 1) + line(W * 0.12 + 16, b.y + 30, W * 0.18, b.y + 30, t.a, 3);
-      z.push(T('i' + (i + 1), W * 0.21, b.y + b.h * 0.06, W * 0.68, b.h * 0.88, { dk: dk, cls: 'pill', k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, defs: rgrad('igg', t.s, 0.5), z: z };
-  };
-  /* 9. data: big numbers, a chart and three cards */
-  L.data = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 40, '#FFFFFF', 0.04) : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.025, H * 0.15, { dk: dk, cls: 'acc' })];
-    s += rr(W * 0.06, H * 0.2, W * 0.88, H * 0.36, dk ? '#FFFFFF' : t.tint, 28) + (dk ? rr(W * 0.06, H * 0.2, W * 0.88, 12, t.a, 6) : '');
-    z.push(T('data', W * 0.1, H * 0.215, W * 0.8, H * 0.09, { k: 1.05 }));   /* charts stay on a light card, so they read well */
-    z.push(T('data2', W * 0.1, H * 0.305, W * 0.8, H * 0.245, { k: 1.05 }));
-    items(3, H * 0.58, H * 0.94, H * 0.02).forEach(function (b, i) {
-      s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : '#FFFFFF', 24, dk ? 0.07 : 1) + stroke(W * 0.06, b.y, W * 0.88, b.h, t.a, 2, 24, dk ? 0.5 : 0.8) + circ(W * 0.16, b.y + b.h / 2, W * 0.055, t.a) + ic(i + 1, W * 0.16, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
-      z.push(T('i' + (i + 1), W * 0.26, b.y + b.h * 0.1, W * 0.62, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 10. chevrons: numbered arrow blocks down the page */
-  L.chevron = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, t.a, 0.5), D.mix(t.p, '#000000', 0.2)];
-    items(o.n || 5, H * 0.19, H * 0.94, H * 0.012).forEach(function (b, i) {
-      var c = cols[i % cols.length], x = W * 0.06, w = W * 0.22, y = b.y, h = b.h, tip = h * 0.22;
-      s += poly([[x, y], [x + w, y], [x + w, y + h - tip], [x + w / 2, y + h], [x, y + h - tip]], c) + txt(x + w / 2, y + h * 0.4, num(i), W * 0.07, D.onColor(c));
-      s += rr(x + w + W * 0.03, y + h * 0.04, W * 0.63, h * 0.82, dk ? '#FFFFFF' : t.tint, 18, dk ? 0.07 : 1);
-      z.push(T('i' + (i + 1), x + w + W * 0.06, y + h * 0.08, W * 0.57, h * 0.74, { v: 'center', dk: dk, k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 11. path: circles on a winding road, text beside each */
-  L.path = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    var its = items(o.n || 6, H * 0.2, H * 0.94, H * 0.01), d = '';
-    its.forEach(function (b, i) { var x = i % 2 === 0 ? W * 0.2 : W * 0.8, y = b.y + b.h / 2; d += i === 0 ? 'M' + x + ' ' + y : ' C' + (i % 2 ? W * 0.2 : W * 0.8) + ' ' + (y - b.h * 0.6) + ',' + x + ' ' + (y - b.h * 0.5) + ',' + x + ' ' + y; });
-    s += path(d, null, null, dk ? '#FFFFFF' : t.tint, 26).replace('/>', ' stroke-opacity="' + (dk ? 0.12 : 1) + '" stroke-linecap="round"/>') + path(d, null, null, t.a, 3).replace('/>', ' stroke-dasharray="12 12"/>');
-    its.forEach(function (b, i) {
-      var left = i % 2 === 0, x = left ? W * 0.2 : W * 0.8, y = b.y + b.h / 2, c = [t.p, t.a, t.s][i % 3];
-      s += circ(x, y, W * 0.085, '#FFFFFF') + ring(x, y, W * 0.085, c, 8) + ic(i, x, y - 8, W * 0.06, c, 2.2) + txt(x, y + W * 0.045, num(i), 18, c);
-      z.push(T('i' + (i + 1), left ? W * 0.33 : W * 0.06, b.y + b.h * 0.08, W * 0.58, b.h * 0.84, { v: 'center', al: left ? 'left' : 'right', dk: dk, k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 12. tabs: full-width boxes with a number tab on the left */
+  /* 12. tabs: colour page, outlined boxes with a number tab (left, right, on top, or a rail) */
   L.tabs = function (t, W, H, o) {
     var dk = !!o.dark, bg = dk ? dark0(t) : t.p, s = rect(0, 0, W, H, bg) + glow('igg', W * 0.9, H * 0.05, W * 0.5), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
-    items(o.n || 5, H * 0.19, H * 0.9, H * 0.02).forEach(function (b, i) {
-      s += stroke(W * 0.06, b.y, W * 0.88, b.h, '#FFFFFF', 2, 14, 0.7) + rect(W * 0.06, b.y, W * 0.17, b.h, '#FFFFFF', 0.1) + txt(W * 0.145, b.y + b.h / 2, num(i), W * 0.07, '#FFFFFF');
-      z.push(T('i' + (i + 1), W * 0.27, b.y + b.h * 0.08, W * 0.63, b.h * 0.84, { v: 'center', dk: 1, cls: 'acc', k: 0.95 }));
+    var bx = ARR(o.n || 5, H * 0.19, H * 0.9, H * 0.02, W);
+    s += RAIL(bx, W, '#FFFFFF', bg);
+    bx.forEach(function (b) {
+      var tw = W * 0.17, right = CF === 1;
+      s += stroke(b.x, b.y, b.w, b.h, '#FFFFFF', 2, 14, 0.7);
+      if (b.grid) { s += rect(b.x, b.y, b.w, b.h * 0.24, '#FFFFFF', 0.12) + txt(b.x + b.w / 2, b.y + b.h * 0.12, num(b.i), W * 0.06, '#FFFFFF'); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + b.h * 0.28, b.w - W * 0.06, b.h * 0.68, { al: 'center', dk: 1, cls: 'acc', k: 0.88 })); return; }
+      if (b.rail) { z.push(T('i' + (b.i + 1), b.x + W * 0.04, b.y + b.h * 0.08, b.w - W * 0.08, b.h * 0.84, { v: 'center', dk: 1, cls: 'acc', k: 0.95 })); return; }
+      var tx = right ? b.x + b.w - tw : b.x;
+      s += rect(tx, b.y, tw, b.h, '#FFFFFF', 0.1) + txt(tx + tw / 2, b.y + b.h / 2, num(b.i), W * 0.07, '#FFFFFF');
+      z.push(T('i' + (b.i + 1), right ? b.x + W * 0.04 : b.x + tw + W * 0.04, b.y + b.h * 0.08, b.w - tw - W * 0.08, b.h * 0.84, { v: 'center', dk: 1, cls: 'acc', k: 0.95 }));
     });
     z.push(T('intro', W * 0.08, H * 0.905, W * 0.84, H * 0.05, { al: 'center', v: 'center', dk: 1, k: 0.9 }));
     z.push(foot(W, H, { dk: 1 }));
     return { s: s, defs: rgrad('igg', t.a, 0.35), z: z };
   };
-  /* 13. hero photo at the top, cards below */
-  L.hero = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg), z = [];
-    z.push(PH('p0', 0, 0, W, H * 0.24, 'slantB'));
-    s += P0(W, H, t);
-    z.push(T('head', W * 0.08, H * 0.243, W * 0.84, H * 0.085, { al: 'left', v: 'center', tf: 0.09, tmax: 60, k: 1.05, dk: onDark(t.p) }));
-    items(o.n || 5, H * 0.35, H * 0.94, H * 0.016).forEach(function (b, i) {
-      s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : '#FFFFFF', 20, dk ? 0.07 : 1) + rr(W * 0.06, b.y, 14, b.h, t.a, 7) + circ(W * 0.86, b.y + b.h / 2, W * 0.045, dk ? t.a : t.tint) + ic(i, W * 0.86, b.y + b.h / 2, W * 0.045, dk ? D.onColor(t.a) : t.p, 2.2);
-      z.push(T('i' + (i + 1), W * 0.11, b.y + b.h * 0.08, W * 0.66, b.h * 0.84, { v: 'center', dk: dk, k: 0.95 }));
+  /* 15. sidebar: a colour strip with icons (left, right, or a number strip), text beside it */
+  L.sidebar = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', right = CF === 1, sw = W * 0.24, sx = right ? W - sw : 0;
+    if (CV === 2) {   /* top band with the title, then two columns of icon points */
+      var s2 = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.2, t.p) + rect(0, H * 0.2, W, 8, t.a), z2 = [head(W, H * 0.03, H * 0.15, { dk: onDark(t.p), cls: 'acc' })];
+      ARR(o.n || 6, H * 0.23, H * 0.94, H * 0.02, W).forEach(function (b) { var sl = SLOT(b, W, W * 0.1); s2 += circ(sl.ix, sl.iy, W * 0.06, t.a) + ic(b.i, sl.ix, sl.iy, W * 0.055, D.onColor(t.a), 2.2); z2.push(T('i' + (b.i + 1), sl.tx, sl.ty, sl.tw, sl.th, { al: 'center', dk: dk, k: 0.9 })); });
+      z2.push(foot(W, H, { dk: dk }));
+      return { s: s2, z: z2 };
+    }
+    var s = rect(0, 0, W, H, bg) + rect(sx, 0, sw, H, t.p) + rect(right ? sx - 8 : sw, 0, 8, H, t.a), tx = right ? W * 0.06 : W * 0.3, z = [T('head', tx, H * 0.03, W * 0.64, H * 0.15, { v: 'center', tf: 0.1, tmax: 64, k: 1.1, dk: dk, cls: 'acc', al: right ? 'right' : 'left' })];
+    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
+      var cx = sx + sw / 2, cy = b.y + b.h / 2;
+      if (CV === 3) s += rr(cx - W * 0.065, cy - W * 0.065, W * 0.13, W * 0.13, t.a, 18) + txt(cx, cy, num(i), W * 0.06, D.onColor(t.a));
+      else s += circ(cx, cy, W * 0.07, t.a) + ic(i, cx, cy, W * 0.065, D.onColor(t.a), 2.2);
+      if (CV === 4) s += CARD(tx - W * 0.02, b.y + b.h * 0.06, W * 0.68, b.h * 0.88, t.tint, 18, dk) + line(right ? sx - 8 : sw + 8, cy, right ? tx + W * 0.66 : tx - W * 0.02, cy, t.a, 2);
+      else s += line(tx, b.y + b.h, tx + W * 0.64, b.y + b.h, dk ? '#FFFFFF' : t.line, 2, dk ? 0.2 : 1);
+      z.push(T('i' + (i + 1), tx + (CV === 4 ? W * 0.01 : 0), b.y + b.h * 0.1, W * 0.62, b.h * 0.8, { v: 'center', dk: dk, k: 0.95, al: right ? 'right' : 'left' }));
     });
-    z.push(foot(W, H, { dk: dk }));
+    z.push(T('foot', tx, H * 0.962, W * 0.64, H * 0.03, { v: 'center', k: 0.9, dk: dk, cls: 'ft', al: right ? 'right' : 'left' }));
     return { s: s, z: z };
+  };
+  /* 19. circuit: dark board with circuit lines, glowing chips */
+  L.circuit = function (t, W, H, o) {
+    var bg = D.mix(t.p, '#020403', 0.78), ac = t.a, s = rect(0, 0, W, H, bg) + circuit(W, H, ac, 0.18, o.seed || 11) + glow('igg', W * 0.5, H * 0.08, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
+    var bx = ARR(o.n || 4, H * 0.2, H * 0.94, H * 0.03, W);
+    s += RAIL(bx, W, ac, D.onColor(ac));
+    bx.forEach(function (b) {
+      s += rr(b.x, b.y, b.w, b.h, bg, 12, 0.9) + stroke(b.x, b.y, b.w, b.h, ac, 3, 12);
+      if (CV === 1) { for (var k = 0; k < 5; k++) { var px = b.x + b.w * (0.15 + k * 0.175); s += line(px, b.y - 14, px, b.y, ac, 3) + line(px, b.y + b.h, px, b.y + b.h + 14, ac, 3); } }   /* chip pins */
+      else if (!b.rail) s += circ(b.x, b.y + b.h / 2, 7, ac) + circ(b.x + b.w, b.y + b.h / 2, 7, ac);
+      if (CV === 3) s += ic(b.i, b.i % 2 ? b.x + b.w - W * 0.07 : b.x + W * 0.07, b.y + b.h / 2, W * 0.07, ac, 1.8);
+      var pad = CV === 3 ? W * 0.13 : W * 0.04;
+      z.push(T('i' + (b.i + 1), b.x + (CV === 3 && b.i % 2 === 0 ? pad : W * 0.04), b.y + b.h * 0.08, b.w - pad - W * 0.04, b.h * 0.86, { dk: 1, al: 'center', v: 'center', cls: 'tab', k: b.grid ? 0.88 : 1 }));
+    });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: rgrad('igg', ac, 0.3), z: z };
   };
   function P0(W, H, t) { return poly([[0, H * 0.2], [W, H * 0.17], [W, H * 0.33], [0, H * 0.33]], t.p); }
   /* 14. funnel: layers that narrow, then two notes */
   L.funnel = function (t, W, H, o) {
     var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
     var cols = [t.p, t.s, D.mix(t.s, t.a, 0.5), t.a, D.mix(t.a, '#FFFFFF', 0.3)];
-    items(5, H * 0.19, H * 0.74, H * 0.008).forEach(function (b, i) {
-      var top = W * (0.9 - i * 0.13), bot = W * (0.9 - (i + 1) * 0.13), c = cols[i];
-      s += poly([[W / 2 - top / 2, b.y], [W / 2 + top / 2, b.y], [W / 2 + bot / 2, b.y + b.h], [W / 2 - bot / 2, b.y + b.h]], c);
-      z.push(T('i' + (i + 1), W / 2 - bot / 2 + 8, b.y + b.h * 0.08, bot - 16, b.h * 0.84, { al: 'center', v: 'center', dk: onDark(c), k: Math.max(0.7, 0.95 - i * 0.05) }));
+    var fv = CV;   /* 0 funnel, 1 rounded layers, 2 pyramid (narrow at the top), 3 side numbers, 4 3-D funnel */
+    items(5, H * 0.19, H * 0.74, fv === 1 ? H * 0.014 : H * 0.008).forEach(function (b, i) {
+      var j = fv === 2 ? 4 - i : i, top = W * (0.9 - j * 0.13), bot = W * (0.9 - (j + 1) * 0.13), c = cols[i];
+      if (fv === 2) { top = W * (0.9 - (j + 1) * 0.13); bot = W * (0.9 - j * 0.13); }
+      if (fv === 3) { top = bot = W * 0.62; }
+      var x0 = fv === 3 ? W * 0.3 : W / 2, wN = Math.min(top, bot);
+      if (fv === 1) s += rr(x0 - top / 2, b.y, top, b.h, c, b.h / 2);
+      else if (fv === 3) s += rr(x0, b.y, top, b.h, c, 18) + circ(W * 0.17, b.y + b.h / 2, W * 0.075, c) + ring(W * 0.17, b.y + b.h / 2, W * 0.09, c, 3, 0.4) + txt(W * 0.17, b.y + b.h / 2, num(i), W * 0.05, D.onColor(c));
+      else s += poly([[x0 - top / 2, b.y], [x0 + top / 2, b.y], [x0 + bot / 2, b.y + b.h], [x0 - bot / 2, b.y + b.h]], c);
+      if (fv === 4) s += poly([[x0 + top / 2, b.y], [x0 + top / 2 + 22, b.y + 10], [x0 + bot / 2 + 22, b.y + b.h + 10], [x0 + bot / 2, b.y + b.h]], D.mix(c, '#000000', 0.35)) + rect(x0 - top / 2, b.y, top, 6, '#FFFFFF', 0.25);
+      var zx = fv === 3 ? x0 + 12 : x0 - wN / 2 + 8, zw = fv === 3 ? top - 24 : wN - 16;
+      if (fv === 1) { zx = x0 - top / 2 + b.h * 0.4; zw = top - b.h * 0.8; }
+      z.push(T('i' + (i + 1), zx, b.y + b.h * 0.08, zw, b.h * 0.84, { al: fv === 3 ? 'left' : 'center', v: 'center', dk: onDark(c), k: fv === 3 ? 0.95 : Math.max(0.7, 0.95 - Math.min(i, 4 - i * (fv === 2 ? 1 : 0)) * 0.05) }));
     });
-    s += rr(W * 0.06, H * 0.77, W * 0.88, H * 0.17, dk ? '#FFFFFF' : t.tint, 26, dk ? 0.07 : 1);
+    s += CARD(W * 0.06, H * 0.77, W * 0.88, H * 0.17, t.tint, 26, dk);
     z.push(T('i6', W * 0.1, H * 0.785, W * 0.8, H * 0.14, { v: 'center', dk: dk, k: 0.95 }));
     z.push(foot(W, H, { dk: dk }));
     return { s: s, z: z };
   };
-  /* 15. sidebar: a colour strip with icons, text to the right */
-  L.sidebar = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W * 0.24, H, t.p) + rect(W * 0.24, 0, 8, H, t.a), z = [T('head', W * 0.3, H * 0.03, W * 0.64, H * 0.15, { v: 'center', tf: 0.1, tmax: 64, k: 1.1, dk: dk, cls: 'acc' })];
-    items(o.n || 6, H * 0.2, H * 0.94, H * 0.016).forEach(function (b, i) {
-      s += circ(W * 0.12, b.y + b.h / 2, W * 0.07, t.a) + ic(i, W * 0.12, b.y + b.h / 2, W * 0.065, D.onColor(t.a), 2.2) + line(W * 0.3, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 2, dk ? 0.2 : 1);
-      z.push(T('i' + (i + 1), W * 0.3, b.y + b.h * 0.06, W * 0.64, b.h * 0.86, { v: 'center', dk: dk, k: 0.95 }));
-    });
-    z.push(T('foot', W * 0.3, H * 0.962, W * 0.64, H * 0.03, { v: 'center', k: 0.9, dk: dk, cls: 'ft' }));
-    return { s: s, z: z };
-  };
-  /* 16. hexagons: number badges alternate with cards */
-  L.hex = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.5, H * 0.5, W * 0.9) : ''), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    items(o.n || 6, H * 0.19, H * 0.94, H * 0.016).forEach(function (b, i) {
-      var left = i % 2 === 0, hx = left ? W * 0.16 : W * 0.84, cy = b.y + b.h / 2, r = Math.min(W * 0.1, b.h * 0.48), pts = [];
-      for (var k = 0; k < 6; k++) { var a = Math.PI / 3 * k + Math.PI / 6; pts.push([hx + r * Math.cos(a), cy + r * Math.sin(a)]); }
-      var c = i % 2 ? t.a : t.p;
-      s += rr(left ? W * 0.2 : W * 0.06, b.y + b.h * 0.08, W * 0.74, b.h * 0.84, dk ? '#FFFFFF' : '#FFFFFF', 22, dk ? 0.07 : 1) + poly(pts, c) + txt(hx, cy, num(i), r * 0.62, D.onColor(c));
-      z.push(T('i' + (i + 1), left ? W * 0.3 : W * 0.1, b.y + b.h * 0.12, W * 0.6, b.h * 0.76, { v: 'center', dk: dk, k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, defs: rgrad('igg', t.s, 0.4), z: z };
-  };
-  /* 17. steps: rounded number squares that overlap the cards, rising like a staircase */
-  L.steps = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.s, '#FFFFFF', 0.85), s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    var n = o.n || 4;
-    items(n, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
-      var off = W * 0.06 * (i % 2 ? 1 : 0), x = W * 0.06 + off, w = W * 0.82;
-      s += rr(x + W * 0.1, b.y, w - W * 0.1, b.h, dk ? '#FFFFFF' : '#FFFFFF', 30, dk ? 0.08 : 1) + rr(x, b.y + b.h * 0.18, W * 0.2, b.h * 0.64, t.p, 26) + txt(x + W * 0.1, b.y + b.h / 2, String(i + 1), W * 0.12, D.onColor(t.p));
-      s += circ(x + w - W * 0.08, b.y + b.h / 2, W * 0.05, t.a) + ic(i, x + w - W * 0.08, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
-      z.push(T('i' + (i + 1), x + W * 0.24, b.y + b.h * 0.1, w - W * 0.4, b.h * 0.8, { v: 'center', dk: dk, k: 1 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 18. bubbles: speech-bubble cards with an icon person-dot */
-  L.bubbles = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? '' : circ(W * 0.92, H * 0.05, W * 0.18, t.tint) + circ(W * 0.05, H * 0.6, W * 0.15, t.tint)), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    items(o.n || 4, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
-      var left = i % 2 === 0, bx = left ? W * 0.06 : W * 0.3, bw = W * 0.64, by = b.y, bh = b.h * 0.86;
-      var tail = left ? [[bx + bw * 0.75, by + bh], [bx + bw * 0.9, by + bh], [bx + bw * 0.95, by + bh + b.h * 0.12]] : [[bx + bw * 0.1, by + bh], [bx + bw * 0.25, by + bh], [bx + bw * 0.05, by + bh + b.h * 0.12]];
-      s += rr(bx, by, bw, bh, dk ? '#FFFFFF' : '#FFFFFF', 34, dk ? 0.08 : 1) + stroke(bx, by, bw, bh, t.p, 3, 34, 0.9) + poly(tail, t.p);
-      var cx = left ? W * 0.84 : W * 0.15;
-      s += circ(cx, by + bh * 0.55, W * 0.085, t.tint) + ic(i, cx, by + bh * 0.55, W * 0.08, t.p, 2);
-      z.push(T('i' + (i + 1), bx + W * 0.04, by + bh * 0.1, bw - W * 0.08, bh * 0.82, { v: 'center', dk: dk, cls: 'pill pa', k: 1 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 19. circuit: dark board with circuit lines, glowing boxes */
-  L.circuit = function (t, W, H, o) {
-    var bg = D.mix(t.p, '#020403', 0.78), ac = t.a, s = rect(0, 0, W, H, bg) + circuit(W, H, ac, 0.18, o.seed || 11) + glow('igg', W * 0.5, H * 0.08, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
-    items(o.n || 4, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
-      s += rr(W * 0.08, b.y, W * 0.84, b.h, bg, 12, 0.9) + stroke(W * 0.08, b.y, W * 0.84, b.h, ac, 3, 12) + circ(W * 0.08, b.y + b.h / 2, 7, ac) + circ(W * 0.92, b.y + b.h / 2, 7, ac);
-      z.push(T('i' + (i + 1), W * 0.12, b.y + b.h * 0.08, W * 0.76, b.h * 0.86, { dk: 1, al: 'center', v: 'center', cls: 'tab', k: 1 }));
-    });
-    z.push(foot(W, H, { dk: 1 }));
-    return { s: s, defs: rgrad('igg', ac, 0.3), z: z };
-  };
-  /* 20. editorial: light page, big title, thin rules, numbered list in two columns */
-  L.editorial = function (t, W, H, o) {
-    var s = rect(0, 0, W, H, '#FBFAF7') + rect(W * 0.08, H * 0.19, W * 0.84, 4, t.p) + rect(W * 0.08, H * 0.94, W * 0.84, 2, t.p), z = [T('head', W * 0.08, H * 0.03, W * 0.84, H * 0.15, { v: 'center', tf: 0.12, tmax: 76, k: 1.15, cls: 'ed' })];
-    z.push(PH('p0', W * 0.08, H * 0.21, W * 0.84, H * 0.16, 'round'));
-    var ys = items(3, H * 0.4, H * 0.92, H * 0.02);
-    ys.forEach(function (b, r) { for (var c = 0; c < 2; c++) {
-      var i = r * 2 + c, x = W * 0.08 + c * W * 0.44;
-      s += txt(x, b.y + 30, num(i), 44, t.a, { a: 'start', f: 'Georgia, serif', w: 700 }) + line(x, b.y + b.h, x + W * 0.4, b.y + b.h, t.line, 2);
-      z.push(T('i' + (i + 1), x, b.y + 62, W * 0.4, b.h - 70, { k: 0.9 }));
-    } });
-    z.push(foot(W, H));
-    return { s: s, z: z };
-  };
 
   /* ===== 10 more layouts (2026-10-24, second set) ===== */
-  /* 21. illustrated: big cut-out pictures beside each point (store images, e.g. 3D robots or people) */
-  L.illus = function (t, W, H, o) {
-    var dk = o.dark !== false, bg = dk ? dark0(t) : '#F4F6FB', s = rect(0, 0, W, H, bg) + glow('igg', W * 0.2, H * 0.3, W * 0.6) + glow('igg', W * 0.85, H * 0.75, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    items(o.n || 5, H * 0.19, H * 0.94, H * 0.018).forEach(function (b, i) {
-      var left = i % 2 === 0, px = left ? W * 0.62 : W * 0.06, cw = W * 0.88;
-      s += rr(W * 0.06, b.y + b.h * 0.12, cw, b.h * 0.76, dk ? '#FFFFFF' : '#FFFFFF', 30, dk ? 0.07 : 1) + rr(left ? W * 0.06 : W * 0.06 + cw - 12, b.y + b.h * 0.3, 12, b.h * 0.4, t.a, 6) + txt(left ? W * 0.12 : W * 0.88, b.y + b.h * 0.22, num(i), 22, t.a);
-      s += circ(px + W * 0.16, b.y + b.h / 2, W * 0.17, t.a, dk ? 0.25 : 0.2);
-      z.push(PH('p' + (i + 1), px, b.y, W * 0.32, b.h, 'circle'));
-      z.push(T('i' + (i + 1), left ? W * 0.12 : W * 0.42, b.y + b.h * 0.2, W * 0.46, b.h * 0.62, { v: 'center', dk: dk, cls: 'acc', k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, defs: rgrad('igg', t.s, 0.5), z: z };
+
+  /* 5. colour blocks: 0 two columns, 1 one column with side numbers, 2 three columns, 3 slanted blocks, 4 rounded tiles with gaps */
+  L.blocks = function (t, W, H, o) {
+    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, '#000000', 0.25), D.mix(t.a, '#FFFFFF', 0.25)], bg = dark0(t), s = rect(0, 0, W, H, bg), z = [head(W, H * 0.025, H * 0.15, { dk: 1 })];
+    s += circ(W * 0.95, H * 0.02, W * 0.04, t.a) + circ(W * 0.97, H * 0.1, W * 0.015, t.a);
+    var y0 = H * 0.19, y1 = H * 0.95;
+    if (CV === 1) {
+      items(6, y0, y1, 0).forEach(function (b, i) { var col = cols[i % cols.length], dk = onDark(col); s += rect(0, b.y, W, b.h, col) + txt(W * 0.13, b.y + b.h / 2, String(i + 1), W * 0.14, dk ? '#FFFFFF' : '#14161B', { op: 0.9 }); z.push(T('i' + (i + 1), W * 0.26, b.y + b.h * 0.1, W * 0.68, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 })); });
+    } else if (CV === 2) {
+      items(2, y0, y1, 0).forEach(function (b, r) { for (var c = 0; c < 3; c++) { var i = r * 3 + c, x = c * W / 3, col = cols[(i + r) % cols.length], dk = onDark(col); s += rect(x, b.y, W / 3, b.h, col) + txt(x + W / 6, b.y + b.h * 0.13, String(i + 1), W * 0.13, dk ? '#FFFFFF' : '#14161B', { op: 0.9 }); z.push(T('i' + (i + 1), x + W * 0.025, b.y + b.h * 0.25, W / 3 - W * 0.05, b.h * 0.7, { al: 'center', dk: dk, k: 0.8 })); } });
+    } else if (CV === 3) {
+      items(6, y0, y1, 0).forEach(function (b, i) { var col = cols[i % cols.length], dk = onDark(col), sl = H * 0.02, left = i % 2 === 0;
+        s += poly([[0, b.y + (left ? 0 : sl)], [W, b.y + (left ? sl : 0)], [W, b.y + b.h + (left ? 0 : sl)], [0, b.y + b.h + (left ? sl : 0)]], col) + txt(left ? W * 0.13 : W * 0.87, b.y + b.h / 2 + sl / 2, String(i + 1), W * 0.13, dk ? '#FFFFFF' : '#14161B', { op: 0.9 });
+        z.push(T('i' + (i + 1), left ? W * 0.26 : W * 0.06, b.y + b.h * 0.16, W * 0.68, b.h * 0.76, { v: 'center', al: left ? 'left' : 'right', dk: dk, k: 0.95 })); });
+    } else {
+      var gp = CV === 4 ? W * 0.03 : 0;
+      items(3, y0, y1, gp).forEach(function (b, r) { for (var c = 0; c < 2; c++) {
+        var i = r * 2 + c, x = CV === 4 ? W * 0.05 + c * (W * 0.45 + gp / 2) : c * W / 2, w = CV === 4 ? W * 0.435 : W / 2, col = cols[(i + r) % cols.length], dk = onDark(col);
+        s += (CV === 4 ? rr(x, b.y, w, b.h, col, 34) : rect(x, b.y, w, b.h, col)) + txt(x + w / 2, b.y + b.h * 0.2, String(i + 1), W * 0.16, dk ? '#FFFFFF' : '#14161B', { op: 0.9 });
+        if (c === 0 && CV !== 4) s += circ(W / 2, b.y + b.h * 0.5, W * 0.035, col);
+        z.push(T('i' + (i + 1), x + W * 0.04, b.y + b.h * 0.36, w - W * 0.08, b.h * 0.58, { al: 'center', dk: dk, k: 0.9 }));
+      } });
+    }
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, z: z };
   };
-  /* 22. dashboard: figures, a column chart and a doughnut, then three notes */
+  /* 22. dashboard: 0 figures / column chart / doughnut + note, 1 chart first, 2 doughnut beside the figures, 3 two columns, 4 figure cards in a row */
   L.dash = function (t, W, H, o) {
     var dk = !!o.dark, bg = dk ? '#0C0F16' : '#F3F5F9', card = dk ? '#171C27' : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.025, H * 0.13, { dk: dk, cls: 'acc' })];
-    var c = function (x, y, w, h) { s += rr(x, y, w, h, card, 22) + (dk ? '' : stroke(x, y, w, h, t.line, 1.5, 22)); };
-    c(W * 0.06, H * 0.17, W * 0.88, H * 0.1); z.push(T('data', W * 0.09, H * 0.175, W * 0.82, H * 0.09, { v: 'center', dk: dk, cls: 'dsh', k: 1 }));
-    s += rr(W * 0.06, H * 0.29, W * 0.88, H * 0.26, '#FFFFFF', 22) + rr(W * 0.06, H * 0.57, W * 0.43, H * 0.22, '#FFFFFF', 22);   /* charts on white cards, so they read well */
-    z.push(T('data2', W * 0.09, H * 0.3, W * 0.82, H * 0.24, { k: 1 }));
-    z.push(T('data3', W * 0.08, H * 0.58, W * 0.39, H * 0.2, { k: 0.85 }));
-    c(W * 0.51, H * 0.57, W * 0.43, H * 0.22); z.push(T('i1', W * 0.54, H * 0.585, W * 0.37, H * 0.19, { v: 'center', dk: dk, k: 0.9 }));
+    var c = function (x, y, w, h) { s += rr(x, y, w, h, card, CV === 3 ? 8 : 22) + (dk ? '' : stroke(x, y, w, h, t.line, 1.5, CV === 3 ? 8 : 22)); };
+    var wc = function (x, y, w, h) { s += rr(x, y, w, h, '#FFFFFF', CV === 3 ? 8 : 22) + (dk ? '' : stroke(x, y, w, h, t.line, 1.5, CV === 3 ? 8 : 22)); };   /* charts sit on white cards */
+    var A = { 0: [[0.06, 0.17, 0.88, 0.1], [0.06, 0.29, 0.88, 0.26], [0.06, 0.57, 0.43, 0.22], [0.51, 0.57, 0.43, 0.22]],
+      1: [[0.06, 0.45, 0.88, 0.1], [0.06, 0.17, 0.88, 0.26], [0.51, 0.57, 0.43, 0.22], [0.06, 0.57, 0.43, 0.22]],
+      2: [[0.51, 0.17, 0.43, 0.26], [0.06, 0.45, 0.88, 0.26], [0.06, 0.17, 0.43, 0.26], [0.06, 0.73, 0.88, 0.07]],
+      3: [[0.06, 0.17, 0.3, 0.38], [0.38, 0.17, 0.56, 0.38], [0.06, 0.57, 0.43, 0.22], [0.51, 0.57, 0.43, 0.22]],
+      4: [[0.06, 0.17, 0.88, 0.12], [0.06, 0.31, 0.56, 0.3], [0.64, 0.31, 0.3, 0.3], [0.06, 0.63, 0.88, 0.16]] }[CV] || [];
+    var st = A[0], ch = A[1], pi = A[2], nt = A[3];
+    c(W * st[0], H * st[1], W * st[2], H * st[3]); z.push(T('data', W * (st[0] + 0.02), H * (st[1] + 0.005), W * (st[2] - 0.04), H * (st[3] - 0.01), { v: 'center', dk: dk, cls: 'dsh' + (CV === 3 ? ' col' : CV === 4 ? ' boxes' : ''), k: 1 }));
+    wc(W * ch[0], H * ch[1], W * ch[2], H * ch[3]); z.push(T('data2', W * (ch[0] + 0.02), H * (ch[1] + 0.01), W * (ch[2] - 0.04), H * (ch[3] - 0.02), { k: 1 }));
+    wc(W * pi[0], H * pi[1], W * pi[2], H * pi[3]); z.push(T('data3', W * (pi[0] + 0.02), H * (pi[1] + 0.01), W * (pi[2] - 0.04), H * (pi[3] - 0.02), { k: 0.85 }));
+    c(W * nt[0], H * nt[1], W * nt[2], H * nt[3]); z.push(T('i1', W * (nt[0] + 0.03), H * (nt[1] + 0.012), W * (nt[2] - 0.06), H * (nt[3] - 0.024), { v: 'center', dk: dk, k: 0.9 }));
     items(2, H * 0.81, H * 0.945, H * 0.012).forEach(function (b, i) {
       c(W * 0.06, b.y, W * 0.88, b.h); s += circ(W * 0.13, b.y + b.h / 2, W * 0.04, t.a) + ic(i + 2, W * 0.13, b.y + b.h / 2, W * 0.04, D.onColor(t.a), 2.2);
       z.push(T('i' + (i + 2), W * 0.2, b.y + b.h * 0.08, W * 0.7, b.h * 0.84, { v: 'center', dk: dk, k: 0.85 }));
@@ -5551,118 +5473,529 @@ D.toDocx = function (doc, opts) {
     z.push(foot(W, H, { dk: dk }));
     return { s: s, z: z };
   };
-  /* 23. big numbers: huge figures across the top half, points below */
+  /* 23. big numbers: 0 card with figures, 1 full-width colour band, 2 figures in rings, 3 figures stacked down the left, 4 figures in colour boxes */
   L.bigstat = function (t, W, H, o) {
-    var dk = o.dark !== false, bg = dk ? '#0A0A0D' : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, H * 0.18, W, 6, t.a), z = [T('head', W * 0.07, H * 0.03, W * 0.86, H * 0.14, { v: 'center', tf: 0.13, tmax: 84, k: 1.2, dk: dk, cls: 'acc' })];
-    s += rr(W * 0.06, H * 0.21, W * 0.88, H * 0.33, dk ? '#FFFFFF' : t.tint, 30, dk ? 0.06 : 1) + grid(W * 0.06, H * 0.21, W * 0.88, H * 0.33, 40, dk ? '#FFFFFF' : t.p, 0.05);
-    z.push(T('data', W * 0.09, H * 0.225, W * 0.82, H * 0.3, { v: 'center', dk: dk, cls: 'big', k: 1 }));
+    var dk = o.dark !== false, bg = dk ? '#0A0A0D' : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [T('head', W * 0.07, H * 0.03, W * 0.86, H * 0.14, { v: 'center', tf: 0.13, tmax: 84, k: 1.2, dk: dk, cls: 'acc' })];
+    if (CV !== 1) s += rect(0, H * 0.18, W, 6, t.a);
+    var dy = H * 0.21, dh = H * 0.33, cls = ['big', 'big band', 'big ring', 'big stack', 'big box'][CV] || 'big';
+    if (CV === 1) { s += rect(0, dy - H * 0.01, W, dh + H * 0.02, t.p); z.push(T('data', W * 0.07, dy, W * 0.86, dh, { v: 'center', dk: onDark(t.p), cls: cls, k: 1 })); }
+    else if (CV === 3) { s += rect(W * 0.06, dy, 6, dh, t.a); z.push(T('data', W * 0.1, dy, W * 0.84, dh, { v: 'center', dk: dk, cls: cls, k: 0.9 })); }
+    else { if (CV === 0) s += CARD(W * 0.06, dy, W * 0.88, dh, t.tint, 30, dk) + grid(W * 0.06, dy, W * 0.88, dh, 40, dk ? '#FFFFFF' : t.p, 0.05); z.push(T('data', W * 0.07, dy + H * 0.01, W * 0.86, dh - H * 0.02, { v: 'center', dk: dk, cls: cls, k: 1 })); }
     items(4, H * 0.57, H * 0.945, H * 0.012).forEach(function (b, i) {
-      s += line(W * 0.06, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 1.5, dk ? 0.2 : 1) + txt(W * 0.1, b.y + b.h / 2, '+', 36, t.a);
-      z.push(T('i' + (i + 1), W * 0.16, b.y + b.h * 0.06, W * 0.78, b.h * 0.88, { v: 'center', dk: dk, k: 0.95 }));
+      if (CV === 2 || CV === 4) { s += CARD(W * 0.06, b.y, W * 0.88, b.h, t.tint, 18, dk) + circ(W * 0.12, b.y + b.h / 2, W * 0.035, t.a) + txt(W * 0.12, b.y + b.h / 2, String(i + 1), 18, D.onColor(t.a)); }
+      else s += line(W * 0.06, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 1.5, dk ? 0.2 : 1) + txt(W * 0.1, b.y + b.h / 2, CV === 3 ? num(i) : '+', CV === 3 ? 24 : 36, t.a);
+      z.push(T('i' + (i + 1), W * 0.17, b.y + b.h * 0.06, W * 0.76, b.h * 0.88, { v: 'center', dk: dk, k: 0.95 }));
     });
     z.push(foot(W, H, { dk: dk }));
     return { s: s, z: z };
   };
-  /* 24. two-column grid: tiles with a colour heading band and a small icon */
-  L.grid2 = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.tint, '#FFFFFF', 0.3), s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 44, '#FFFFFF', 0.04) : ''), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    var cw = W * 0.42;
-    items(3, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, r) { for (var c = 0; c < 2; c++) {
-      var i = r * 2 + c, x = W * 0.06 + c * (cw + W * 0.04);
-      s += rr(x, b.y, cw, b.h, dk ? '#FFFFFF' : '#FFFFFF', 18, dk ? 0.07 : 1) + rr(x, b.y, cw, b.h * 0.26, i % 2 ? t.a : t.p, 18) + rect(x, b.y + b.h * 0.16, cw, b.h * 0.1, i % 2 ? t.a : t.p);
-      s += ic(i, x + cw - W * 0.06, b.y + b.h * 0.1, W * 0.045, D.onColor(i % 2 ? t.a : t.p), 2.2);
-      z.push(T('i' + (i + 1), x + W * 0.03, b.y + b.h * 0.03, cw - W * 0.12, b.h * 0.2, { v: 'center', dk: onDark(i % 2 ? t.a : t.p), cls: 'hb', k: 0.9 }));
-      z.push(T('j' + (i + 1), x + W * 0.03, b.y + b.h * 0.31, cw - W * 0.06, b.h * 0.65, { dk: dk, cls: 'hb2', k: 0.95 }));
-    } });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z, split: true };
-  };
-  /* 25. puzzle: jigsaw pieces in two columns */
+  /* 25. puzzle: 0 two columns, 1 one column, 2 three columns, 3 pieces apart with white knobs, 4 one column of separate rounded pieces */
   L.puzzle = function (t, W, H, o) {
-    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, '#FFFFFF', 0.2), D.mix(t.p, '#000000', 0.3)], s = rect(0, 0, W, H, D.mix(t.p, '#06070B', 0.75)), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
-    var x0 = W * 0.06, cw = W * 0.44, ys = items(3, H * 0.19, H * 0.94, 0), r = W * 0.045;
-    ys.forEach(function (b, row) { for (var c = 0; c < 2; c++) {
-      var i = row * 2 + c, x = x0 + c * cw, col = cols[i % cols.length], dk = onDark(col);
-      s += rect(x, b.y, cw, b.h, col);
-      if (c === 0) s += circ(x + cw, b.y + b.h / 2, r, col);            /* knob into the right piece */
-      if (row < 2) s += circ(x + cw / 2, b.y + b.h, r, col);           /* knob into the piece below */
-      s += txt(x + W * 0.07, b.y + b.h * 0.16, String(i + 1), W * 0.1, dk ? '#FFFFFF' : '#14161B', { op: 0.85 });
-      z.push(T('i' + (i + 1), x + W * 0.04, b.y + b.h * 0.3, cw - W * 0.08, b.h * 0.62, { dk: dk, k: 0.9 }));
+    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, '#FFFFFF', 0.2), D.mix(t.p, '#000000', 0.3)], bg = D.mix(t.p, '#06070B', 0.75), s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
+    var nc = CV === 1 || CV === 4 ? 1 : CV === 2 ? 3 : 2, nr = Math.ceil(6 / nc), gp = CV >= 3 ? W * 0.03 : 0, x0 = W * 0.06, cw = (W * 0.88 - gp * (nc - 1)) / nc, ys = items(nr, H * 0.19, H * 0.94, gp), r = W * (nc === 3 ? 0.035 : 0.045);
+    ys.forEach(function (b, row) { for (var c = 0; c < nc; c++) {
+      var i = row * nc + c; if (i > 5) return;
+      var x = x0 + c * (cw + gp), col = cols[i % cols.length], dk = onDark(col), knob = CV >= 3 ? '#FFFFFF' : col;
+      s += CV >= 3 ? rr(x, b.y, cw, b.h, col, 16) : rect(x, b.y, cw, b.h, col);
+      if (c < nc - 1) s += circ(x + cw + gp / 2, b.y + b.h / 2, r, knob);
+      if (row < nr - 1) s += circ(x + cw / 2, b.y + b.h + gp / 2, r, knob);
+      s += txt(x + W * (nc === 3 ? 0.05 : 0.07), b.y + b.h * 0.16, String(i + 1), W * (nc === 3 ? 0.08 : 0.1), dk ? '#FFFFFF' : '#14161B', { op: 0.85 });
+      z.push(T('i' + (i + 1), x + W * 0.03, b.y + b.h * (nc === 1 ? 0.12 : 0.3), cw - W * 0.06 - (nc === 1 ? W * 0.12 : 0), b.h * (nc === 1 ? 0.76 : 0.62), { dk: dk, v: nc === 1 ? 'center' : 'top', k: nc === 3 ? 0.8 : 0.9 }));
+      if (nc === 1) z[z.length - 1].x += W * 0.14;
     } });
-    s += stroke(x0, H * 0.19, cw * 2, H * 0.75, '#FFFFFF', 4, 0, 0.9);
+    if (CV < 3) s += stroke(x0, H * 0.19, W * 0.88, H * 0.75, '#FFFFFF', 4, 0, 0.9);
     z.push(foot(W, H, { dk: 1 }));
     return { s: s, z: z };
   };
-  /* 26. photo background: one big photo behind the whole page, glass cards on top */
-  L.photobg = function (t, W, H, o) {
-    var bg = dark0(t), s = rect(0, 0, W, H, bg) + glow('igg', W * 0.2, H * 0.75, W * 0.7) + rect(0, H * 0.46, W, H * 0.02, t.a), z = [PH('p0', 0, 0, W, H * 0.46, 'none'), head(W, H * 0.04, H * 0.15, { dk: 1, cls: 'acc' })];   /* photo behind the top half (a full-page picture breaks the Word page) */
-    z[0].dim = 1;
-    items(o.n || 5, H * 0.21, H * 0.94, H * 0.02).forEach(function (b, i) {
-      z.push(T('i' + (i + 1), W * 0.08, b.y, W * 0.84, b.h, { v: 'center', dk: 1, cls: 'acc card', k: 0.95 }));
-    });
-    z.push(foot(W, H, { dk: 1 }));
-    return { s: s, defs: rgrad('igg', t.s, 0.45), z: z };
-  };
-  /* 27. hand-drawn: cream paper, sketchy circles and arrows, marker blobs */
-  function wob(cx, cy, r, c, sw, seed) { var d = '', n = 28; for (var k = 0; k <= n; k++) { var a = k / n * Math.PI * 2.08, rr2 = r * (1 + Math.sin(k * 1.7 + seed) * 0.035); d += (k ? ' L' : 'M') + (cx + rr2 * Math.cos(a)).toFixed(1) + ' ' + (cy + rr2 * Math.sin(a)).toFixed(1); } return path(d, null, null, c, sw).replace('/>', ' stroke-linecap="round" stroke-linejoin="round"/>'); }
-  L.doodle = function (t, W, H, o) {
-    var s = rect(0, 0, W, H, '#FFFBF2'), z = [T('head', W * 0.08, H * 0.03, W * 0.84, H * 0.14, { al: 'center', v: 'center', tf: 0.11, tmax: 70, k: 1.15, cls: 'hand' })];
-    for (var k = 0; k < 7; k++) s += path('M' + (W * (0.05 + k * 0.15)) + ' ' + (H * 0.18) + ' q 12 -14 24 0 t 24 0', null, null, t.a, 3);
-    items(o.n || 5, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
-      var left = i % 2 === 0, cx = left ? W * 0.17 : W * 0.83, cy = b.y + b.h / 2, c = [t.p, t.a, t.s][i % 3];
-      s += circ(cx + 8, cy + 6, W * 0.09, c, 0.18) + wob(cx, cy, W * 0.09, t.p, 3, i) + ic(i, cx, cy, W * 0.08, t.p, 2.4);
-      s += wob(W / 2, cy, W * 0.36 * 0 + 1, '#FFFBF2', 0, 0);
-      if (i < (o.n || 5) - 1) s += path('M' + cx + ' ' + (cy + W * 0.1) + ' C ' + cx + ' ' + (cy + b.h * 0.5) + ', ' + (left ? W * 0.83 : W * 0.17) + ' ' + (cy + b.h * 0.3) + ', ' + (left ? W * 0.8 : W * 0.2) + ' ' + (cy + b.h - W * 0.08), null, null, t.p, 2.5).replace('/>', ' stroke-dasharray="7 9" stroke-linecap="round"/>');
-      z.push(T('i' + (i + 1), left ? W * 0.31 : W * 0.08, b.y + b.h * 0.08, W * 0.61, b.h * 0.84, { v: 'center', al: left ? 'left' : 'right', cls: 'hand', k: 0.95 }));
-    });
-    z.push(foot(W, H));
-    return { s: s, z: z };
-  };
-  /* 28. waves: each point on its own wavy colour band */
+  /* 28. waves: 0 soft waves, 1 deep waves, 2 diagonal bands, 3 rolling hills, 4 zigzag edges */
   L.waves = function (t, W, H, o) {
     var s = rect(0, 0, W, H, '#FFFFFF'), z = [head(W, H * 0.03, H * 0.13, { dk: onDark(t.p), cls: 'acc' })];
     var cols = [t.p, D.mix(t.p, t.s, 0.5), t.s, D.mix(t.s, t.a, 0.45), D.mix(t.a, t.s, 0.25), t.a], n = o.n || 5, its = items(n, H * 0.17, H * 0.95, 0);
-    function wave(y, c, ph) { var d = 'M0 ' + y; for (var k = 0; k <= 20; k++) d += ' L' + (W * k / 20) + ' ' + (y + Math.sin(k / 20 * Math.PI * 2 + ph) * H * 0.008); return d + ' L' + W + ' ' + H + ' L0 ' + H + ' Z'; }
+    function edge(y, ph) {
+      var d = 'M0 ' + y, k;
+      if (CV === 2) d = 'M0 ' + (y + H * 0.02) + ' L' + W + ' ' + (y - H * 0.02);
+      else if (CV === 4) for (k = 0; k <= 16; k++) d += ' L' + (W * k / 16) + ' ' + (y + (k % 2 ? -1 : 1) * H * 0.008);
+      else if (CV === 3) d = 'M0 ' + (y + H * 0.02) + ' Q ' + (W * 0.5) + ' ' + (y - H * 0.035) + ' ' + W + ' ' + (y + H * 0.02);
+      else for (k = 0; k <= 24; k++) d += ' L' + (W * k / 24) + ' ' + (y + Math.sin(k / 24 * Math.PI * 2 * (CV === 1 ? 1.5 : 1) + ph) * H * (CV === 1 ? 0.018 : 0.008));
+      return d + ' L' + W + ' ' + H + ' L0 ' + H + ' Z';
+    }
     s += rect(0, 0, W, H * 0.2, t.p);
-    its.forEach(function (b, i) { var c = cols[(i + 1) % cols.length]; s += path(wave(b.y, c, i), c); });
+    its.forEach(function (b, i) { s += path(edge(b.y, i), cols[(i + 1) % cols.length]); });
     its.forEach(function (b, i) {
-      var c = cols[(i + 1) % cols.length], dk = onDark(c), left = i % 2 === 0;
-      s += txt(left ? W * 0.13 : W * 0.87, b.y + b.h / 2, num(i), W * 0.11, dk ? '#FFFFFF' : '#14161B', { op: 0.35 });
-      z.push(T('i' + (i + 1), left ? W * 0.26 : W * 0.08, b.y + b.h * 0.14, W * 0.66, b.h * 0.76, { v: 'center', al: left ? 'left' : 'right', dk: dk, cls: 'inh', k: 0.95 }));
+      var c = cols[(i + 1) % cols.length], dk = onDark(c), left = (i + CF) % 2 === 0, ctr = CV === 3;
+      if (ctr) s += circ(W / 2, b.y + b.h * 0.3, W * 0.05, '#FFFFFF', 0.25) + txt(W / 2, b.y + b.h * 0.3, num(i), W * 0.045, dk ? '#FFFFFF' : '#14161B');
+      else s += txt(left ? W * 0.13 : W * 0.87, b.y + b.h / 2, num(i), W * 0.11, dk ? '#FFFFFF' : '#14161B', { op: 0.35 });
+      z.push(T('i' + (i + 1), ctr ? W * 0.12 : left ? W * 0.26 : W * 0.08, b.y + b.h * (ctr ? 0.42 : 0.14), ctr ? W * 0.76 : W * 0.66, b.h * (ctr ? 0.52 : 0.76), { v: 'center', al: ctr ? 'center' : left ? 'left' : 'right', dk: dk, cls: 'inh', k: 0.95 }));
     });
     z.push(foot(W, H, { dk: onDark(cols[n % cols.length]) }));
     return { s: s, z: z };
   };
-  /* 29. comparison: two columns side by side with a VS badge, then tips below */
-  L.compare = function (t, W, H, o) {
-    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? '' : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
-    var cw = W * 0.42, y = H * 0.21, h = H * 0.42;   /* two tall columns */
-    [0, 1].forEach(function (c) {
-      var x = W * 0.06 + c * (cw + W * 0.04), col = c ? t.a : t.p;
-      s += rr(x, y, cw, h, dk ? '#FFFFFF' : '#FFFFFF', 26, dk ? 0.07 : 1) + stroke(x, y, cw, h, col, 3, 26) + rr(x, y, cw, H * 0.075, col, 26) + rect(x, y + H * 0.05, cw, H * 0.025, col);
-      z.push(T('i' + (c + 1), x + W * 0.025, y + H * 0.006, cw - W * 0.05, h - H * 0.02, { dk: dk, cls: 'cmp' + (c ? ' cb' : ''), k: 1.05, vars: '--zh0:' + Math.round(H * 0.066) + 'px' }));
-    });
-    s += circ(W / 2, y + h / 2, W * 0.06, t.s) + ring(W / 2, y + h / 2, W * 0.065, bg, 6) + txt(W / 2, y + h / 2, 'VS', W * 0.04, D.onColor(t.s));
-    items(4, H * 0.66, H * 0.945, H * 0.012).forEach(function (b, i) {
-      s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : t.tint, 18, dk ? 0.07 : 1) + circ(W * 0.12, b.y + b.h / 2, W * 0.035, t.p) + txt(W * 0.12, b.y + b.h / 2, '✓', 20, D.onColor(t.p));
-      z.push(T('i' + (i + 3), W * 0.18, b.y + b.h * 0.06, W * 0.72, b.h * 0.88, { v: 'center', dk: dk, k: 0.85 }));
-    });
-    z.push(foot(W, H, { dk: dk }));
-    return { s: s, z: z };
-  };
-  /* 30. rules: black page, huge condensed title, 3-D prisms beside each rule */
   function prism(cx, cy, r, c) {
     var top = [[cx, cy - r], [cx + r * 0.87, cy - r * 0.5], [cx, cy], [cx - r * 0.87, cy - r * 0.5]], lf = [[cx - r * 0.87, cy - r * 0.5], [cx, cy], [cx, cy + r], [cx - r * 0.87, cy + r * 0.5]], rt = [[cx, cy], [cx + r * 0.87, cy - r * 0.5], [cx + r * 0.87, cy + r * 0.5], [cx, cy + r]];
     return poly(top, D.mix(c, '#FFFFFF', 0.35)) + poly(lf, c) + poly(rt, D.mix(c, '#000000', 0.35));
   }
+  /* 30. rules: 0 cubes, 1 spheres, 2 pyramids, 3 huge outline numbers, 4 cylinders */
+  function shape3d(kind, cx, cy, r, c) {
+    if (kind === 1) return '<defs><radialGradient id="sp' + Math.round(cx) + Math.round(cy) + '" cx="35%" cy="30%"><stop offset="0" stop-color="' + D.mix(c, '#FFFFFF', 0.6) + '"/><stop offset="1" stop-color="' + D.mix(c, '#000000', 0.35) + '"/></radialGradient></defs><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#sp' + Math.round(cx) + Math.round(cy) + ')"/>';
+    if (kind === 2) return poly([[cx, cy - r], [cx - r * 0.9, cy + r * 0.7], [cx, cy + r * 0.95]], c) + poly([[cx, cy - r], [cx, cy + r * 0.95], [cx + r * 0.9, cy + r * 0.7]], D.mix(c, '#000000', 0.35));
+    if (kind === 4) return rect(cx - r * 0.7, cy - r * 0.6, r * 1.4, r * 1.3, D.mix(c, '#000000', 0.2)) + '<ellipse cx="' + cx + '" cy="' + (cy + r * 0.7) + '" rx="' + r * 0.7 + '" ry="' + r * 0.25 + '" fill="' + D.mix(c, '#000000', 0.2) + '"/><ellipse cx="' + cx + '" cy="' + (cy - r * 0.6) + '" rx="' + r * 0.7 + '" ry="' + r * 0.25 + '" fill="' + D.mix(c, '#FFFFFF', 0.3) + '"/>';
+    return prism(cx, cy, r, c);
+  }
   L.rules = function (t, W, H, o) {
     var s = rect(0, 0, W, H, '#0B0B0D'), z = [T('head', W * 0.07, H * 0.025, W * 0.86, H * 0.17, { al: 'center', v: 'center', tf: 0.16, tmax: 110, k: 1.25, dk: 1, cls: 'acc cond' })];
     items(o.n || 4, H * 0.22, H * 0.94, H * 0.02).forEach(function (b, i) {
-      var left = i % 2 === 0, px = left ? W * 0.8 : W * 0.2, cy = b.y + b.h / 2, c = [t.a, t.s, D.mix(t.a, '#FFFFFF', 0.25), t.p][i % 4];
-      s += prism(px, cy, Math.min(W * 0.13, b.h * 0.38), c) + line(W * 0.07, b.y + b.h, W * 0.93, b.y + b.h, '#FFFFFF', 1, 0.18);
+      var left = (i + CF) % 2 === 0, px = left ? W * 0.8 : W * 0.2, cy = b.y + b.h / 2, c = [t.a, t.s, D.mix(t.a, '#FFFFFF', 0.25), t.p][i % 4], r = Math.min(W * 0.13, b.h * 0.38);
+      if (CV === 3) s += txt(px, cy, String(i + 1), b.h * 0.9, 'none', { f: 'Impact, Arial Black, sans-serif' }).replace('fill="none"', 'fill="none" stroke="' + c + '" stroke-width="4"');
+      else s += shape3d(CV, px, cy, r, c);
+      s += line(W * 0.07, b.y + b.h, W * 0.93, b.y + b.h, '#FFFFFF', 1, 0.18);
       z.push(T('i' + (i + 1), left ? W * 0.07 : W * 0.38, b.y + b.h * 0.08, W * 0.55, b.h * 0.84, { v: 'center', dk: 1, cls: 'acc rule', k: 1 }));
     });
     z.push(foot(W, H, { dk: 1 }));
+    return { s: s, z: z };
+  };
+
+  function wob(cx, cy, r, c, sw, seed) { var d = '', n = 28; for (var k = 0; k <= n; k++) { var a = k / n * Math.PI * 2.08, rr2 = r * (1 + Math.sin(k * 1.7 + seed) * 0.035); d += (k ? ' L' : 'M') + (cx + rr2 * Math.cos(a)).toFixed(1) + ' ' + (cy + rr2 * Math.sin(a)).toFixed(1); } return path(d, null, null, c, sw).replace('/>', ' stroke-linecap="round" stroke-linejoin="round"/>'); }
+  /* 7. photo rows: 0 photo and text alternate, 1 two-column cards with the photo on top, 2 round photos on the left, 3 square photos on the right with rules, 4 diamond photos on a rail */
+  L.photos = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.17, t.p) + rect(0, H * 0.17, W, 10, t.a), z = [head(W, H * 0.02, H * 0.13, { dk: 1, cls: 'acc' })];
+    var n = o.n || 5, y0 = H * 0.2, y1 = H * 0.94;
+    if (CV === 1) {
+      ARR(n, y0, y1, H * 0.02, W).forEach(function (b) { s += CARD(b.x, b.y, b.w, b.h, t.tint, 22, dk); z.push(PH('p' + (b.i + 1), b.x + W * 0.02, b.y + b.h * 0.04, b.w - W * 0.04, b.h * 0.44, 'round')); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + b.h * 0.52, b.w - W * 0.06, b.h * 0.45, { dk: dk, k: 0.85 })); });
+    } else {
+      items(n, y0, y1, H * 0.02).forEach(function (b, i) {
+        var left = CV === 0 ? (i + CF) % 2 === 0 : CV !== 3, ph = CV === 2 ? Math.min(b.h * 0.86, W * 0.3) : CV === 4 ? Math.min(b.h * 0.9, W * 0.28) : b.h * 0.8, pw = CV === 0 ? W * 0.38 : ph;
+        var px = left ? W * (CV === 4 ? 0.12 : 0.06) : W * 0.94 - pw, tx = left ? px + pw + W * 0.05 : W * 0.08, tw = W * 0.86 - pw - W * 0.05 - (CV === 4 ? W * 0.06 : 0), py = b.y + (b.h - ph) / 2;
+        if (CV === 0) s += CARD(W * 0.04, b.y, W * 0.92, b.h, t.tint, 26, dk) + rr(px - 6, py - 6, pw + 12, ph + 12, t.a, 22);
+        else if (CV === 2) s += CARD(W * 0.04 + pw / 2, b.y + b.h * 0.08, W * 0.9 - pw / 2, b.h * 0.84, t.tint, b.h * 0.42, dk) + circ(px + pw / 2, py + ph / 2, pw / 2 + 8, t.a);
+        else if (CV === 3) s += line(W * 0.06, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 2, dk ? 0.25 : 1) + rect(px - 10, py + 10, pw, ph, t.a, 0.8);
+        else s += (i < n - 1 ? line(px + pw / 2, py + ph / 2, px + pw / 2, b.y + b.h + H * 0.02 + b.h / 2, t.a, 3) : '') + poly([[px + pw / 2, py - 8], [px + pw + 8, py + ph / 2], [px + pw / 2, py + ph + 8], [px - 8, py + ph / 2]], t.a);
+        z.push(PH('p' + (i + 1), px, py, pw, ph, CV === 2 ? 'circle' : CV === 4 ? 'diamond' : CV === 3 ? 'none' : 'round'));
+        z.push(T('i' + (i + 1), tx, b.y + b.h * 0.1, tw, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 8. pill headings: 0 on a line at the left, 1 two-column grid, 2 on a centre line (both sides), 3 numbered circles with a dotted path, 4 numbered rail */
+  L.pills = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.tint, '#FFFFFF', 0.4), s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.2, H * 0.1, W * 0.7) : ''), z = [head(W, H * 0.03, H * 0.15, { dk: dk, cls: 'acc' })];
+    var n = o.n || 6, y0 = H * 0.2, y1 = H * 0.94;
+    if (CV === 1 || CV === 4) {
+      var bx = ARR(n, y0, y1, H * 0.018, W); s += RAIL(bx, W, t.a, D.onColor(t.a));
+      bx.forEach(function (b) { s += CARD(b.x, b.y, b.w, b.h, '#FFFFFF', 22, dk); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + b.h * 0.08, b.w - W * 0.06, b.h * 0.84, { dk: dk, cls: 'pill', al: b.grid ? 'center' : 'left', k: b.grid ? 0.85 : 0.95 })); });
+    } else if (CV === 2) {
+      s += rect(W / 2 - 2, y0, 4, y1 - y0, t.a, 0.7);
+      items(n, y0, y1, H * 0.016).forEach(function (b, i) { var left = i % 2 === 0, x = left ? W * 0.05 : W * 0.53; s += circ(W / 2, b.y + b.h / 2, 12, t.a) + CARD(x, b.y, W * 0.42, b.h, '#FFFFFF', 22, dk); z.push(T('i' + (i + 1), x + W * 0.025, b.y + b.h * 0.08, W * 0.37, b.h * 0.84, { dk: dk, cls: 'pill', al: left ? 'right' : 'left', k: 0.85 })); });
+    } else if (CV === 3) {
+      items(n, y0, y1, H * 0.016).forEach(function (b, i) { var cy = b.y + b.h / 2; s += (i < n - 1 ? line(W * 0.13, cy, W * 0.13, cy + b.h, t.a, 3, 0.6).replace('/>', ' stroke-dasharray="4 8"/>') : '') + circ(W * 0.13, cy, W * 0.06, t.p) + txt(W * 0.13, cy, num(i), W * 0.04, D.onColor(t.p)); z.push(T('i' + (i + 1), W * 0.24, b.y + b.h * 0.06, W * 0.7, b.h * 0.88, { v: 'center', dk: dk, cls: 'pill pa', k: 0.95 })); });
+    } else {
+      s += rect(W * 0.12, y0, 4, H * 0.72, t.a, 0.7);
+      items(n, y0, y1, H * 0.016).forEach(function (b, i) {
+        s += circ(W * 0.12 + 2, b.y + 30, 14, t.a) + CARD(W * 0.18, b.y, W * 0.74, b.h, '#FFFFFF', 22, dk) + line(W * 0.12 + 16, b.y + 30, W * 0.18, b.y + 30, t.a, 3);
+        z.push(T('i' + (i + 1), W * 0.21, b.y + b.h * 0.06, W * 0.68, b.h * 0.88, { dk: dk, cls: 'pill', k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.5), z: z };
+  };
+  /* 13. hero photo: 0 slanted photo, 1 round photo in the middle, 2 straight photo + two-column cards, 3 arch window, 4 photo on the right half with the title beside it */
+  L.hero = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg), z = [], top = H * 0.35;
+    if (CV === 1) { s += rect(0, 0, W, H * 0.13, t.p) + circ(W / 2, H * 0.12, W * 0.24, t.a); z.push(PH('p0', W * 0.28, H * 0.12 - W * 0.22, W * 0.44, W * 0.44, 'circle')); z.push(T('head', W * 0.08, H * 0.235, W * 0.84, H * 0.1, { al: 'center', v: 'center', tf: 0.09, tmax: 60, k: 1.05, dk: dk })); }
+    else if (CV === 2) { z.push(PH('p0', W * 0.06, H * 0.03, W * 0.88, H * 0.19, 'round')); z.push(T('head', W * 0.08, H * 0.23, W * 0.84, H * 0.1, { al: 'left', v: 'center', tf: 0.09, tmax: 60, k: 1.05, dk: dk })); s += rect(W * 0.08, H * 0.333, W * 0.2, 6, t.a); }
+    else if (CV === 3) { s += rect(0, 0, W, H * 0.3, t.p); z.push(PH('p0', W * 0.2, H * 0.04, W * 0.6, H * 0.2, 'arch')); z.push(T('head', W * 0.08, H * 0.245, W * 0.84, H * 0.09, { al: 'center', v: 'center', tf: 0.09, tmax: 60, k: 1.05, dk: onDark(t.p) })); s = s.replace(rect(0, 0, W, H * 0.3, t.p), rect(0, 0, W, H * 0.3, t.p) + rect(0, H * 0.3, W, H * 0.04, t.p)); }
+    else if (CV === 4) { s += rect(0, 0, W, H * 0.32, t.p); z.push(PH('p0', W * 0.52, 0, W * 0.48, H * 0.32, 'slantL')); z.push(T('head', W * 0.06, H * 0.04, W * 0.44, H * 0.26, { al: 'left', v: 'center', tf: 0.12, tmax: 60, k: 1, dk: onDark(t.p) })); }
+    else { z.push(PH('p0', 0, 0, W, H * 0.24, 'slantB')); s += P0(W, H, t); z.push(T('head', W * 0.08, H * 0.243, W * 0.84, H * 0.085, { al: 'left', v: 'center', tf: 0.09, tmax: 60, k: 1.05, dk: onDark(t.p) })); }
+    if (CV === 2) {
+      ARR(Math.min(6, (o.n || 5) + 1), top, H * 0.94, H * 0.016, W).forEach(function (b) { s += CARD(b.x, b.y, b.w, b.h, '#FFFFFF', 20, dk) + circ(b.x + b.w / 2, b.y + b.h * 0.22, W * 0.045, t.a) + ic(b.i, b.x + b.w / 2, b.y + b.h * 0.22, W * 0.045, D.onColor(t.a), 2.2); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + b.h * 0.38, b.w - W * 0.06, b.h * 0.58, { al: 'center', dk: dk, k: 0.85 })); });
+    } else {
+      items(o.n || 5, top, H * 0.94, H * 0.016).forEach(function (b, i) {
+        s += CARD(W * 0.06, b.y, W * 0.88, b.h, '#FFFFFF', 20, dk) + rr(W * 0.06, b.y, 14, b.h, t.a, 7) + circ(W * 0.86, b.y + b.h / 2, W * 0.045, dk ? t.a : t.tint) + ic(i, W * 0.86, b.y + b.h / 2, W * 0.045, dk ? D.onColor(t.a) : t.p, 2.2);
+        z.push(T('i' + (i + 1), W * 0.11, b.y + b.h * 0.08, W * 0.66, b.h * 0.84, { v: 'center', dk: dk, k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  function hexP(cx, cy, r, flat) { var p = []; for (var k = 0; k < 6; k++) { var a = Math.PI / 3 * k + (flat ? 0 : Math.PI / 6); p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return p; }
+  /* 16. hexagons: 0 badges alternate sides, 1 all on the left, 2 hexagon tiles in two columns, 3 big outline hexagons, 4 hexagon chain on a rail */
+  L.hex = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.5, H * 0.5, W * 0.9) : ''), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var n = o.n || 6;
+    if (CV === 2) {
+      ARR(n, H * 0.2, H * 0.94, H * 0.02, W).forEach(function (b) { var r = Math.min(b.w * 0.5, b.h * 0.55), cx = b.x + b.w / 2, cy = b.y + b.h / 2, c = b.i % 2 ? t.a : t.p; s += poly(hexP(cx, cy, r, true), dk ? '#FFFFFF' : '#FFFFFF', dk ? 0.08 : 1) + '<polygon points="' + hexP(cx, cy, r, true).map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '" fill="none" stroke="' + c + '" stroke-width="4"/>' + circ(cx, b.y + b.h * 0.14, 20, c) + txt(cx, b.y + b.h * 0.14, num(b.i), 16, D.onColor(c)); z.push(T('i' + (b.i + 1), cx - r * 0.72, b.y + b.h * 0.25, r * 1.44, b.h * 0.56, { al: 'center', v: 'center', dk: dk, k: 0.78 })); });
+    } else {
+      items(n, H * 0.19, H * 0.94, H * 0.016).forEach(function (b, i) {
+        var left = CV === 1 || CV === 4 ? true : (i + CF) % 2 === 0, hx = left ? W * 0.16 : W * 0.84, cy = b.y + b.h / 2, r = Math.min(W * (CV === 3 ? 0.13 : 0.1), b.h * (CV === 3 ? 0.55 : 0.48)), c = i % 2 ? t.a : t.p;
+        if (CV === 4 && i < n - 1) s += line(hx, cy, hx, cy + b.h + H * 0.016, c, 4, 0.6);
+        if (CV !== 3) s += CARD(left ? W * 0.2 : W * 0.06, b.y + b.h * 0.08, W * 0.74, b.h * 0.84, '#FFFFFF', 22, dk);
+        s += CV === 3 ? '<polygon points="' + hexP(hx, cy, r).map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '" fill="none" stroke="' + c + '" stroke-width="5"/>' + txt(hx, cy, num(i), r * 0.62, c) : poly(hexP(hx, cy, r), c) + txt(hx, cy, num(i), r * 0.62, D.onColor(c));
+        z.push(T('i' + (i + 1), left ? W * (CV === 3 ? 0.33 : 0.3) : W * 0.1, b.y + b.h * 0.12, W * 0.6, b.h * 0.76, { v: 'center', dk: dk, k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.4), z: z };
+  };
+  /* 17. steps: 0 number squares on cards, 1 a rising staircase, 2 big outline numbers, 3 two-by-two, 4 arrows pointing down */
+  L.steps = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.s, '#FFFFFF', 0.85), s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var n = o.n || 4;
+    if (CV === 3) {
+      var ar = CV; CV = 2; var bx = ARR(4, H * 0.2, H * 0.94, H * 0.03, W); CV = ar;
+      bx.forEach(function (b) { s += CARD(b.x, b.y, b.w, b.h, '#FFFFFF', 30, dk) + rr(b.x + W * 0.03, b.y + W * 0.03, W * 0.14, W * 0.14, t.p, 18) + txt(b.x + W * 0.1, b.y + W * 0.1, String(b.i + 1), W * 0.09, D.onColor(t.p)); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + W * 0.2, b.w - W * 0.06, b.h - W * 0.23, { dk: dk, k: 0.9 })); });
+    } else {
+      items(n, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
+        if (CV === 1) {   /* staircase: each step is wider and further right */
+          var x = W * 0.06 + i * W * 0.06, w = W * 0.88 - i * W * 0.06; s += rect(x, b.y, w, b.h, i % 2 ? t.s : t.p, dk ? 0.9 : 1) + txt(x + W * 0.08, b.y + b.h / 2, String(i + 1), W * 0.1, D.onColor(i % 2 ? t.s : t.p));
+          z.push(T('i' + (i + 1), x + W * 0.17, b.y + b.h * 0.1, w - W * 0.21, b.h * 0.8, { v: 'center', dk: onDark(i % 2 ? t.s : t.p), k: 1 })); return;
+        }
+        if (CV === 2) { s += txt(W * 0.16, b.y + b.h / 2, String(i + 1), b.h * 0.8, 'none', { f: 'Impact, Arial Black, sans-serif' }).replace('fill="none"', 'fill="none" stroke="' + t.p + '" stroke-width="4"') + line(W * 0.3, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 2, dk ? 0.25 : 1); z.push(T('i' + (i + 1), W * 0.32, b.y + b.h * 0.1, W * 0.62, b.h * 0.8, { v: 'center', dk: dk, k: 1 })); return; }
+        if (CV === 4) { var cxx = W * 0.15; s += poly([[cxx - W * 0.09, b.y], [cxx + W * 0.09, b.y], [cxx + W * 0.09, b.y + b.h * 0.65], [cxx, b.y + b.h], [cxx - W * 0.09, b.y + b.h * 0.65]], t.p) + txt(cxx, b.y + b.h * 0.38, String(i + 1), W * 0.08, D.onColor(t.p)) + CARD(W * 0.28, b.y + b.h * 0.05, W * 0.66, b.h * 0.8, '#FFFFFF', 22, dk); z.push(T('i' + (i + 1), W * 0.32, b.y + b.h * 0.1, W * 0.58, b.h * 0.7, { v: 'center', dk: dk, k: 1 })); return; }
+        var off = W * 0.06 * (i % 2 ? 1 : 0), x0 = W * 0.06 + off, w0 = W * 0.82;
+        s += CARD(x0 + W * 0.1, b.y, w0 - W * 0.1, b.h, '#FFFFFF', 30, dk) + rr(x0, b.y + b.h * 0.18, W * 0.2, b.h * 0.64, t.p, 26) + txt(x0 + W * 0.1, b.y + b.h / 2, String(i + 1), W * 0.12, D.onColor(t.p));
+        s += circ(x0 + w0 - W * 0.08, b.y + b.h / 2, W * 0.05, t.a) + ic(i, x0 + w0 - W * 0.08, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
+        z.push(T('i' + (i + 1), x0 + W * 0.24, b.y + b.h * 0.1, w0 - W * 0.4, b.h * 0.8, { v: 'center', dk: dk, k: 1 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 18. bubbles: 0 speech bubbles both sides, 1 chat style with avatars, 2 thought clouds, 3 filled message bubbles, 4 two-by-two bubbles */
+  L.bubbles = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? '' : circ(W * 0.92, H * 0.05, W * 0.18, t.tint) + circ(W * 0.05, H * 0.6, W * 0.15, t.tint)), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var n = o.n || 4;
+    if (CV === 4) {
+      var ar = CV; CV = 2; var bx = ARR(4, H * 0.2, H * 0.92, H * 0.05, W); CV = ar;
+      bx.forEach(function (b) { s += CARD(b.x, b.y, b.w, b.h * 0.86, '#FFFFFF', 34, dk) + stroke(b.x, b.y, b.w, b.h * 0.86, t.p, 3, 34) + poly([[b.x + b.w * 0.2, b.y + b.h * 0.86], [b.x + b.w * 0.36, b.y + b.h * 0.86], [b.x + b.w * 0.16, b.y + b.h * 0.98]], t.p) + ic(b.i, b.x + b.w - W * 0.07, b.y + W * 0.07, W * 0.06, t.p, 2); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + b.h * 0.1, b.w - W * 0.06, b.h * 0.72, { v: 'center', dk: dk, cls: 'pill pa', k: 0.85 })); });
+    } else {
+      items(n, H * 0.2, H * 0.94, H * 0.03).forEach(function (b, i) {
+        var left = (i + CF) % 2 === 0 || CV === 1 && false, by = b.y, bh = b.h * 0.86;
+        if (CV === 1) left = i % 2 === 0;
+        var bx = CV === 1 ? (left ? W * 0.2 : W * 0.16) : left ? W * 0.06 : W * 0.3, bw = CV === 1 ? W * 0.64 : W * 0.64;
+        if (CV === 2) {   /* thought cloud: rounded box and little circles */
+          s += rr(bx, by, bw, bh, dk ? '#FFFFFF' : t.tint, bh * 0.45, dk ? 0.1 : 1) + circ(left ? bx + bw * 0.85 : bx + bw * 0.15, by + bh + 14, 14, dk ? '#FFFFFF' : t.tint, dk ? 0.1 : 1) + circ(left ? bx + bw * 0.92 : bx + bw * 0.08, by + bh + 38, 8, dk ? '#FFFFFF' : t.tint, dk ? 0.1 : 1);
+        } else if (CV === 3) {
+          var fc = left ? t.p : t.a; s += rr(bx, by, bw, bh, fc, 30) + poly(left ? [[bx, by + bh - 30], [bx - 22, by + bh + 6], [bx + 30, by + bh]] : [[bx + bw, by + bh - 30], [bx + bw + 22, by + bh + 6], [bx + bw - 30, by + bh]], fc);
+        } else {
+          var tail = left ? [[bx + bw * 0.75, by + bh], [bx + bw * 0.9, by + bh], [bx + bw * 0.95, by + bh + b.h * 0.12]] : [[bx + bw * 0.1, by + bh], [bx + bw * 0.25, by + bh], [bx + bw * 0.05, by + bh + b.h * 0.12]];
+          s += CARD(bx, by, bw, bh, '#FFFFFF', 34, dk) + stroke(bx, by, bw, bh, t.p, 3, 34, 0.9) + poly(tail, t.p);
+        }
+        var cx = CV === 1 ? (left ? W * 0.1 : W * 0.9) : left ? W * 0.84 : W * 0.15, cr = CV === 1 ? W * 0.06 : W * 0.085;
+        s += circ(cx, by + bh * (CV === 1 ? 0.8 : 0.55), cr, CV === 1 ? t.a : t.tint) + ic(i, cx, by + bh * (CV === 1 ? 0.8 : 0.55), cr * 0.9, CV === 1 ? D.onColor(t.a) : t.p, 2);
+        z.push(T('i' + (i + 1), bx + W * 0.04, by + bh * 0.1, bw - W * 0.08, bh * 0.82, { v: 'center', dk: CV === 3 ? onDark(left ? t.p : t.a) : dk, cls: CV === 3 ? 'inh' : 'pill pa', k: 1 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 21. illustrated: 0 alternate sides, 1 all pictures left, 2 two-column cards with a picture on top, 3 square pictures, 4 one big picture on top and a list */
+  L.illus = function (t, W, H, o) {
+    var dk = o.dark !== false, bg = dk ? dark0(t) : '#F4F6FB', s = rect(0, 0, W, H, bg) + glow('igg', W * 0.2, H * 0.3, W * 0.6) + glow('igg', W * 0.85, H * 0.75, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var n = o.n || 5;
+    if (CV === 2) {
+      ARR(Math.max(4, n), H * 0.19, H * 0.94, H * 0.02, W).forEach(function (b) { s += CARD(b.x, b.y, b.w, b.h, '#FFFFFF', 26, dk) + circ(b.x + b.w / 2, b.y + b.h * 0.28, b.h * 0.25, t.a, 0.25); z.push(PH('p' + (b.i + 1), b.x + b.w / 2 - b.h * 0.24, b.y + b.h * 0.04, b.h * 0.48, b.h * 0.48, 'circle')); z.push(T('i' + (b.i + 1), b.x + W * 0.03, b.y + b.h * 0.56, b.w - W * 0.06, b.h * 0.42, { al: 'center', dk: dk, cls: 'acc', k: 0.82 })); });
+    } else if (CV === 4) {
+      s += circ(W / 2, H * 0.3, W * 0.3, t.a, 0.25); z.push(PH('p0', W * 0.22, H * 0.16, W * 0.56, H * 0.28, 'circle'));
+      items(Math.min(4, n), H * 0.47, H * 0.94, H * 0.015).forEach(function (b, i) { s += CARD(W * 0.06, b.y, W * 0.88, b.h, '#FFFFFF', 22, dk) + circ(W * 0.13, b.y + b.h / 2, W * 0.04, t.a) + txt(W * 0.13, b.y + b.h / 2, String(i + 1), 18, D.onColor(t.a)); z.push(T('i' + (i + 1), W * 0.2, b.y + b.h * 0.08, W * 0.7, b.h * 0.84, { v: 'center', dk: dk, cls: 'acc', k: 0.92 })); });
+    } else {
+      items(n, H * 0.19, H * 0.94, H * 0.018).forEach(function (b, i) {
+        var left = CV === 1 ? false : (i + CF) % 2 === 0, sq = CV === 3, px = left ? W * 0.62 : W * 0.06, cw = W * 0.88, pw = sq ? Math.min(W * 0.3, b.h * 0.86) : W * 0.32;
+        s += CARD(W * 0.06, b.y + b.h * 0.12, cw, b.h * 0.76, '#FFFFFF', 30, dk) + rr(left ? W * 0.06 : W * 0.06 + cw - 12, b.y + b.h * 0.3, 12, b.h * 0.4, t.a, 6) + txt(left ? W * 0.12 : W * 0.88, b.y + b.h * 0.22, num(i), 22, t.a);
+        if (sq) s += rr(px + 10, b.y + (b.h - pw) / 2 + 10, pw, pw, t.a, 20, 0.6); else s += circ(px + W * 0.16, b.y + b.h / 2, W * 0.17, t.a, dk ? 0.25 : 0.2);
+        z.push(PH('p' + (i + 1), px, sq ? b.y + (b.h - pw) / 2 : b.y, pw, sq ? pw : b.h, sq ? 'round' : 'circle'));
+        z.push(T('i' + (i + 1), left ? W * 0.12 : W * 0.42, b.y + b.h * 0.2, W * 0.46, b.h * 0.62, { v: 'center', dk: dk, cls: 'acc', k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.5), z: z };
+  };
+  /* 26. photo backdrop: 0 photo on top + glass cards, 1 two-column glass cards, 2 numbered rail, 3 photo at the bottom, 4 alternating indent */
+  L.photobg = function (t, W, H, o) {
+    var bg = dark0(t), bottom = CV === 3, py = bottom ? H * 0.54 : 0, s = rect(0, 0, W, H, bg) + glow('igg', W * 0.2, bottom ? H * 0.25 : H * 0.75, W * 0.7), z = [PH('p0', 0, py, W, H * 0.46, 'none'), head(W, H * 0.04, H * 0.15, { dk: 1, cls: 'acc' })];
+    z[0].dim = 1;
+    var keep = CV, bx; CV = [0, 2, 4, 0, 3][CV];
+    bx = ARR(o.n || 5, H * 0.21, H * 0.94, H * 0.02, W); s += RAIL(bx, W, t.a, D.onColor(t.a), '#FFFFFF'); CV = keep;
+    bx.forEach(function (b) { z.push(T('i' + (b.i + 1), b.x + (b.rail ? 0 : W * 0.01), b.y, b.w - W * 0.02, b.h, { v: 'center', al: b.grid ? 'center' : 'left', dk: 1, cls: 'acc card', k: b.grid ? 0.85 : 0.95 })); });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: rgrad('igg', t.s, 0.45), z: z };
+  };
+  /* 27. hand drawn: 0 circles alternate sides, 1 all on the left, 2 sketchy boxes, 3 doodle stars with numbers, 4 two columns */
+  function sketchBox(x, y, w, h, c, seed) { var j = function (k) { return Math.sin(k * 3.1 + seed) * 4; }; return path('M' + (x + j(1)) + ' ' + (y + j(2)) + ' L' + (x + w + j(3)) + ' ' + (y + j(4)) + ' L' + (x + w + j(5)) + ' ' + (y + h + j(6)) + ' L' + (x + j(7)) + ' ' + (y + h + j(8)) + ' Z', null, null, c, 3).replace('/>', ' stroke-linejoin="round"/>') + path('M' + (x + 6) + ' ' + (y - 3) + ' L' + (x + w - 4) + ' ' + (y + 5), null, null, c, 1.5); }
+  function star(cx, cy, r, c, seed) { var d = ''; for (var k = 0; k < 10; k++) { var a = Math.PI / 5 * k - Math.PI / 2, rr2 = (k % 2 ? r * 0.48 : r) * (1 + Math.sin(k + seed) * 0.05); d += (k ? ' L' : 'M') + (cx + rr2 * Math.cos(a)).toFixed(1) + ' ' + (cy + rr2 * Math.sin(a)).toFixed(1); } return path(d + ' Z', c, 0.25, c, 3).replace('/>', ' stroke-linejoin="round"/>'); }
+  L.doodle = function (t, W, H, o) {
+    var s = rect(0, 0, W, H, '#FFFBF2'), z = [T('head', W * 0.08, H * 0.03, W * 0.84, H * 0.14, { al: 'center', v: 'center', tf: 0.11, tmax: 70, k: 1.15, cls: 'hand' })], n = o.n || 5;
+    for (var k = 0; k < 7; k++) s += path('M' + (W * (0.05 + k * 0.15)) + ' ' + (H * 0.18) + ' q 12 -14 24 0 t 24 0', null, null, t.a, 3);
+    if (CV === 4) {
+      var ar = CV; CV = 2; var bx = ARR(Math.max(4, n + 1), H * 0.21, H * 0.94, H * 0.025, W); CV = ar;
+      bx.forEach(function (b) { s += wob(b.x + b.w / 2, b.y + b.h * 0.22, W * 0.07, t.p, 3, b.i) + ic(b.i, b.x + b.w / 2, b.y + b.h * 0.22, W * 0.065, t.p, 2.4); z.push(T('i' + (b.i + 1), b.x + W * 0.02, b.y + b.h * 0.42, b.w - W * 0.04, b.h * 0.56, { al: 'center', cls: 'hand', k: 0.85 })); });
+    } else {
+      items(n, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
+        var left = CV === 1 || CV === 2 || CV === 3 ? true : (i + CF) % 2 === 0, cx = left ? W * 0.17 : W * 0.83, cy = b.y + b.h / 2, c = [t.p, t.a, t.s][i % 3];
+        if (CV === 2) { s += sketchBox(W * 0.06, b.y + b.h * 0.06, W * 0.88, b.h * 0.84, t.p, i) + ic(i, W * 0.15, cy, W * 0.08, c, 2.4); z.push(T('i' + (i + 1), W * 0.26, b.y + b.h * 0.12, W * 0.64, b.h * 0.72, { v: 'center', cls: 'hand', k: 0.95 })); return; }
+        if (CV === 3) s += star(cx, cy, W * 0.1, c, i) + txt(cx, cy + 4, String(i + 1), W * 0.06, t.p, { f: "'Segoe Print','Comic Sans MS',cursive", w: 700 });
+        else s += circ(cx + 8, cy + 6, W * 0.09, c, 0.18) + wob(cx, cy, W * 0.09, t.p, 3, i) + ic(i, cx, cy, W * 0.08, t.p, 2.4);
+        if (i < n - 1 && CV === 0) s += path('M' + cx + ' ' + (cy + W * 0.1) + ' C ' + cx + ' ' + (cy + b.h * 0.5) + ', ' + (left ? W * 0.83 : W * 0.17) + ' ' + (cy + b.h * 0.3) + ', ' + (left ? W * 0.8 : W * 0.2) + ' ' + (cy + b.h - W * 0.08), null, null, t.p, 2.5).replace('/>', ' stroke-dasharray="7 9" stroke-linecap="round"/>');
+        if (i < n - 1 && CV !== 0) s += path('M' + cx + ' ' + (cy + W * 0.11) + ' q 18 ' + (b.h * 0.3) + ' 0 ' + (b.h * 0.6), null, null, t.p, 2.5).replace('/>', ' stroke-dasharray="6 8" stroke-linecap="round"/>');
+        z.push(T('i' + (i + 1), left ? W * 0.31 : W * 0.08, b.y + b.h * 0.08, W * 0.61, b.h * 0.84, { v: 'center', al: left ? 'left' : 'right', cls: 'hand', k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H));
+    return { s: s, z: z };
+  };
+
+  /* 2. zigzag: 0 outline numbers alternate sides, 1 a staircase moving right, 2 number discs on the card corner, 3 half-width cards joined by arrows, 4 slanted cards */
+  L.zigzag = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', hc = dk ? D.mix(t.p, bg, 0.5) : t.p, s = rect(0, 0, W, H, bg) + rect(0, 0, W, H * 0.19, hc) + circ(W * 0.92, H * 0.02, W * 0.22, t.a, 0.25), z = [head(W, H * 0.025, H * 0.14, { dk: 1, cls: 'acc' })];
+    var n = o.n || 5, its = items(n, H * 0.215, H * 0.94, H * (CV === 3 ? 0.035 : 0.02)), pth = '', back = '';
+    its.forEach(function (b, i) {
+      var left = (i + CF) % 2 === 0, cy = b.y + b.h / 2;
+      if (CV === 1) {
+        var x = W * 0.05 + i * W * 0.2 / Math.max(1, n - 1), w = W * 0.7;
+        s += CARD(x, b.y, w, b.h, t.tint, 18, dk) + rr(x, b.y, W * 0.14, b.h, i % 2 ? t.a : t.p, 18) + txt(x + W * 0.07, cy, num(i), W * 0.06, D.onColor(i % 2 ? t.a : t.p));
+        if (i < n - 1) back += line(x + w * 0.6, b.y + b.h, x + w * 0.6 + W * 0.05, b.y + b.h + H * 0.02, t.a, 3);
+        z.push(T('i' + (i + 1), x + W * 0.17, b.y + b.h * 0.1, w - W * 0.2, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 })); return;
+      }
+      if (CV === 2) {
+        var x2 = left ? W * 0.1 : W * 0.06, w2 = W * 0.84;
+        s += CARD(x2, b.y, w2, b.h, t.tint, 26, dk) + circ(left ? x2 : x2 + w2, b.y + 8, W * 0.06, t.a) + txt(left ? x2 : x2 + w2, b.y + 8, num(i), W * 0.045, D.onColor(t.a));
+        z.push(T('i' + (i + 1), x2 + W * 0.08, b.y + b.h * 0.14, w2 - W * 0.16, b.h * 0.78, { v: 'center', dk: dk, al: left ? 'left' : 'right', k: 1 })); return;
+      }
+      if (CV === 3) {
+        var w3 = W * 0.5, x3 = left ? W * 0.06 : W * 0.44;
+        s += CARD(x3, b.y, w3, b.h, '#FFFFFF', 18, dk) + stroke(x3, b.y, w3, b.h, t.p, 3, 18) + rr(x3, b.y, w3, b.h * 0.2, t.p, 18) + txt(x3 + w3 / 2, b.y + b.h * 0.1, num(i), b.h * 0.13, D.onColor(t.p));
+        if (i < n - 1) { var ax = left ? x3 + w3 : x3, ex = left ? W * 0.7 : W * 0.3; back += path('M' + ax + ' ' + cy + ' L' + ex + ' ' + cy + ' L' + ex + ' ' + (b.y + b.h + H * 0.03), null, null, t.a, 4) + poly([[ex - 12, b.y + b.h + H * 0.02], [ex + 12, b.y + b.h + H * 0.02], [ex, b.y + b.h + H * 0.035]], t.a); }
+        z.push(T('i' + (i + 1), x3 + W * 0.03, b.y + b.h * 0.24, w3 - W * 0.06, b.h * 0.72, { al: 'center', v: 'center', dk: dk, k: 0.85 })); return;
+      }
+      if (CV === 4) {
+        var sk = W * 0.06, x4 = W * 0.06, w4 = W * 0.88, c4 = i % 2 ? t.a : t.p;
+        s += poly(left ? [[x4 + sk, b.y], [x4 + w4, b.y], [x4 + w4 - sk, b.y + b.h], [x4, b.y + b.h]] : [[x4, b.y], [x4 + w4 - sk, b.y], [x4 + w4, b.y + b.h], [x4 + sk, b.y + b.h]], c4, dk ? 0.9 : 1) + txt(left ? x4 + W * 0.12 : x4 + w4 - W * 0.12, cy, num(i), W * 0.1, D.onColor(c4), { op: 0.9 });
+        z.push(T('i' + (i + 1), left ? x4 + W * 0.22 : x4 + W * 0.08, b.y + b.h * 0.1, w4 - W * 0.32, b.h * 0.8, { v: 'center', dk: onDark(c4), cls: 'inh', al: left ? 'left' : 'right', k: 1 })); return;
+      }
+      var cw = W * 0.6, cx = left ? W * 0.32 : W * 0.08, nx = left ? W * 0.16 : W * 0.84;
+      s += CARD(cx, b.y, cw, b.h, t.tint, 26, dk) + rect(left ? cx : cx + cw - 10, b.y + b.h * 0.2, 10, b.h * 0.6, t.a);
+      s += txt(nx, cy, num(i), W * 0.16, 'none', {}).replace('fill="none"', 'fill="none" stroke="' + (dk ? t.a : t.p) + '" stroke-width="3"');
+      pth += (i ? ' L' : 'M') + nx + ' ' + cy;
+      z.push(T('i' + (i + 1), cx + W * 0.05, b.y + b.h * 0.1, cw - W * 0.1, b.h * 0.8, { v: 'center', dk: dk, k: 1 }));
+    });
+    if (pth) back += '<path d="' + pth + '" fill="none" stroke="' + t.a + '" stroke-width="3" stroke-dasharray="10 10" stroke-opacity="0.6"/>';
+    s = s.replace(rect(0, 0, W, H * 0.19, hc), rect(0, 0, W, H * 0.19, hc) + back);
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 3. timeline: 0 centre line, 1 line on the left, 2 line on the right, 3 wavy line, 4 flags on a thick bar */
+  L.timeline = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : t.tint, s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.15, { dk: dk })];
+    var n = o.n || 6, its = items(n, H * 0.21, H * 0.94, H * 0.014), lx = CV === 1 ? W * 0.14 : CV === 2 ? W * 0.86 : CV === 4 ? W * 0.1 : W / 2;
+    if (CV === 3) { var d = 'M' + W / 2 + ' ' + H * 0.2; its.forEach(function (b, i) { var cy = b.y + b.h / 2, sx = i % 2 ? W * 0.62 : W * 0.38; d += ' Q ' + (i % 2 ? W * 0.3 : W * 0.7) + ' ' + (cy - b.h * 0.4) + ' ' + sx + ' ' + cy; }); s += path(d, null, null, t.a, 6).replace('/>', ' stroke-linecap="round"/>'); }
+    else if (CV === 4) s += rr(lx - 14, H * 0.2, 28, H * 0.74, t.p, 14);
+    else s += rect(lx - 3, H * 0.2, 6, H * 0.74, t.a) + (CV === 0 ? rr(W * 0.3, H * 0.185, W * 0.4, 8, t.p, 4) : '');
+    its.forEach(function (b, i) {
+      var cy = b.y + b.h / 2, bx, bw, al;
+      if (CV === 0 || CV === 3) {
+        var left = (i + CF) % 2 === 0, dx = CV === 3 ? (i % 2 ? W * 0.62 : W * 0.38) : W / 2;
+        left = CV === 3 ? i % 2 === 1 : left;
+        s += circ(dx, cy, W * 0.045, t.p) + ring(dx, cy, W * 0.058, t.a, 4) + txt(dx, cy, num(i), W * 0.034, D.onColor(t.p));
+        bx = left ? W * 0.05 : dx + W * 0.08; bw = CV === 3 ? (left ? dx - W * 0.13 : W * 0.95 - dx - W * 0.08) : W * 0.36; al = left ? 'right' : 'left';
+        if (CV === 0) { bx = left ? W * 0.06 : W * 0.58; s += line(left ? bx + bw : bx, cy, left ? W / 2 - W * 0.058 : W / 2 + W * 0.058, cy, t.a, 3); }
+      } else if (CV === 4) {
+        s += circ(lx, cy, 9, D.onColor(t.p)) + poly([[lx + 22, cy - b.h * 0.38], [W * 0.94, cy - b.h * 0.38], [W * 0.9, cy], [W * 0.94, cy + b.h * 0.38], [lx + 22, cy + b.h * 0.38]], i % 2 ? t.a : t.s, dk ? 0.9 : 1);
+        z.push(T('i' + (i + 1), lx + W * 0.06, cy - b.h * 0.34, W * 0.7, b.h * 0.68, { v: 'center', dk: onDark(i % 2 ? t.a : t.s), cls: 'inh', k: 0.92 })); return;
+      } else {
+        var r = CV === 1; s += rr(lx - W * 0.05, cy - W * 0.03, W * 0.1, W * 0.06, t.p, W * 0.03) + txt(lx, cy, num(i), W * 0.032, D.onColor(t.p));
+        bx = r ? lx + W * 0.08 : W * 0.06; bw = r ? W * 0.94 - bx : lx - W * 0.08 - bx; al = r ? 'left' : 'right';
+        s += line(r ? lx + W * 0.05 : lx - W * 0.05, cy, r ? bx : bx + bw, cy, t.a, 3);
+      }
+      s += CARD(bx, b.y + b.h * 0.06, bw, b.h * 0.88, '#FFFFFF', 20, dk);
+      z.push(T('i' + (i + 1), bx + W * 0.03, b.y + b.h * 0.12, bw - W * 0.06, b.h * 0.76, { v: 'center', dk: dk, al: al, k: 0.92 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 4. tiles: 0 two by three, 1 one wide column, 2 three columns, 3 staggered heights, 4 one big tile then four */
+  L.tiles = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#F6F8FC', s = rect(0, 0, W, H, bg) + (dk ? glow('igg', W * 0.5, H * 0.1, W * 0.7) : rect(0, 0, W, H * 0.22, t.p)), z = [head(W, H * 0.03, H * 0.15, { dk: 1, cls: 'acc' })];
+    z.push(T('intro', W * 0.1, H * 0.235, W * 0.8, H * 0.07, { al: 'center', v: 'center', dk: dk, k: 0.95 }));
+    var y0 = H * 0.32, y1 = H * 0.94, g = W * 0.04, bx = [];
+    if (CV === 1) items(6, y0, y1, H * 0.014).forEach(function (b, i) { bx.push({ x: W * 0.07, y: b.y, w: W * 0.86, h: b.h, i: i, row: 1 }); });
+    else if (CV === 2) { var cw = (W * 0.86 - 2 * g) / 3, rh = (y1 - y0 - g) / 2; for (var i = 0; i < 6; i++) bx.push({ x: W * 0.07 + (i % 3) * (cw + g), y: y0 + Math.floor(i / 3) * (rh + g), w: cw, h: rh, i: i }); }
+    else if (CV === 3) { var cw3 = (W * 0.86 - g) / 2, hs = [[0.36, 0.3, 0.34], [0.28, 0.4, 0.32]], tot = y1 - y0 - 2 * g; for (var c = 0; c < 2; c++) { var yy = y0; for (var r = 0; r < 3; r++) { var hh = tot * hs[c][r]; bx.push({ x: W * 0.07 + c * (cw3 + g), y: yy, w: cw3, h: hh, i: r * 2 + c }); yy += hh + g; } } }
+    else if (CV === 4) { var bigH = (y1 - y0) * 0.3, cw4 = (W * 0.86 - g) / 2, rh4 = (y1 - y0 - bigH - 2 * g) / 2; bx.push({ x: W * 0.07, y: y0, w: W * 0.86, h: bigH, i: 0, row: 1 }); for (var k = 0; k < 4; k++) bx.push({ x: W * 0.07 + (k % 2) * (cw4 + g), y: y0 + bigH + g + Math.floor(k / 2) * (rh4 + g), w: cw4, h: rh4, i: k + 1 }); }
+    else { var cw0 = W * 0.4; items(3, y0, y1, H * 0.02).forEach(function (b, r) { for (var c = 0; c < 2; c++) bx.push({ x: W * 0.07 + c * (cw0 + W * 0.06), y: b.y, w: cw0, h: b.h, i: r * 2 + c }); }); }
+    bx.forEach(function (b) {
+      var c = CV === 4 && b.i === 0 ? t.p : '#FFFFFF', fill = CV === 4 && b.i === 0;
+      s += (fill ? rr(b.x, b.y, b.w, b.h, t.p, 24) : CARD(b.x, b.y, b.w, b.h, c, 24, dk)) + (dk || fill ? stroke(b.x, b.y, b.w, b.h, t.a, 1.5, 24, 0.5) : rr(b.x, b.y, CV === 3 ? 10 : b.w, CV === 3 ? b.h : 10, t.a, 5));
+      if (b.row) { var r0 = Math.min(W * 0.055, b.h * 0.32); s += circ(b.x + W * 0.09, b.y + b.h / 2, r0, fill || dk ? t.a : t.tint) + ic(b.i, b.x + W * 0.09, b.y + b.h / 2, r0, fill || dk ? D.onColor(t.a) : t.p, 2.2); z.push(T('i' + (b.i + 1), b.x + W * 0.18, b.y + b.h * 0.1, b.w - W * 0.22, b.h * 0.8, { v: 'center', dk: fill ? onDark(t.p) : dk, cls: fill ? 'inh' : '', k: 0.95 })); return; }
+      var rr0 = Math.min(W * (CV === 2 ? 0.045 : 0.055), b.h * 0.14); s += circ(b.x + b.w / 2, b.y + b.h * 0.2, rr0, dk ? t.a : t.tint) + ic(b.i, b.x + b.w / 2, b.y + b.h * 0.2, rr0, dk ? D.onColor(t.a) : t.p, 2.2);
+      z.push(T('i' + (b.i + 1), b.x + W * 0.02, b.y + b.h * 0.36, b.w - W * 0.04, b.h * 0.6, { al: 'center', dk: dk, k: CV === 2 ? 0.78 : 0.9 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.6), z: z };
+  };
+
+  /* 9. data: 0 chart on top, 1 points first and chart below, 2 chart beside the points, 3 chart and three point tiles, 4 point tiles then a framed chart */
+  L.data = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 40, '#FFFFFF', 0.04) : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.025, H * 0.15, { dk: dk, cls: 'acc' })];
+    var chartY = CV === 1 || CV === 4 ? H * 0.53 : H * 0.2, ch = CV === 4 ? H * 0.41 : H * 0.36, cx = W * 0.06, cw = W * 0.88, pts;
+    if (CV === 2) { cw = W * 0.52; ch = H * 0.73; chartY = H * 0.21; }
+    if (CV === 4) s += rr(cx - 10, chartY - 10, cw + 20, ch + 20, t.a, 34);
+    s += rr(cx, chartY, cw, ch, dk || CV === 4 ? '#FFFFFF' : t.tint, 28) + (dk ? rr(cx, chartY, cw, 12, t.a, 6) : '');
+    z.push(T('data', cx + W * 0.04, chartY + ch * 0.04, cw - W * 0.08, ch * 0.25, { k: 1.05 }));
+    z.push(T('data2', cx + W * 0.04, chartY + ch * 0.29, cw - W * 0.08, ch * 0.67, { k: 1.05 }));
+    if (CV === 2) {
+      pts = items(3, H * 0.21, H * 0.94, H * 0.02).map(function (b) { return { x: W * 0.62, y: b.y, w: W * 0.32, h: b.h, tile: 1 }; });
+    } else if (CV === 3 || CV === 4) {
+      var ty = CV === 3 ? H * 0.59 : H * 0.2, th = H * 0.3, tw = (W * 0.88 - 2 * W * 0.03) / 3;
+      pts = [0, 1, 2].map(function (k) { return { x: W * 0.06 + k * (tw + W * 0.03), y: ty, w: tw, h: CV === 3 ? H * 0.35 : th, tile: 1 }; });
+    } else {
+      pts = items(3, CV === 1 ? H * 0.2 : H * 0.58, CV === 1 ? H * 0.51 : H * 0.94, H * 0.02).map(function (b) { return { x: W * 0.06, y: b.y, w: W * 0.88, h: b.h }; });
+    }
+    pts.forEach(function (b, i) {
+      s += CARD(b.x, b.y, b.w, b.h, '#FFFFFF', 24, dk) + stroke(b.x, b.y, b.w, b.h, t.a, 2, 24, dk ? 0.5 : 0.8);
+      if (b.tile) { var r = Math.min(W * 0.05, b.w * 0.18); s += circ(b.x + b.w / 2, b.y + r + b.h * 0.06, r, t.a) + ic(i + 1, b.x + b.w / 2, b.y + r + b.h * 0.06, r * 0.9, D.onColor(t.a), 2.2); z.push(T('i' + (i + 1), b.x + W * 0.02, b.y + 2 * r + b.h * 0.1, b.w - W * 0.04, b.h - 2 * r - b.h * 0.14, { al: 'center', dk: dk, k: 0.8 })); return; }
+      s += circ(W * 0.16, b.y + b.h / 2, W * 0.055, t.a) + ic(i + 1, W * 0.16, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
+      z.push(T('i' + (i + 1), W * 0.26, b.y + b.h * 0.1, W * 0.62, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 10. chevrons: 0 down arrows on the left, 1 down arrows on the right, 2 arrow ribbons pointing right, 3 stacked chevrons with text inside, 4 two columns under chevron tabs */
+  L.chevron = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, t.a, 0.5), D.mix(t.p, '#000000', 0.2)], n = o.n || 5;
+    if (CV === 4) {
+      var ar = CV; CV = 2; var bx = ARR(Math.max(4, n + 1), H * 0.19, H * 0.94, H * 0.02, W); CV = ar;
+      bx.forEach(function (b) { var c = cols[b.i % cols.length], th = Math.min(b.h * 0.24, H * 0.05); s += CARD(b.x, b.y, b.w, b.h, t.tint, 16, dk) + poly([[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + th], [b.x + b.w / 2, b.y + th * 1.6], [b.x, b.y + th]], c) + txt(b.x + b.w / 2, b.y + th * 0.6, num(b.i), th * 0.7, D.onColor(c)); z.push(T('i' + (b.i + 1), b.x + W * 0.025, b.y + th * 1.7, b.w - W * 0.05, b.h - th * 1.8, { al: 'center', v: 'center', dk: dk, k: 0.85 })); });
+    } else {
+      items(n, H * 0.19, H * 0.94, H * (CV === 3 ? 0.004 : 0.012)).forEach(function (b, i) {
+        var c = cols[i % cols.length], y = b.y, h = b.h, tip = h * 0.22;
+        if (CV === 2) { var x2 = W * 0.06, w2 = W * 0.88, nt = h * 0.4; s += poly([[x2, y], [x2 + w2 - nt, y], [x2 + w2, y + h / 2], [x2 + w2 - nt, y + h], [x2, y + h], [x2 + nt, y + h / 2]], c, dk ? 0.9 : 1) + txt(x2 + nt + W * 0.07, y + h / 2, num(i), W * 0.07, D.onColor(c)); z.push(T('i' + (i + 1), x2 + nt + W * 0.16, y + h * 0.08, w2 - nt * 2 - W * 0.18, h * 0.84, { v: 'center', dk: onDark(c), cls: 'inh', k: 0.92 })); return; }
+        if (CV === 3) { var x3 = W * 0.06, w3 = W * 0.88, dp = h * 0.28; s += poly([[x3, y], [x3 + w3 / 2, y + dp], [x3 + w3, y], [x3 + w3, y + h], [x3 + w3 / 2, y + h + dp], [x3, y + h]], c, dk ? 0.9 : 1) + txt(W * 0.13, y + h * 0.6, num(i), W * 0.06, D.onColor(c), { op: 0.85 }); z.push(T('i' + (i + 1), W * 0.22, y + dp + h * 0.02, W * 0.68, h * 0.7, { v: 'center', dk: onDark(c), cls: 'inh', k: 0.9 })); return; }
+        var right = CV === 1, w = W * 0.22, x = right ? W * 0.72 : W * 0.06;
+        s += poly([[x, y], [x + w, y], [x + w, y + h - tip], [x + w / 2, y + h], [x, y + h - tip]], c) + txt(x + w / 2, y + h * 0.4, num(i), W * 0.07, D.onColor(c));
+        var kx = right ? W * 0.06 : x + w + W * 0.03; s += CARD(kx, y + h * 0.04, W * 0.63, h * 0.82, t.tint, 18, dk);
+        z.push(T('i' + (i + 1), kx + W * 0.03, y + h * 0.08, W * 0.57, h * 0.74, { v: 'center', al: right ? 'right' : 'left', dk: dk, k: 0.95 }));
+      });
+    }
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 11. path: 0 S-curve road, 1 wiggly path on the left, 2 square stepping path, 3 map pins on a centre road, 4 snake through two columns */
+  L.path = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var n = o.n || 6, its = items(n, H * 0.2, H * 0.94, H * 0.01), d = '', P = [];
+    if (CV === 4) { var ar = CV; CV = 2; var gb = ARR(n, H * 0.2, H * 0.94, H * 0.03, W); CV = ar; gb.forEach(function (b) { var r = Math.floor(b.i / 2), right = r % 2 ? b.i % 2 === 0 : b.i % 2 === 1; P.push({ x: right ? W * 0.75 : W * 0.25, y: b.y + b.h * 0.3, b: b }); }); }
+    its.forEach(function (b, i) {
+      if (CV === 4) return;
+      var y = b.y + b.h / 2, x = CV === 1 ? W * (i % 2 ? 0.2 : 0.14) : CV === 2 ? W * (0.12 + (i % 3) * 0.04) : CV === 3 ? W / 2 : (i + CF) % 2 === 0 ? W * 0.2 : W * 0.8;
+      P.push({ x: x, y: y, b: b });
+    });
+    P.forEach(function (p, i) {
+      if (!i) { d = 'M' + p.x + ' ' + p.y; return; }
+      var q = P[i - 1];
+      if (CV === 2) d += ' L' + q.x + ' ' + (q.y + p.y) / 2 + ' L' + p.x + ' ' + (q.y + p.y) / 2 + ' L' + p.x + ' ' + p.y;
+      else if (CV === 4) d += ' C' + q.x + ' ' + (q.y + (p.y - q.y) * 0.6 + 40) + ',' + p.x + ' ' + (p.y - 40) + ',' + p.x + ' ' + p.y;
+      else if (CV === 1 || CV === 3) d += ' Q ' + (CV === 3 ? (i % 2 ? W * 0.62 : W * 0.38) : W * (i % 2 ? 0.05 : 0.29)) + ' ' + (q.y + p.y) / 2 + ' ' + p.x + ' ' + p.y;
+      else d += ' C' + q.x + ' ' + (p.y - p.b.h * 0.6) + ',' + p.x + ' ' + (p.y - p.b.h * 0.5) + ',' + p.x + ' ' + p.y;
+    });
+    s += path(d, null, null, dk ? '#FFFFFF' : t.tint, CV === 2 ? 16 : 26).replace('/>', ' stroke-opacity="' + (dk ? 0.12 : 1) + '" stroke-linecap="round" stroke-linejoin="round"/>') + path(d, null, null, t.a, 3).replace('/>', ' stroke-dasharray="12 12"/>');
+    P.forEach(function (p, i) {
+      var b = p.b, c = [t.p, t.a, t.s][i % 3], x = p.x, y = p.y;
+      if (CV === 4) { s += CARD(b.x, b.y + b.h * 0.3, b.w, b.h * 0.68, t.tint, 22, dk) + circ(x, y, W * 0.07, '#FFFFFF') + ring(x, y, W * 0.07, c, 6) + ic(i, x, y, W * 0.05, c, 2.2); z.push(T('i' + (i + 1), b.x + W * 0.025, b.y + b.h * 0.3 + W * 0.075, b.w - W * 0.05, b.h * 0.66 - W * 0.08, { al: 'center', dk: dk, k: 0.82 })); return; }
+      if (CV === 2) { s += rr(x - W * 0.07, y - W * 0.07, W * 0.14, W * 0.14, c, 18) + ic(i, x, y - 6, W * 0.05, D.onColor(c), 2.2) + txt(x, y + W * 0.04, num(i), 15, D.onColor(c)); z.push(T('i' + (i + 1), W * 0.34, b.y + b.h * 0.08, W * 0.6, b.h * 0.84, { v: 'center', dk: dk, k: 0.95 })); return; }
+      if (CV === 3) { var left = i % 2 === 0, r = W * 0.06; s += path('M' + x + ' ' + (y + r * 1.7) + ' C ' + (x - r * 1.3) + ' ' + y + ', ' + (x - r) + ' ' + (y - r * 1.1) + ', ' + x + ' ' + (y - r * 1.1) + ' C ' + (x + r) + ' ' + (y - r * 1.1) + ', ' + (x + r * 1.3) + ' ' + y + ', ' + x + ' ' + (y + r * 1.7) + ' Z', c) + circ(x, y - r * 0.15, r * 0.62, '#FFFFFF') + txt(x, y - r * 0.15, String(i + 1), r * 0.7, c); z.push(T('i' + (i + 1), left ? W * 0.05 : W * 0.6, b.y + b.h * 0.06, W * 0.35, b.h * 0.88, { v: 'center', al: left ? 'right' : 'left', dk: dk, k: 0.85 })); return; }
+      var lft = CV === 1 ? true : (i + CF) % 2 === 0, rr0 = CV === 1 ? W * 0.07 : W * 0.085;
+      s += circ(x, y, rr0, '#FFFFFF') + ring(x, y, rr0, c, CV === 1 ? 5 : 8) + ic(i, x, y - 8, rr0 * 0.7, c, 2.2) + txt(x, y + rr0 * 0.53, num(i), 16, c);
+      z.push(T('i' + (i + 1), lft ? W * (CV === 1 ? 0.33 : 0.33) : W * 0.06, b.y + b.h * 0.08, W * 0.58, b.h * 0.84, { v: 'center', al: lft ? 'left' : 'right', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 20. editorial: 0 photo on top + two columns, 1 tall photo on the left + list, 2 one column with big numbers + photo at the bottom, 3 round photo beside the title + three columns, 4 large photo + ruled list */
+  L.editorial = function (t, W, H, o) {
+    var s = rect(0, 0, W, H, '#FBFAF7') + rect(W * 0.08, H * 0.19, W * 0.84, 4, t.p) + rect(W * 0.08, H * 0.94, W * 0.84, 2, t.p), z = [];
+    var hw = CV === 3 ? W * 0.58 : W * 0.84;
+    z.push(T('head', W * 0.08, H * 0.03, hw, H * 0.15, { v: 'center', tf: 0.12, tmax: 76, k: 1.15, cls: 'ed' }));
+    var bx = [];
+    if (CV === 1) {
+      z.push(PH('p0', W * 0.08, H * 0.21, W * 0.34, H * 0.71, 'round'));
+      items(6, H * 0.21, H * 0.92, H * 0.012).forEach(function (b, i) { bx.push({ x: W * 0.47, y: b.y, w: W * 0.45, h: b.h, i: i }); });
+    } else if (CV === 2) {
+      z.push(PH('p0', W * 0.08, H * 0.76, W * 0.84, H * 0.16, 'round'));
+      items(6, H * 0.21, H * 0.74, H * 0.008).forEach(function (b, i) { bx.push({ x: W * 0.08, y: b.y, w: W * 0.84, h: b.h, i: i, big: 1 }); });
+    } else if (CV === 3) {
+      z.push(PH('p0', W * 0.7, H * 0.025, W * 0.22, W * 0.22, 'circle'));
+      var cw = W * 0.84 / 3;
+      items(2, H * 0.22, H * 0.92, H * 0.02).forEach(function (b, r) { for (var c = 0; c < 3; c++) bx.push({ x: W * 0.08 + c * cw, y: b.y, w: cw - W * 0.03, h: b.h, i: r * 3 + c }); });
+    } else if (CV === 4) {
+      z.push(PH('p0', W * 0.08, H * 0.21, W * 0.84, H * 0.27, 'none'));
+      items(6, H * 0.5, H * 0.92, H * 0.006).forEach(function (b, i) { bx.push({ x: W * 0.08, y: b.y, w: W * 0.84, h: b.h, i: i, rule: 1 }); });
+    } else {
+      z.push(PH('p0', W * 0.08, H * 0.21, W * 0.84, H * 0.16, 'round'));
+      items(3, H * 0.4, H * 0.92, H * 0.02).forEach(function (b, r) { for (var c = 0; c < 2; c++) bx.push({ x: W * 0.08 + c * W * 0.44, y: b.y, w: W * 0.4, h: b.h, i: r * 2 + c }); });
+    }
+    bx.forEach(function (b) {
+      var i = b.i;
+      if (b.big) { s += txt(b.x, b.y + b.h / 2, num(i), Math.min(b.h * 0.7, 70), t.a, { a: 'start', f: 'Georgia, serif', w: 700 }) + line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, t.line, 1.5); z.push(T('i' + (i + 1), b.x + W * 0.17, b.y + b.h * 0.06, b.w - W * 0.17, b.h * 0.88, { v: 'center', k: 0.9 })); return; }
+      if (b.rule) { s += rect(b.x, b.y, 4, b.h, i % 2 ? t.a : t.p) + txt(b.x + b.w, b.y + b.h / 2, num(i), Math.min(b.h * 0.5, 40), t.line, { a: 'end', f: 'Georgia, serif', w: 700 }); z.push(T('i' + (i + 1), b.x + W * 0.04, b.y + b.h * 0.04, b.w - W * 0.16, b.h * 0.92, { v: 'center', k: 0.88 })); return; }
+      s += txt(b.x, b.y + 30, num(i), 44, t.a, { a: 'start', f: 'Georgia, serif', w: 700 }) + line(b.x, b.y + b.h, b.x + b.w, b.y + b.h, t.line, 2);
+      z.push(T('i' + (i + 1), b.x, b.y + 62, b.w, b.h - 70, { k: CV === 3 ? 0.8 : 0.9 }));
+    });
+    z.push(foot(W, H));
+    return { s: s, z: z };
+  };
+  /* 25. heading boxes: 0 two by three with heading bands, 1 one column with the heading on a side block, 2 three columns, 3 heading tabs above the boxes, 4 offset (masonry) columns */
+  L.grid2 = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.tint, '#FFFFFF', 0.3), s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 44, '#FFFFFF', 0.04) : ''), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var bx = [], y0 = H * 0.2, y1 = H * 0.94, g = W * 0.04;
+    if (CV === 1) items(6, y0, y1, H * 0.014).forEach(function (b, i) { bx.push({ x: W * 0.06, y: b.y, w: W * 0.88, h: b.h, i: i, side: 1 }); });
+    else if (CV === 2) { var cw2 = (W * 0.88 - 2 * W * 0.03) / 3, rh = (y1 - y0 - H * 0.02) / 2; for (var k = 0; k < 6; k++) bx.push({ x: W * 0.06 + (k % 3) * (cw2 + W * 0.03), y: y0 + Math.floor(k / 3) * (rh + H * 0.02), w: cw2, h: rh, i: k }); }
+    else if (CV === 4) { var cw4 = W * 0.42, hh = (y1 - y0 - 2 * H * 0.02) / 3.4; for (var m = 0; m < 6; m++) { var c4 = m % 2, r4 = Math.floor(m / 2), yy = y0 + r4 * (hh * 1.13 + H * 0.02) + (c4 ? hh * 0.2 : 0); bx.push({ x: W * 0.06 + c4 * (cw4 + g), y: yy, w: cw4, h: hh * 1.13, i: m }); } }
+    else { var cw = W * 0.42; items(3, y0, y1, H * (CV === 3 ? 0.03 : 0.02)).forEach(function (b, r) { for (var c = 0; c < 2; c++) bx.push({ x: W * 0.06 + c * (cw + g), y: b.y, w: cw, h: b.h, i: r * 2 + c, tab: CV === 3 }); }); }
+    bx.forEach(function (b) {
+      var i = b.i, col = i % 2 ? t.a : t.p, x = b.x, w = b.w;
+      if (b.side) {
+        var sw = W * 0.3; s += CARD(x, b.y, w, b.h, '#FFFFFF', 18, dk) + rr(x, b.y, sw, b.h, col, 18) + rect(x + sw - 18, b.y, 18, b.h, col);
+        z.push(T('i' + (i + 1), x + W * 0.02, b.y + b.h * 0.08, sw - W * 0.04, b.h * 0.84, { v: 'center', dk: onDark(col), cls: 'hb', k: 0.85 }));
+        z.push(T('j' + (i + 1), x + sw + W * 0.03, b.y + b.h * 0.08, w - sw - W * 0.05, b.h * 0.84, { v: 'center', dk: dk, cls: 'hb2', k: 0.92 })); return;
+      }
+      if (b.tab) {
+        var th = b.h * 0.24, tw = w * 0.8; s += rr(x, b.y, tw, th + 18, col, 16) + CARD(x, b.y + th, w, b.h - th, '#FFFFFF', 18, dk) + stroke(x, b.y + th, w, b.h - th, col, 2, 18, 0.8);
+        z.push(T('i' + (i + 1), x + W * 0.025, b.y + th * 0.06, tw - W * 0.05, th * 0.88, { v: 'center', dk: onDark(col), cls: 'hb', k: 0.85 }));
+        z.push(T('j' + (i + 1), x + W * 0.03, b.y + th + b.h * 0.05, w - W * 0.06, b.h - th - b.h * 0.08, { dk: dk, cls: 'hb2', k: 0.92 })); return;
+      }
+      var hb = CV === 2 ? 0.3 : 0.26;
+      s += CARD(x, b.y, w, b.h, '#FFFFFF', 18, dk) + rr(x, b.y, w, b.h * hb, col, 18) + rect(x, b.y + b.h * (hb - 0.1), w, b.h * 0.1, col);
+      if (CV !== 2) s += ic(i, x + w - W * 0.06, b.y + b.h * 0.1, W * 0.045, D.onColor(col), 2.2);
+      z.push(T('i' + (i + 1), x + W * 0.025, b.y + b.h * 0.03, w - (CV === 2 ? W * 0.05 : W * 0.12), b.h * (hb - 0.06), { v: 'center', dk: onDark(col), cls: 'hb', k: CV === 2 ? 0.75 : 0.9 }));
+      z.push(T('j' + (i + 1), x + W * 0.025, b.y + b.h * (hb + 0.05), w - W * 0.05, b.h * (0.95 - hb - 0.04), { dk: dk, cls: 'hb2', k: CV === 2 ? 0.8 : 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z, split: true };
+  };
+  /* 30. compare: 0 two columns then ticks, 1 ticks first then two columns, 2 split colour halves, 3 one above the other, 4 two columns then a 2x2 grid */
+  L.compare = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? '' : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var cw = W * 0.42, y = CV === 1 ? H * 0.52 : H * 0.21, h = H * 0.42, boxes;
+    if (CV === 3) boxes = [{ x: W * 0.06, y: H * 0.21, w: W * 0.88, h: H * 0.25 }, { x: W * 0.06, y: H * 0.49, w: W * 0.88, h: H * 0.25 }];
+    else boxes = [0, 1].map(function (c) { return { x: W * 0.06 + c * (cw + W * 0.04), y: y, w: cw, h: h }; });
+    if (CV === 2) s += rect(0, H * 0.2, W / 2, h + H * 0.03, D.mix(t.p, bg, dk ? 0.6 : 0.82)) + rect(W / 2, H * 0.2, W / 2, h + H * 0.03, D.mix(t.a, bg, dk ? 0.6 : 0.82));
+    boxes.forEach(function (b, c) {
+      var col = c ? t.a : t.p;
+      s += CARD(b.x, b.y, b.w, b.h, '#FFFFFF', 26, dk) + stroke(b.x, b.y, b.w, b.h, col, 3, 26) + rr(b.x, b.y, b.w, H * 0.075, col, 26) + rect(b.x, b.y + H * 0.05, b.w, H * 0.025, col);
+      z.push(T('i' + (c + 1), b.x + W * 0.025, b.y + H * 0.006, b.w - W * 0.05, b.h - H * 0.02, { dk: dk, cls: 'cmp' + (c ? ' cb' : ''), k: 1.05, vars: '--zh0:' + Math.round(H * 0.066) + 'px' }));
+    });
+    var vx = W / 2, vy = CV === 3 ? H * 0.475 : y + h / 2;
+    if (CV === 3) vx = W * 0.85;
+    s += circ(vx, vy, W * 0.06, t.s) + ring(vx, vy, W * 0.065, bg, 6) + txt(vx, vy, 'VS', W * 0.04, D.onColor(t.s));
+    var tb;
+    if (CV === 4 || CV === 3) { var ty = CV === 3 ? H * 0.765 : H * 0.66, tw = W * 0.43, thh = (H * 0.945 - ty - H * 0.015) / 2; tb = [0, 1, 2, 3].map(function (k) { return { x: W * 0.06 + (k % 2) * (tw + W * 0.02), y: ty + Math.floor(k / 2) * (thh + H * 0.015), w: tw, h: thh }; }); }
+    else tb = items(4, CV === 1 ? H * 0.2 : H * 0.66, CV === 1 ? H * 0.49 : H * 0.945, H * 0.012).map(function (b) { return { x: W * 0.06, y: b.y, w: W * 0.88, h: b.h }; });
+    tb.forEach(function (b, i) {
+      var cr = Math.min(W * 0.035, b.h * 0.3);
+      s += CARD(b.x, b.y, b.w, b.h, t.tint, 18, dk) + circ(b.x + W * 0.06, b.y + b.h / 2, cr, t.p) + txt(b.x + W * 0.06, b.y + b.h / 2, '✓', cr * 0.9, D.onColor(t.p));
+      z.push(T('i' + (i + 3), b.x + W * 0.12, b.y + b.h * 0.06, b.w - W * 0.15, b.h * 0.88, { v: 'center', dk: dk, k: 0.85 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
     return { s: s, z: z };
   };
 
@@ -5682,7 +6015,19 @@ D.toDocx = function (doc, opts) {
   var ROLES = { kicker: 'head', title: 'head', sub: 'head', intro: 'intro', data: 'data', dchart: 'data2', dpie: 'data3', foot: 'foot', photo0: 'p0' };
   for (var q = 1; q <= 6; q++) { ROLES['i' + q + 'h'] = 'i' + q; ROLES['i' + q + 't'] = ['j' + q, 'i' + q]; ROLES['photo' + q] = 'p' + q; }
   D.PANEL.ig = function (doc, t, W, H, dz, sz) {
+    CV = dz.sv || 0; CF = CV === 1 || CV === 3 ? 1 : 0; CT = t;
     var f = (L[dz.ig] || L.glass)(t, W, H, { dark: !!dz.dark, n: dz.n, seed: dz.vi });
+    /* background pattern of this variant, just above the page colour */
+    var dk0 = !!dz.dark || ['glass', 'blocks', 'neon', 'puzzle', 'circuit', 'rules', 'photobg'].indexOf(dz.ig) >= 0, cut = f.s.indexOf('/>') + 2;
+    if (cut > 1) f.s = f.s.slice(0, cut) + DECO(t, W, H, dk0) + f.s.slice(cut);
+    /* header of this variant: left-aligned with a bar, or centred with an underline */
+    f.z.forEach(function (z) {
+      if (z.tag !== 'head' || z.al !== 'center') return;
+      if (CF) { z.al = 'left'; f.s += rect(W * 0.045, z.y + z.h * 0.18, 8, z.h * 0.64, t.a); }
+      else if (CV === 2) f.s += rect(W / 2 - W * 0.07, z.y + z.h + 2, W * 0.14, 6, t.a);
+      else if (CV === 4) f.s += circ(W / 2 - 24, z.y - 2, 5, t.a) + circ(W / 2, z.y - 2, 5, t.a) + circ(W / 2 + 24, z.y - 2, 5, t.a);
+    });
+    CV = 0; CF = 0;
     var zs = Zs(f.z, sz), roles = {};
     Object.keys(ROLES).forEach(function (k) { roles[k] = at(zs, ROLES[k]); });
     return { pages: [{ svg: svg(W, H, f.s, f.defs), zones: zs }], ownLogo: false, roles: roles };
@@ -5698,6 +6043,7 @@ D.toDocx = function (doc, opts) {
     '.fx.ig .dsd-stats .v{font-size:calc(26pt*var(--k,1)*var(--fit,1))}.fx.ig .dsd-chart{margin-top:calc(6pt*var(--k,1))}' +
     '.dsd-pz.igdim{overflow:hidden}.dsd-pz.igdim::after{content:"";position:absolute;inset:0;background:rgba(5,8,20,.66);pointer-events:none}.fx.ig.card{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.28);border-radius:20px;padding:calc(10pt*var(--k,1)) calc(16pt*var(--k,1));box-sizing:border-box;backdrop-filter:blur(2px)}' +
     '.fx.ig.big .dsd-stats{gap:calc(10pt*var(--k,1))}.fx.ig.big .dsd-stats>div{background:none!important;border:0;padding:0}.fx.ig.big .dsd-stats .v{font-size:calc(46pt*var(--k,1)*var(--fit,1));color:var(--p)!important;letter-spacing:-.02em}.fx.ig.big .dsd-stats .l{font-size:calc(12pt*var(--k,1)*var(--fit,1));text-transform:uppercase;letter-spacing:.12em}' +
+    '.fx.ig.big.ring .dsd-stats>div{border:4px solid var(--a)!important;border-radius:50%;aspect-ratio:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}.fx.ig.big.stack .dsd-stats{flex-direction:column;align-items:flex-start;gap:calc(4pt*var(--k,1))}.fx.ig.big.stack .dsd-stats>div{display:flex;align-items:baseline;gap:calc(12pt*var(--k,1));text-align:left}.fx.ig.big.box .dsd-stats>div{background:var(--a)!important;border-radius:16px;padding:calc(10pt*var(--k,1))!important}.fx.ig.big.box .dsd-stats>div .v,.fx.ig.big.box .dsd-stats>div .l{color:#14161B!important}.fx.ig.big.band .dsd-stats .v{color:#fff!important}.fx.ig.big.band:not(.dark) .dsd-stats .v{color:var(--ink)!important}.fx.ig.dsh.col .dsd-stats{flex-direction:column}.fx.ig.dsh.boxes .dsd-stats>div{background:rgba(127,127,127,.12)!important;border-radius:14px}' +
     '.fx.ig.big.dark .dsd-stats .v{color:var(--at)!important}.fx.ig.dsh .dsd-stats{margin:0}.fx.ig.dsh .dsd-stats>div{background:none!important;border:0}' +
     '.fx.ig.inh .dsd-h2{color:inherit!important}.fx.ig.hb .dsd-h2{font-size:calc(13pt*var(--k,1)*var(--fit,1));margin:0;color:inherit!important}.fx.ig.hb .dsd-s-x{display:none}.fx.ig.hb2 .dsd-h2{display:none}' +
     '.fx.ig.hand .dsd-s-t,.fx.ig.hand .dsd-h2{font-family:"Segoe Print","Comic Sans MS","Bradley Hand",cursive;text-transform:none;letter-spacing:0}' +
@@ -5729,10 +6075,10 @@ D.toDocx = function (doc, opts) {
     ['hero', 'Hero Photo', 'Big photo on top, cards', 0, 5], ['funnel', 'Funnel', 'Funnel layers', 0, 6], ['sidebar', 'Sidebar', 'Colour side with icons', 0, 6],
     ['hex', 'Hexagons', 'Hexagon number badges', 1, 6], ['steps', 'Steps', 'Step by step, big numbers', 0, 4], ['bubbles', 'Bubbles', 'Speech-bubble cards', 0, 4],
     ['circuit', 'Circuit', 'Dark circuit board, glowing boxes', 1, 4], ['editorial', 'Editorial', 'Magazine style, photo and numbered list', 0, 6]];
-  var ROM = ['', ' II', ' III', ' IV', ' V'], nI = 0;
+  var ROM = ['', ' II', ' III', ' IV', ' V'], nI = 0, VD = ['soft cards, centred title', 'outline cards, left title', 'sharp cards, rings', 'floating cards, stripes', 'cut-corner cards, colour blobs'];
   [0, 1, 2, 3, 4].forEach(function (v) { LS.forEach(function (x, i) {
     var pal = IP[(i * 5 + v * 7 + 2) % IP.length], dark = x[0] === 'neon' || x[0] === 'circuit' || x[0] === 'blocks' || x[0] === 'glass' ? true : x[0] === 'editorial' ? false : (x[3] + v) % 2 === 1;
-    D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], dark: dark, n: x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
+    D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], sv: v, dark: dark, n: v === 2 || v === 4 ? Math.max(3, x[4] - 1) : x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + ' · ' + VD[v] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
   }); });
   /* second set: 10 more layouts x 5 colour sets (numbers 101-150, so the first 100 keep their names) */
   var LS2 = [['illus', 'Illustrated', 'Big pictures beside each point', 1, 5], ['dash', 'Dashboard', 'Figures, column chart and doughnut', 1, 3], ['bigstat', 'Big Numbers', 'Huge figures, short points', 1, 4],
@@ -5740,7 +6086,7 @@ D.toDocx = function (doc, opts) {
     ['doodle', 'Hand Drawn', 'Sketchy circles and arrows', 0, 5], ['waves', 'Waves', 'Wavy colour bands', 0, 5], ['compare', 'Compare', 'Two columns side by side, then tips', 0, 6], ['rules', 'Rules', 'Black page, big title, 3-D prisms', 1, 4]];
   [0, 1, 2, 3, 4].forEach(function (v) { LS2.forEach(function (x, i) {
     var pal = IP[(i * 5 + v * 7 + 4) % IP.length], dark = x[0] === 'photobg' || x[0] === 'rules' || x[0] === 'puzzle' ? true : x[0] === 'doodle' || x[0] === 'waves' ? false : (x[3] + v) % 2 === 1;
-    D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], dark: dark, n: x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
+    D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], sv: v, dark: dark, n: v === 2 || v === 4 ? Math.max(3, x[4] - 1) : x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + ' · ' + VD[v] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
   }); });
 
   /* ---- sample content, with roles ---- */
