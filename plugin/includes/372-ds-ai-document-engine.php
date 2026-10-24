@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 17:00:00
+ * Modified   : 2026-10-24 17:45:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.8.0-infographics' );
+define( 'DS_DOC_ENGINE_VER', '1.8.1-infographics150' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -2796,7 +2796,7 @@ D.photoZone = function (PS, b) {
   var m = /--clip:([^;]+);/.exec(z.vars || ''); return { w: z.w, h: z.h, clip: m ? m[1].trim() : 'none' };
 };
 /* a photo drawn to fill w x h (like background-size: cover) and cut to a CSS clip-path shape, as a PNG for Word */
-D.clipPicture = function (src, w, h, clip) {
+D.clipPicture = function (src, w, h, clip, dim) {
   var S = 2, W = Math.max(2, Math.round(w * S)), H = Math.max(2, Math.round(h * S));
   function len(v, ref) { v = String(v).trim(); if (/%$/.test(v)) return parseFloat(v) / 100 * ref; if (/px$/.test(v)) return parseFloat(v) * S; return parseFloat(v) || 0; }
   function four(a) { a = a.length ? a : ['0']; return [a[0], a[1] != null ? a[1] : a[0], a[2] != null ? a[2] : a[0], a[3] != null ? a[3] : (a[1] != null ? a[1] : a[0])]; }
@@ -2825,6 +2825,7 @@ D.clipPicture = function (src, w, h, clip) {
         if (shape(x)) x.clip();
         var iw = img.naturalWidth || 1, ih = img.naturalHeight || 1, k = Math.max(W / iw, H / ih);
         x.drawImage(img, (W - iw * k) / 2, (H - ih * k) / 2, iw * k, ih * k);
+        if (dim) { x.fillStyle = 'rgba(5,8,20,' + dim + ')'; x.fillRect(0, 0, W, H); }   /* a darkened photo behind white text (infographic backdrop) */
         res({ data: D.dataToBytes(c.toDataURL('image/png')), type: 'png', w: Math.round(w), h: Math.round(h) });
       } catch (er) { rej(er); }
     };
@@ -2969,7 +2970,7 @@ D.toDocx = function (doc, opts) {
       if (b.t === 's_qr') jobs.push(D.svgToPng(D.qrSVG(b.text || ' ', '#111111', '#FFFFFF', 300), 300, 300, 1).then(function (by) { pics['qr_' + b.id] = { data: by, type: 'png', w: 300, h: 300 }; }).catch(function () {}));
       if (b.t === 's_photo' && b.src) {
         var phz = D.photoZone(arts.panelSpec, b);
-        jobs.push((phz ? D.clipPicture(b.src, phz.w, phz.h, phz.clip) : D.loadPicture(b.src)).then(function (p) { if (p) pics['ph_' + b.id] = p; }).catch(function () {}));
+        jobs.push((phz ? D.clipPicture(b.src, phz.w, phz.h, phz.clip, /\bigdim\b/.test(phz.cls || '') ? 0.66 : 0) : D.loadPicture(b.src)).then(function (p) { if (p) pics['ph_' + b.id] = p; }).catch(function () {}));
       }
       if ((b.t === 's_mark' || dz.kind === 'panels') && doc.logo && doc.logo.src && !doc.logo.hide && pics.__logo === undefined) { pics.__logo = null; jobs.push(D.loadPicture(doc.logo.src).then(function (p) { if (p) pics.__logo = p; }).catch(function () {})); }
     });
@@ -5219,7 +5220,7 @@ D.toDocx = function (doc, opts) {
  * ===================================================================================== */
 (function () {
   var NF = 'Arial, Helvetica, sans-serif';
-  function T(tag, x, y, w, h, o) { o = o || {}; return { tag: tag, x: x, y: y, w: w, h: h, al: o.al || 'left', v: o.v || 'top', dk: !!o.dk, tf: o.tf, tmax: o.tmax, k: o.k, cls: 'ig' + (o.cls ? ' ' + o.cls : '') }; }
+  function T(tag, x, y, w, h, o) { o = o || {}; return { tag: tag, x: x, y: y, w: w, h: h, al: o.al || 'left', v: o.v || 'top', dk: !!o.dk, tf: o.tf, tmax: o.tmax, k: o.k, vars: o.vars, cls: 'ig' + (o.cls ? ' ' + o.cls : '') }; }
   function PH(tag, x, y, w, h, clip) { return { tag: tag, x: x, y: y, w: w, h: h, clip: (D.FX_CLIP && D.FX_CLIP[clip]) || clip || 'none', photo: 1 }; }
   function rr(x, y, w, h, c, r, op) { return rect(x, y, w, h, c, op, r); }
   function stroke(x, y, w, h, c, sw, r, op, dash) { return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"' + (r ? ' rx="' + r + '"' : '') + ' fill="none" stroke="' + c + '" stroke-width="' + sw + '"' + (op != null ? ' stroke-opacity="' + op + '"' : '') + (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>'; }
@@ -5371,7 +5372,8 @@ D.toDocx = function (doc, opts) {
   L.data = function (t, W, H, o) {
     var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 40, '#FFFFFF', 0.04) : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.025, H * 0.15, { dk: dk, cls: 'acc' })];
     s += rr(W * 0.06, H * 0.2, W * 0.88, H * 0.36, dk ? '#FFFFFF' : t.tint, 28) + (dk ? rr(W * 0.06, H * 0.2, W * 0.88, 12, t.a, 6) : '');
-    z.push(T('data', W * 0.1, H * 0.215, W * 0.8, H * 0.33, { k: 1.05 }));   /* charts stay on a light card, so they read well */
+    z.push(T('data', W * 0.1, H * 0.215, W * 0.8, H * 0.09, { k: 1.05 }));   /* charts stay on a light card, so they read well */
+    z.push(T('data2', W * 0.1, H * 0.305, W * 0.8, H * 0.245, { k: 1.05 }));
     items(3, H * 0.58, H * 0.94, H * 0.02).forEach(function (b, i) {
       s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : '#FFFFFF', 24, dk ? 0.07 : 1) + stroke(W * 0.06, b.y, W * 0.88, b.h, t.a, 2, 24, dk ? 0.5 : 0.8) + circ(W * 0.16, b.y + b.h / 2, W * 0.055, t.a) + ic(i + 1, W * 0.16, b.y + b.h / 2, W * 0.05, D.onColor(t.a), 2.2);
       z.push(T('i' + (i + 1), W * 0.26, b.y + b.h * 0.1, W * 0.62, b.h * 0.8, { v: 'center', dk: dk, k: 0.95 }));
@@ -5519,20 +5521,166 @@ D.toDocx = function (doc, opts) {
     return { s: s, z: z };
   };
 
+  /* ===== 10 more layouts (2026-10-24, second set) ===== */
+  /* 21. illustrated: big cut-out pictures beside each point (store images, e.g. 3D robots or people) */
+  L.illus = function (t, W, H, o) {
+    var dk = o.dark !== false, bg = dk ? dark0(t) : '#F4F6FB', s = rect(0, 0, W, H, bg) + glow('igg', W * 0.2, H * 0.3, W * 0.6) + glow('igg', W * 0.85, H * 0.75, W * 0.6), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    items(o.n || 5, H * 0.19, H * 0.94, H * 0.018).forEach(function (b, i) {
+      var left = i % 2 === 0, px = left ? W * 0.62 : W * 0.06, cw = W * 0.88;
+      s += rr(W * 0.06, b.y + b.h * 0.12, cw, b.h * 0.76, dk ? '#FFFFFF' : '#FFFFFF', 30, dk ? 0.07 : 1) + rr(left ? W * 0.06 : W * 0.06 + cw - 12, b.y + b.h * 0.3, 12, b.h * 0.4, t.a, 6) + txt(left ? W * 0.12 : W * 0.88, b.y + b.h * 0.22, num(i), 22, t.a);
+      s += circ(px + W * 0.16, b.y + b.h / 2, W * 0.17, t.a, dk ? 0.25 : 0.2);
+      z.push(PH('p' + (i + 1), px, b.y, W * 0.32, b.h, 'circle'));
+      z.push(T('i' + (i + 1), left ? W * 0.12 : W * 0.42, b.y + b.h * 0.2, W * 0.46, b.h * 0.62, { v: 'center', dk: dk, cls: 'acc', k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, defs: rgrad('igg', t.s, 0.5), z: z };
+  };
+  /* 22. dashboard: figures, a column chart and a doughnut, then three notes */
+  L.dash = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? '#0C0F16' : '#F3F5F9', card = dk ? '#171C27' : '#FFFFFF', s = rect(0, 0, W, H, bg), z = [head(W, H * 0.025, H * 0.13, { dk: dk, cls: 'acc' })];
+    var c = function (x, y, w, h) { s += rr(x, y, w, h, card, 22) + (dk ? '' : stroke(x, y, w, h, t.line, 1.5, 22)); };
+    c(W * 0.06, H * 0.17, W * 0.88, H * 0.1); z.push(T('data', W * 0.09, H * 0.175, W * 0.82, H * 0.09, { v: 'center', dk: dk, cls: 'dsh', k: 1 }));
+    s += rr(W * 0.06, H * 0.29, W * 0.88, H * 0.26, '#FFFFFF', 22) + rr(W * 0.06, H * 0.57, W * 0.43, H * 0.22, '#FFFFFF', 22);   /* charts on white cards, so they read well */
+    z.push(T('data2', W * 0.09, H * 0.3, W * 0.82, H * 0.24, { k: 1 }));
+    z.push(T('data3', W * 0.08, H * 0.58, W * 0.39, H * 0.2, { k: 0.85 }));
+    c(W * 0.51, H * 0.57, W * 0.43, H * 0.22); z.push(T('i1', W * 0.54, H * 0.585, W * 0.37, H * 0.19, { v: 'center', dk: dk, k: 0.9 }));
+    items(2, H * 0.81, H * 0.945, H * 0.012).forEach(function (b, i) {
+      c(W * 0.06, b.y, W * 0.88, b.h); s += circ(W * 0.13, b.y + b.h / 2, W * 0.04, t.a) + ic(i + 2, W * 0.13, b.y + b.h / 2, W * 0.04, D.onColor(t.a), 2.2);
+      z.push(T('i' + (i + 2), W * 0.2, b.y + b.h * 0.08, W * 0.7, b.h * 0.84, { v: 'center', dk: dk, k: 0.85 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 23. big numbers: huge figures across the top half, points below */
+  L.bigstat = function (t, W, H, o) {
+    var dk = o.dark !== false, bg = dk ? '#0A0A0D' : '#FFFFFF', s = rect(0, 0, W, H, bg) + rect(0, H * 0.18, W, 6, t.a), z = [T('head', W * 0.07, H * 0.03, W * 0.86, H * 0.14, { v: 'center', tf: 0.13, tmax: 84, k: 1.2, dk: dk, cls: 'acc' })];
+    s += rr(W * 0.06, H * 0.21, W * 0.88, H * 0.33, dk ? '#FFFFFF' : t.tint, 30, dk ? 0.06 : 1) + grid(W * 0.06, H * 0.21, W * 0.88, H * 0.33, 40, dk ? '#FFFFFF' : t.p, 0.05);
+    z.push(T('data', W * 0.09, H * 0.225, W * 0.82, H * 0.3, { v: 'center', dk: dk, cls: 'big', k: 1 }));
+    items(4, H * 0.57, H * 0.945, H * 0.012).forEach(function (b, i) {
+      s += line(W * 0.06, b.y + b.h, W * 0.94, b.y + b.h, dk ? '#FFFFFF' : t.line, 1.5, dk ? 0.2 : 1) + txt(W * 0.1, b.y + b.h / 2, '+', 36, t.a);
+      z.push(T('i' + (i + 1), W * 0.16, b.y + b.h * 0.06, W * 0.78, b.h * 0.88, { v: 'center', dk: dk, k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 24. two-column grid: tiles with a colour heading band and a small icon */
+  L.grid2 = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : D.mix(t.tint, '#FFFFFF', 0.3), s = rect(0, 0, W, H, bg) + (dk ? grid(0, 0, W, H, 44, '#FFFFFF', 0.04) : ''), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var cw = W * 0.42;
+    items(3, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, r) { for (var c = 0; c < 2; c++) {
+      var i = r * 2 + c, x = W * 0.06 + c * (cw + W * 0.04);
+      s += rr(x, b.y, cw, b.h, dk ? '#FFFFFF' : '#FFFFFF', 18, dk ? 0.07 : 1) + rr(x, b.y, cw, b.h * 0.26, i % 2 ? t.a : t.p, 18) + rect(x, b.y + b.h * 0.16, cw, b.h * 0.1, i % 2 ? t.a : t.p);
+      s += ic(i, x + cw - W * 0.06, b.y + b.h * 0.1, W * 0.045, D.onColor(i % 2 ? t.a : t.p), 2.2);
+      z.push(T('i' + (i + 1), x + W * 0.03, b.y + b.h * 0.03, cw - W * 0.12, b.h * 0.2, { v: 'center', dk: onDark(i % 2 ? t.a : t.p), cls: 'hb', k: 0.9 }));
+      z.push(T('j' + (i + 1), x + W * 0.03, b.y + b.h * 0.31, cw - W * 0.06, b.h * 0.65, { dk: dk, cls: 'hb2', k: 0.95 }));
+    } });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z, split: true };
+  };
+  /* 25. puzzle: jigsaw pieces in two columns */
+  L.puzzle = function (t, W, H, o) {
+    var cols = [t.p, t.s, t.a, D.mix(t.p, t.a, 0.5), D.mix(t.s, '#FFFFFF', 0.2), D.mix(t.p, '#000000', 0.3)], s = rect(0, 0, W, H, D.mix(t.p, '#06070B', 0.75)), z = [head(W, H * 0.03, H * 0.14, { dk: 1, cls: 'acc' })];
+    var x0 = W * 0.06, cw = W * 0.44, ys = items(3, H * 0.19, H * 0.94, 0), r = W * 0.045;
+    ys.forEach(function (b, row) { for (var c = 0; c < 2; c++) {
+      var i = row * 2 + c, x = x0 + c * cw, col = cols[i % cols.length], dk = onDark(col);
+      s += rect(x, b.y, cw, b.h, col);
+      if (c === 0) s += circ(x + cw, b.y + b.h / 2, r, col);            /* knob into the right piece */
+      if (row < 2) s += circ(x + cw / 2, b.y + b.h, r, col);           /* knob into the piece below */
+      s += txt(x + W * 0.07, b.y + b.h * 0.16, String(i + 1), W * 0.1, dk ? '#FFFFFF' : '#14161B', { op: 0.85 });
+      z.push(T('i' + (i + 1), x + W * 0.04, b.y + b.h * 0.3, cw - W * 0.08, b.h * 0.62, { dk: dk, k: 0.9 }));
+    } });
+    s += stroke(x0, H * 0.19, cw * 2, H * 0.75, '#FFFFFF', 4, 0, 0.9);
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, z: z };
+  };
+  /* 26. photo background: one big photo behind the whole page, glass cards on top */
+  L.photobg = function (t, W, H, o) {
+    var bg = dark0(t), s = rect(0, 0, W, H, bg) + glow('igg', W * 0.2, H * 0.75, W * 0.7) + rect(0, H * 0.46, W, H * 0.02, t.a), z = [PH('p0', 0, 0, W, H * 0.46, 'none'), head(W, H * 0.04, H * 0.15, { dk: 1, cls: 'acc' })];   /* photo behind the top half (a full-page picture breaks the Word page) */
+    z[0].dim = 1;
+    items(o.n || 5, H * 0.21, H * 0.94, H * 0.02).forEach(function (b, i) {
+      z.push(T('i' + (i + 1), W * 0.08, b.y, W * 0.84, b.h, { v: 'center', dk: 1, cls: 'acc card', k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, defs: rgrad('igg', t.s, 0.45), z: z };
+  };
+  /* 27. hand-drawn: cream paper, sketchy circles and arrows, marker blobs */
+  function wob(cx, cy, r, c, sw, seed) { var d = '', n = 28; for (var k = 0; k <= n; k++) { var a = k / n * Math.PI * 2.08, rr2 = r * (1 + Math.sin(k * 1.7 + seed) * 0.035); d += (k ? ' L' : 'M') + (cx + rr2 * Math.cos(a)).toFixed(1) + ' ' + (cy + rr2 * Math.sin(a)).toFixed(1); } return path(d, null, null, c, sw).replace('/>', ' stroke-linecap="round" stroke-linejoin="round"/>'); }
+  L.doodle = function (t, W, H, o) {
+    var s = rect(0, 0, W, H, '#FFFBF2'), z = [T('head', W * 0.08, H * 0.03, W * 0.84, H * 0.14, { al: 'center', v: 'center', tf: 0.11, tmax: 70, k: 1.15, cls: 'hand' })];
+    for (var k = 0; k < 7; k++) s += path('M' + (W * (0.05 + k * 0.15)) + ' ' + (H * 0.18) + ' q 12 -14 24 0 t 24 0', null, null, t.a, 3);
+    items(o.n || 5, H * 0.2, H * 0.94, H * 0.02).forEach(function (b, i) {
+      var left = i % 2 === 0, cx = left ? W * 0.17 : W * 0.83, cy = b.y + b.h / 2, c = [t.p, t.a, t.s][i % 3];
+      s += circ(cx + 8, cy + 6, W * 0.09, c, 0.18) + wob(cx, cy, W * 0.09, t.p, 3, i) + ic(i, cx, cy, W * 0.08, t.p, 2.4);
+      s += wob(W / 2, cy, W * 0.36 * 0 + 1, '#FFFBF2', 0, 0);
+      if (i < (o.n || 5) - 1) s += path('M' + cx + ' ' + (cy + W * 0.1) + ' C ' + cx + ' ' + (cy + b.h * 0.5) + ', ' + (left ? W * 0.83 : W * 0.17) + ' ' + (cy + b.h * 0.3) + ', ' + (left ? W * 0.8 : W * 0.2) + ' ' + (cy + b.h - W * 0.08), null, null, t.p, 2.5).replace('/>', ' stroke-dasharray="7 9" stroke-linecap="round"/>');
+      z.push(T('i' + (i + 1), left ? W * 0.31 : W * 0.08, b.y + b.h * 0.08, W * 0.61, b.h * 0.84, { v: 'center', al: left ? 'left' : 'right', cls: 'hand', k: 0.95 }));
+    });
+    z.push(foot(W, H));
+    return { s: s, z: z };
+  };
+  /* 28. waves: each point on its own wavy colour band */
+  L.waves = function (t, W, H, o) {
+    var s = rect(0, 0, W, H, '#FFFFFF'), z = [head(W, H * 0.03, H * 0.13, { dk: onDark(t.p), cls: 'acc' })];
+    var cols = [t.p, D.mix(t.p, t.s, 0.5), t.s, D.mix(t.s, t.a, 0.45), D.mix(t.a, t.s, 0.25), t.a], n = o.n || 5, its = items(n, H * 0.17, H * 0.95, 0);
+    function wave(y, c, ph) { var d = 'M0 ' + y; for (var k = 0; k <= 20; k++) d += ' L' + (W * k / 20) + ' ' + (y + Math.sin(k / 20 * Math.PI * 2 + ph) * H * 0.008); return d + ' L' + W + ' ' + H + ' L0 ' + H + ' Z'; }
+    s += rect(0, 0, W, H * 0.2, t.p);
+    its.forEach(function (b, i) { var c = cols[(i + 1) % cols.length]; s += path(wave(b.y, c, i), c); });
+    its.forEach(function (b, i) {
+      var c = cols[(i + 1) % cols.length], dk = onDark(c), left = i % 2 === 0;
+      s += txt(left ? W * 0.13 : W * 0.87, b.y + b.h / 2, num(i), W * 0.11, dk ? '#FFFFFF' : '#14161B', { op: 0.35 });
+      z.push(T('i' + (i + 1), left ? W * 0.26 : W * 0.08, b.y + b.h * 0.14, W * 0.66, b.h * 0.76, { v: 'center', al: left ? 'left' : 'right', dk: dk, cls: 'inh', k: 0.95 }));
+    });
+    z.push(foot(W, H, { dk: onDark(cols[n % cols.length]) }));
+    return { s: s, z: z };
+  };
+  /* 29. comparison: two columns side by side with a VS badge, then tips below */
+  L.compare = function (t, W, H, o) {
+    var dk = !!o.dark, bg = dk ? dark0(t) : '#FFFFFF', s = rect(0, 0, W, H, bg) + (dk ? '' : rect(0, 0, W, H * 0.2, t.tint)), z = [head(W, H * 0.03, H * 0.14, { dk: dk, cls: 'acc' })];
+    var cw = W * 0.42, y = H * 0.21, h = H * 0.42;   /* two tall columns */
+    [0, 1].forEach(function (c) {
+      var x = W * 0.06 + c * (cw + W * 0.04), col = c ? t.a : t.p;
+      s += rr(x, y, cw, h, dk ? '#FFFFFF' : '#FFFFFF', 26, dk ? 0.07 : 1) + stroke(x, y, cw, h, col, 3, 26) + rr(x, y, cw, H * 0.075, col, 26) + rect(x, y + H * 0.05, cw, H * 0.025, col);
+      z.push(T('i' + (c + 1), x + W * 0.025, y + H * 0.006, cw - W * 0.05, h - H * 0.02, { dk: dk, cls: 'cmp' + (c ? ' cb' : ''), k: 1.05, vars: '--zh0:' + Math.round(H * 0.066) + 'px' }));
+    });
+    s += circ(W / 2, y + h / 2, W * 0.06, t.s) + ring(W / 2, y + h / 2, W * 0.065, bg, 6) + txt(W / 2, y + h / 2, 'VS', W * 0.04, D.onColor(t.s));
+    items(4, H * 0.66, H * 0.945, H * 0.012).forEach(function (b, i) {
+      s += rr(W * 0.06, b.y, W * 0.88, b.h, dk ? '#FFFFFF' : t.tint, 18, dk ? 0.07 : 1) + circ(W * 0.12, b.y + b.h / 2, W * 0.035, t.p) + txt(W * 0.12, b.y + b.h / 2, '✓', 20, D.onColor(t.p));
+      z.push(T('i' + (i + 3), W * 0.18, b.y + b.h * 0.06, W * 0.72, b.h * 0.88, { v: 'center', dk: dk, k: 0.85 }));
+    });
+    z.push(foot(W, H, { dk: dk }));
+    return { s: s, z: z };
+  };
+  /* 30. rules: black page, huge condensed title, 3-D prisms beside each rule */
+  function prism(cx, cy, r, c) {
+    var top = [[cx, cy - r], [cx + r * 0.87, cy - r * 0.5], [cx, cy], [cx - r * 0.87, cy - r * 0.5]], lf = [[cx - r * 0.87, cy - r * 0.5], [cx, cy], [cx, cy + r], [cx - r * 0.87, cy + r * 0.5]], rt = [[cx, cy], [cx + r * 0.87, cy - r * 0.5], [cx + r * 0.87, cy + r * 0.5], [cx, cy + r]];
+    return poly(top, D.mix(c, '#FFFFFF', 0.35)) + poly(lf, c) + poly(rt, D.mix(c, '#000000', 0.35));
+  }
+  L.rules = function (t, W, H, o) {
+    var s = rect(0, 0, W, H, '#0B0B0D'), z = [T('head', W * 0.07, H * 0.025, W * 0.86, H * 0.17, { al: 'center', v: 'center', tf: 0.16, tmax: 110, k: 1.25, dk: 1, cls: 'acc cond' })];
+    items(o.n || 4, H * 0.22, H * 0.94, H * 0.02).forEach(function (b, i) {
+      var left = i % 2 === 0, px = left ? W * 0.8 : W * 0.2, cy = b.y + b.h / 2, c = [t.a, t.s, D.mix(t.a, '#FFFFFF', 0.25), t.p][i % 4];
+      s += prism(px, cy, Math.min(W * 0.13, b.h * 0.38), c) + line(W * 0.07, b.y + b.h, W * 0.93, b.y + b.h, '#FFFFFF', 1, 0.18);
+      z.push(T('i' + (i + 1), left ? W * 0.07 : W * 0.38, b.y + b.h * 0.08, W * 0.55, b.h * 0.84, { v: 'center', dk: 1, cls: 'acc rule', k: 1 }));
+    });
+    z.push(foot(W, H, { dk: 1 }));
+    return { s: s, z: z };
+  };
+
   /* ---- zones -> panel zones ---- */
   function kOf(sz) { return Math.max(0.7, Math.min(1.45, Math.sqrt(sz.w * sz.h) / 1100)); }
   function Zs(list, sz) {
     var k0 = kOf(sz);
     return list.filter(function (z) { return z.w > 0 && z.h > 0; }).map(function (z) {
-      if (z.photo) return { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: 'center', v: 'top', dark: false, k: 1, cls: 'bcph', vars: '--zh:' + Math.round(z.h) + 'px;--clip:' + z.clip + ';' };
+      if (z.photo) return { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: 'center', v: 'top', dark: false, k: 1, cls: 'bcph' + (z.dim ? ' igdim' : ''), vars: '--zh:' + Math.round(z.h) + 'px;--clip:' + z.clip + ';' };
       var o = { tag: z.tag, x: z.x, y: z.y, w: z.w, h: z.h, align: z.al, v: z.v, dark: z.dk, k: (z.k || 1) * k0 * (/^i\d$/.test(z.tag) ? 1.3 : z.tag === 'intro' ? 1.15 : 1), cls: 'fx ' + z.cls + (z.dk ? ' dark' : '') };
+      if (z.vars) o.vars = z.vars;
       o.titlePt = Math.round(Math.max(12, Math.min(z.tmax || 72, z.w * (z.tf || 0.1))));
       return o;
     });
   }
   function at(zs, tags) { tags = [].concat(tags); for (var j = 0; j < tags.length; j++) for (var i = 0; i < zs.length; i++) if (zs[i].tag === tags[j]) return [0, i]; return null; }
-  var ROLES = { kicker: 'head', title: 'head', sub: 'head', intro: 'intro', data: 'data', dchart: 'data', foot: 'foot', photo0: 'p0' };
-  for (var q = 1; q <= 6; q++) { ROLES['i' + q + 'h'] = 'i' + q; ROLES['i' + q + 't'] = 'i' + q; ROLES['photo' + q] = 'p' + q; }
+  var ROLES = { kicker: 'head', title: 'head', sub: 'head', intro: 'intro', data: 'data', dchart: 'data2', dpie: 'data3', foot: 'foot', photo0: 'p0' };
+  for (var q = 1; q <= 6; q++) { ROLES['i' + q + 'h'] = 'i' + q; ROLES['i' + q + 't'] = ['j' + q, 'i' + q]; ROLES['photo' + q] = 'p' + q; }
   D.PANEL.ig = function (doc, t, W, H, dz, sz) {
     var f = (L[dz.ig] || L.glass)(t, W, H, { dark: !!dz.dark, n: dz.n, seed: dz.vi });
     var zs = Zs(f.z, sz), roles = {};
@@ -5547,7 +5695,14 @@ D.toDocx = function (doc, opts) {
     '.fx.ig.pill .dsd-h2,.fx.ig.tab .dsd-h2{display:inline-block;background:var(--p);color:#fff!important;border-radius:999px;padding:calc(5pt*var(--k,1)*var(--fit,1)) calc(13pt*var(--k,1)*var(--fit,1));margin-bottom:calc(8pt*var(--k,1)*var(--fit,1));font-size:calc(14pt*var(--k,1)*var(--fit,1))}' +
     '.fx.ig.pa .dsd-h2,.fx.ig.tab .dsd-h2,.fx.ig.dark.pill .dsd-h2{background:var(--a);color:#14161B!important}.fx.ig.tab .dsd-h2{border-radius:8px}' +
     '.fx.ig.ed .dsd-s-t{font-family:Georgia,serif;font-weight:700;text-transform:none}.fx.ig.ft .dsd-s-c,.fx.ig.ft .dsd-s-x{margin:0;font-size:calc(10pt*var(--k,1)*var(--fit,1));letter-spacing:.12em;text-transform:uppercase;opacity:.85}.fx.ig.ft .dsd-s-c{background:none;color:inherit;padding:0}' +
-    '.fx.ig .dsd-stats .v{font-size:calc(26pt*var(--k,1)*var(--fit,1))}.fx.ig .dsd-chart{margin-top:calc(6pt*var(--k,1))}';
+    '.fx.ig .dsd-stats .v{font-size:calc(26pt*var(--k,1)*var(--fit,1))}.fx.ig .dsd-chart{margin-top:calc(6pt*var(--k,1))}' +
+    '.dsd-pz.igdim{overflow:hidden}.dsd-pz.igdim::after{content:"";position:absolute;inset:0;background:rgba(5,8,20,.66);pointer-events:none}.fx.ig.card{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.28);border-radius:20px;padding:calc(10pt*var(--k,1)) calc(16pt*var(--k,1));box-sizing:border-box;backdrop-filter:blur(2px)}' +
+    '.fx.ig.big .dsd-stats{gap:calc(10pt*var(--k,1))}.fx.ig.big .dsd-stats>div{background:none!important;border:0;padding:0}.fx.ig.big .dsd-stats .v{font-size:calc(46pt*var(--k,1)*var(--fit,1));color:var(--p)!important;letter-spacing:-.02em}.fx.ig.big .dsd-stats .l{font-size:calc(12pt*var(--k,1)*var(--fit,1));text-transform:uppercase;letter-spacing:.12em}' +
+    '.fx.ig.big.dark .dsd-stats .v{color:var(--at)!important}.fx.ig.dsh .dsd-stats{margin:0}.fx.ig.dsh .dsd-stats>div{background:none!important;border:0}' +
+    '.fx.ig.inh .dsd-h2{color:inherit!important}.fx.ig.hb .dsd-h2{font-size:calc(13pt*var(--k,1)*var(--fit,1));margin:0;color:inherit!important}.fx.ig.hb .dsd-s-x{display:none}.fx.ig.hb2 .dsd-h2{display:none}' +
+    '.fx.ig.hand .dsd-s-t,.fx.ig.hand .dsd-h2{font-family:"Segoe Print","Comic Sans MS","Bradley Hand",cursive;text-transform:none;letter-spacing:0}' +
+    '.fx.ig.cmp .dsd-h2{color:#fff!important;text-align:center;display:flex;align-items:center;justify-content:center;height:calc(var(--zh0,150px));margin:0 0 calc(18pt*var(--k,1));font-size:calc(13pt*var(--k,1)*var(--fit,1));line-height:1.1}.fx.ig.cmp.cb .dsd-h2{color:#14161B!important}' +
+    '.fx.ig.cond .dsd-s-t{font-family:"Arial Narrow","Bahnschrift Condensed",Impact,sans-serif;font-stretch:condensed;text-transform:uppercase;letter-spacing:-.01em;line-height:.9}.fx.ig.rule .dsd-h2{font-size:calc(22pt*var(--k,1)*var(--fit,1));text-transform:uppercase}';
 
   /* ---- size: the usual tall infographic page ---- */
   D.SIZES.IG = { w: 800, h: 2000, tw: 12000, th: 30000, label: 'Infographic (800 × 2000)', screen: 1 };
@@ -5579,6 +5734,14 @@ D.toDocx = function (doc, opts) {
     var pal = IP[(i * 5 + v * 7 + 2) % IP.length], dark = x[0] === 'neon' || x[0] === 'circuit' || x[0] === 'blocks' || x[0] === 'glass' ? true : x[0] === 'editorial' ? false : (x[3] + v) % 2 === 1;
     D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], dark: dark, n: x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
   }); });
+  /* second set: 10 more layouts x 5 colour sets (numbers 101-150, so the first 100 keep their names) */
+  var LS2 = [['illus', 'Illustrated', 'Big pictures beside each point', 1, 5], ['dash', 'Dashboard', 'Figures, column chart and doughnut', 1, 3], ['bigstat', 'Big Numbers', 'Huge figures, short points', 1, 4],
+    ['grid2', 'Grid', 'Two-column tiles with colour headings', 0, 6], ['puzzle', 'Puzzle', 'Jigsaw pieces with numbers', 1, 6], ['photobg', 'Photo Backdrop', 'Full photo behind glass cards', 1, 5],
+    ['doodle', 'Hand Drawn', 'Sketchy circles and arrows', 0, 5], ['waves', 'Waves', 'Wavy colour bands', 0, 5], ['compare', 'Compare', 'Two columns side by side, then tips', 0, 6], ['rules', 'Rules', 'Black page, big title, 3-D prisms', 1, 4]];
+  [0, 1, 2, 3, 4].forEach(function (v) { LS2.forEach(function (x, i) {
+    var pal = IP[(i * 5 + v * 7 + 4) % IP.length], dark = x[0] === 'photobg' || x[0] === 'rules' || x[0] === 'puzzle' ? true : x[0] === 'doodle' || x[0] === 'waves' ? false : (x[3] + v) % 2 === 1;
+    D.DESIGNS.push(des('ma-infographic-' + (++nI), x[1] + ROM[v], 'panels', ['infographic'], pal.id, { layout: 'ig', ig: x[0], dark: dark, n: x[4], vi: nI, coll: 'marketing', sizes: ['IG', 'Story', 'A3'], desc: x[2] + (dark ? ' · dark' : ' · light') + ' · ' + pal.name }));
+  }); });
 
   /* ---- sample content, with roles ---- */
   function ph(i) { var a = D.samplePhotos || []; return a.length ? String(a[i % a.length]) : ''; }
@@ -5597,7 +5760,8 @@ D.toDocx = function (doc, opts) {
     doc.blocks = [R('s_kicker', { text: 'Your Company' }, 'kicker'), R('s_title', { text: 'Business with AI' }, 'title'), R('s_sub', { text: '6 ways to bring artificial intelligence into your business' }, 'sub'),
       R('s_text', { text: 'Small steps with AI can save hours every week. Here is where to start.' }, 'intro'),
       R('stats', { items: [{ v: '[X]%', l: 'Time saved' }, { v: '[X]x', l: 'Faster reports' }, { v: '[X]%', l: 'Fewer errors' }] }, 'data'),
-      R('chart', { kind: 'column', title: 'Hours saved per week', labels: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ name: 'Hours', values: [4, 7, 11, 15] }], vals: true }, 'dchart')];
+      R('chart', { kind: 'column', title: 'Hours saved per week', labels: ['Q1', 'Q2', 'Q3', 'Q4'], series: [{ name: 'Hours', values: [4, 7, 11, 15] }], vals: true }, 'dchart'),
+      R('chart', { kind: 'doughnut', title: 'Where AI helps most', labels: ['Reports', 'Support', 'Marketing', 'Other'], series: [{ name: 'Share', values: [35, 30, 20, 15] }] }, 'dpie')];
     pts.forEach(function (p, i) { doc.blocks.push(R('h2', { text: p[0] }, 'i' + (i + 1) + 'h'), R('s_text', { text: p[1] }, 'i' + (i + 1) + 't')); });
     for (var i = 0; i <= 6; i++) doc.blocks.push(R('s_photo', { src: ph(i) }, 'photo' + i));
     doc.blocks.push(R('s_cta', { text: 'www.yourcompany.com' }, 'foot'));

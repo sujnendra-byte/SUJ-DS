@@ -8,7 +8,7 @@ V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
 
 NEW IN 42.0.6
- - includes/371, 372: AI Document - 100 new infographics (20 layouts x 5 colour sets, dark
+ - includes/371, 372: AI Document - 150 new infographics (30 layouts x 5 colour sets, dark
    and light) on the tall 800 x 2000 infographic page.
 
 NEW IN 42.0.5

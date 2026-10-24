@@ -9,12 +9,14 @@
  *
  * CHANGELOG
  * ---------
- * 42.0.6 - 2026-10-24 AI Document: 100 new infographics on a tall 800 x 2000 page. 2 includes updated (371, 372).
+ * 42.0.6 - 2026-10-24 AI Document: 150 new infographics on a tall 800 x 2000 page. 2 includes updated (371, 372).
  *   372  Infographics rebuilt: 20 original layouts (glass cards, zigzag, timeline, icon tiles, colour blocks,
  *        neon, photo rows, pill tabs, data and chart, chevrons, road map, number tabs, hero photo, funnel,
  *        sidebar, hexagons, steps, speech bubbles, circuit board, editorial) x 5 colour sets, dark and light,
  *        with line icons, big numbers and photos. New page size "Infographic (800 x 2000)" (also Story, A3).
  *        Word export sizes the point headings like the screen.
+ *        Second set: 10 more layouts (illustrated, dashboard with doughnut, big numbers, two-column grid, puzzle,
+ *        photo backdrop, hand drawn, waves, comparison, rules) x 5 colour sets = 150 designs in all.
  *   371  The AI is told what a tall infographic holds (headline, intro, six numbered points, figures).
  * 42.0.5 - 2026-10-24 AI Document: Fill from LinkedIn accepts any profile link, tries the link alone, and reads screenshots. 3 includes updated (371, 372, 373).
  *   371, 373  A link copied from the address bar (with ?isSelfProfile=true or similar) was refused as "not a
