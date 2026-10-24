@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 07:00:00
+ * Modified   : 2026-10-24 12:00:00
  * Load order : 371 of 374
  */
 /**
@@ -80,6 +80,9 @@ final class DS_AI_Doc {
 			array( '/load-doc', 'POST', 'route_load' ),
 			array( '/delete-doc', 'POST', 'route_delete' ),
 			array( '/doc-cost', 'GET', 'route_cost' ),
+			array( '/doc-brand', 'GET,POST', 'route_brand' ),
+			array( '/doc-brand-site', 'POST', 'route_brand_site' ),
+			array( '/doc-linkedin', 'POST', 'route_linkedin' ),
 		);
 		foreach ( $r as $x ) {
 			register_rest_route( 'ds/v1', $x[0], array( 'methods' => $x[1], 'permission_callback' => $li, 'callback' => array( __CLASS__, $x[2] ) ) );
@@ -243,6 +246,11 @@ final class DS_AI_Doc {
 		$dir      = trim( wp_strip_all_tags( (string) ( isset( $p['directives'] ) ? $p['directives'] : '' ) ) );
 		$mode     = 'preserve' === ( isset( $p['mode'] ) ? $p['mode'] : '' ) ? 'preserve' : 'ai';
 		$source   = trim( wp_strip_all_tags( (string) ( isset( $p['source_text'] ) ? $p['source_text'] : '' ) ) );
+		/* "Use AI" switch on Use My Text: off = no AI call, the text is laid out by simple rules. Free accounts never get the AI here (same rule as AI Presentation). */
+		$use_ai   = ! ( isset( $p['use_ai'] ) && in_array( $p['use_ai'], array( false, 0, '0', 'false', 'off' ), true ) );
+		if ( $use_ai && function_exists( 'ds_uai_is_free' ) && ds_uai_is_free( $uid ) ) {
+			$use_ai = false;
+		}
 		$fixed    = in_array( $type, self::$FIXED, true );
 		$pages    = $fixed ? 1 : max( 2, min( (int) $s['max_pages'], (int) ( isset( $p['pages'] ) ? $p['pages'] : 5 ) ) );
 		$example  = isset( $p['example'] ) ? wp_json_encode( $p['example'] ) : '';
@@ -269,18 +277,19 @@ final class DS_AI_Doc {
 			return self::err( 'credits', 'You need ' . $cost . ' credits for this document.', 402, array( 'cost' => $cost ) );
 		}
 
-		$job = array( 'uid' => $uid, 'type' => $type, 'pages' => $pages, 'cost' => $cost, 'mode' => $mode, 'lang' => $lang, 'tone' => $tone, 'topic' => $topic, 'dir' => $dir, 'tries' => array(), 'ok' => array(), 'created' => time() );
+		$local = 'preserve' === $mode && ! $use_ai;
+		$job = array( 'uid' => $uid, 'type' => $type, 'pages' => $pages, 'cost' => $cost, 'mode' => $mode, 'local' => $local, 'lang' => $lang, 'tone' => $tone, 'topic' => $topic, 'dir' => $dir, 'tries' => array(), 'ok' => array(), 'created' => time() );
 		try {
 			if ( $fixed ) {
-				$out = self::write_fixed( $type, $topic, $lang, $tone, $dir, $example, 'preserve' === $mode ? $source : '' );
+				$out = $local ? self::local_fixed( $type, isset( $p['example'] ) ? $p['example'] : array(), $source ) : self::write_fixed( $type, $topic, $lang, $tone, $dir, $example, 'preserve' === $mode ? $source : '' );
 				if ( is_wp_error( $out ) ) {
 					throw new Exception( $out->get_error_message() );
 				}
 				$id = self::save_job( $job + array( 'sections' => array(), 'done' => 1 ) );
-				return rest_ensure_response( array( 'success' => true, 'job' => $id, 'fixed' => true, 'doc' => $out, 'cost' => $cost, 'credits_balance' => self::balance( $uid ) ) );
+				return rest_ensure_response( array( 'success' => true, 'job' => $id, 'fixed' => true, 'local' => $local, 'doc' => $out, 'cost' => $cost, 'credits_balance' => self::balance( $uid ) ) );
 			}
 			if ( 'preserve' === $mode ) {
-				$outline = self::outline_from_text( $source, $lang );
+				$outline = self::outline_from_text( $source, $lang, $local );
 			} else {
 				$outline = self::outline( $type, $topic, $pages, $lang, $tone, $dir );
 			}
@@ -299,7 +308,7 @@ final class DS_AI_Doc {
 		$id = self::save_job( $job );
 		$public = array_map( function ( $x ) { return array( 'heading' => $x['heading'] ); }, $outline['sections'] );
 		return rest_ensure_response( array(
-			'success' => true, 'job' => $id, 'fixed' => false, 'cost' => $cost, 'credits_balance' => self::balance( $uid ),
+			'success' => true, 'job' => $id, 'fixed' => false, 'local' => $local, 'cost' => $cost, 'credits_balance' => self::balance( $uid ),
 			'outline' => array( 'title' => $outline['title'], 'subtitle' => $outline['subtitle'], 'kicker' => $outline['kicker'], 'cover_q' => $outline['cover_q'], 'sections' => $public ),
 		) );
 	}
@@ -351,7 +360,7 @@ final class DS_AI_Doc {
 		);
 	}
 
-	private static function outline_from_text( $text, $lang ) {
+	private static function outline_from_text( $text, $lang, $local = false ) {
 		$paras  = preg_split( "/\n\s*\n|\r\n\s*\r\n/", $text );
 		$chunks = array();
 		$cur    = '';
@@ -371,7 +380,7 @@ final class DS_AI_Doc {
 		}
 		$chunks = array_slice( $chunks, 0, 24 );
 		$first  = mb_substr( $text, 0, 1200 );
-		$j      = self::ai_json( 'Reply with JSON only.', 'Read the start of this document and return {"title":"its title (max 8 words)","subtitle":"one line describing it","kicker":"document type in 1-3 words","cover_q":"English stock photo words"}. Keep the language of the text.' . "\n\n" . $first, 400, 0.3 );
+		$j      = $local ? array( 'title' => self::local_title( $text ) ) : self::ai_json( 'Reply with JSON only.', 'Read the start of this document and return {"title":"its title (max 8 words)","subtitle":"one line describing it","kicker":"document type in 1-3 words","cover_q":"English stock photo words"}. Keep the language of the text.' . "\n\n" . $first, 400, 0.3 );
 		$j      = is_wp_error( $j ) ? array() : $j;
 		$secs   = array();
 		foreach ( $chunks as $i => $c ) {
@@ -402,6 +411,16 @@ final class DS_AI_Doc {
 		set_transient( 'ds_doc_job_' . preg_replace( '/[^A-Za-z0-9]/', '', (string) $req->get_param( 'job' ) ), $job, self::JOB_TTL );
 
 		$sec   = $job['sections'][ $i ];
+		if ( ! empty( $job['local'] ) ) { /* Use AI off: the user's own words, laid out by rules */
+			$blocks = self::clean_blocks( self::local_blocks( $job['chunks'][ $i ], 0 === $i ? $job['outline']['title'] : '' ) );
+			if ( 0 === $i && count( $blocks ) > 1 && $blocks[0]['text'] === $job['outline']['title'] && 'h2' === $blocks[1]['t'] ) {
+				array_shift( $blocks ); /* the title is on the cover already; the first heading starts the page */
+				$blocks[0]['t'] = 'h1';
+			}
+			$job['ok'][ $i ] = 1;
+			set_transient( 'ds_doc_job_' . preg_replace( '/[^A-Za-z0-9]/', '', (string) $req->get_param( 'job' ) ), $job, self::JOB_TTL );
+			return rest_ensure_response( array( 'success' => true, 'index' => $i, 'blocks' => $blocks ) );
+		}
 		$words = 'preserve' === $job['mode'] ? 0 : 360;
 		$sys   = 'You write well-structured, specific, useful document content. Reply with JSON only.';
 		if ( 'preserve' === $job['mode'] ) {
@@ -455,6 +474,587 @@ final class DS_AI_Doc {
 			}
 		}
 		return rest_ensure_response( array( 'success' => true, 'refund' => $refund, 'credits_balance' => self::balance( $uid ) ) );
+	}
+
+	/* ---------------- Use AI off: lay out the user's own text with simple rules, no AI call ---------------- */
+
+	/** Lines of the user's text, with list markers noted. */
+	private static function local_lines( $text ) {
+		$out = array();
+		foreach ( preg_split( '/\r\n|\r|\n/', (string) $text ) as $l ) {
+			$l = trim( preg_replace( '/[ \t\x{00a0}]+/u', ' ', $l ) );
+			if ( '' === $l ) {
+				$out[] = array( 'k' => 'gap', 't' => '' );
+				continue;
+			}
+			if ( preg_match( '/^#{1,4}\s+(.+)$/u', $l, $m ) ) {
+				$out[] = array( 'k' => 'h', 't' => trim( str_replace( array( '**', '__' ), '', $m[1] ) ) );
+			} elseif ( preg_match( '/^(?:[-*•●▪◦►✓]|\d{1,2}[.)])\s+(.+)$/u', $l, $m ) ) {
+				$out[] = array( 'k' => 'li', 't' => trim( str_replace( '**', '', $m[1] ) ), 'num' => (bool) preg_match( '/^\d/', $l ) );
+			} else {
+				$out[] = array( 'k' => 'p', 't' => str_replace( '**', '', $l ) );
+			}
+		}
+		return $out;
+	}
+
+	private static function local_words( $s ) {
+		return count( preg_split( '/\s+/u', trim( (string) $s ), -1, PREG_SPLIT_NO_EMPTY ) );
+	}
+
+	/** A long piece of text (one part of the document) to document blocks: headings, paragraphs, lists, tables. */
+	private static function local_blocks( $text, $first_heading = '' ) {
+		$lines  = self::local_lines( $text );
+		$blocks = array();
+		$list   = null;
+		$table  = null;
+		$flush  = function () use ( &$blocks, &$list, &$table ) {
+			if ( $list ) {
+				$blocks[] = $list;
+				$list     = null;
+			}
+			if ( $table ) {
+				if ( count( $table['rows'] ) >= 1 ) {
+					$blocks[] = $table;
+				}
+				$table = null;
+			}
+		};
+		$n = count( $lines );
+		for ( $i = 0; $i < $n; $i++ ) {
+			$l = $lines[ $i ];
+			if ( 'gap' === $l['k'] ) {
+				$flush();
+				continue;
+			}
+			$t = $l['t'];
+			/* table rows: cells split by | or tabs */
+			if ( 'p' === $l['k'] && ( substr_count( $t, '|' ) >= 1 || substr_count( $t, "\t" ) >= 1 ) ) {
+				$cells = array_values( array_filter( array_map( 'trim', preg_split( '/\||\t/', trim( $t, '|' ) ) ), 'strlen' ) );
+				if ( count( $cells ) >= 2 && ! preg_match( '/^[-:\s|]+$/', $t ) ) {
+					if ( $list ) {
+						$blocks[] = $list;
+						$list     = null;
+					}
+					if ( ! $table ) {
+						$table = array( 't' => 'table', 'head' => array_slice( $cells, 0, 6 ), 'rows' => array() );
+					} else {
+						$table['rows'][] = array_slice( $cells, 0, 6 );
+					}
+					continue;
+				}
+				if ( preg_match( '/^[-:\s|]+$/', $t ) ) {
+					continue;
+				}
+			}
+			if ( 'li' === $l['k'] ) {
+				if ( $table ) {
+					$flush();
+				}
+				$type = $l['num'] ? 'ol' : 'ul';
+				if ( ! $list || $list['t'] !== $type ) {
+					if ( $list ) {
+						$blocks[] = $list;
+					}
+					$list = array( 't' => $type, 'items' => array() );
+				}
+				$list['items'][] = $t;
+				continue;
+			}
+			$flush();
+			$next = '';
+			for ( $j = $i + 1; $j < $n; $j++ ) {
+				if ( 'gap' !== $lines[ $j ]['k'] ) {
+					$next = $lines[ $j ]['t'];
+					break;
+				}
+			}
+			$short = self::local_words( $t ) <= 10 && mb_strlen( $t ) <= 80 && ! preg_match( '/[.!?,;]$/u', $t );
+			if ( 'h' === $l['k'] || ( $short && '' !== $next ) ) {
+				$blocks[] = array( 't' => $blocks ? 'h2' : 'h1', 'text' => rtrim( $t, ':' ) );
+			} else {
+				$blocks[] = array( 't' => 'p', 'text' => $t );
+			}
+		}
+		$flush();
+		if ( ! $blocks || 'h1' !== $blocks[0]['t'] ) {
+			array_unshift( $blocks, array( 't' => 'h1', 'text' => $first_heading ? $first_heading : self::local_title( $text ) ) );
+		}
+		return $blocks;
+	}
+
+	/** Title for the cover: the first short line of the text, or its first words. */
+	private static function local_title( $text ) {
+		foreach ( self::local_lines( $text ) as $l ) {
+			if ( 'gap' === $l['k'] ) {
+				continue;
+			}
+			$t = rtrim( $l['t'], ':' );
+			if ( self::local_words( $t ) <= 10 ) {
+				return self::clean( $t, 160 );
+			}
+			$w = preg_split( '/\s+/u', $t );
+			return self::clean( implode( ' ', array_slice( $w, 0, 8 ) ), 160 ) . '…';
+		}
+		return 'Document';
+	}
+
+	/**
+	 * Fixed designs (business cards, flyers, brochures...): put the user's own lines into the design's
+	 * places. Phone, email, website and address go to the contact rows and the QR code; list lines to
+	 * the lists; short lines to headings, longer lines to text. A place with nothing from the user keeps
+	 * its sample words in [square brackets] so it is easy to see what still needs filling in.
+	 */
+	private static function local_fixed( $type, $example, $source ) {
+		$contacts = array( 'phone' => array(), 'mail' => array(), 'web' => array(), 'pin' => array(), 'link' => array() );
+		$items    = array();
+		$short    = array();
+		$long     = array();
+		foreach ( self::local_lines( $source ) as $l ) {
+			if ( 'gap' === $l['k'] ) {
+				continue;
+			}
+			$t = $l['t'];
+			$t = trim( preg_replace( '/^(phone|tel|mobile|mob|cell|email|e-mail|mail|web|website|site|address|addr|location)\s*[:\-]\s*/iu', '', $t, 1, $lab ) );
+			if ( '' === $t ) {
+				continue;
+			}
+			if ( preg_match( '#^(https?://)?([a-z]{2,3}\.)?linkedin\.com/\S+$#iu', $t ) ) {
+				$contacts['link'][] = preg_replace( '#^https?://(www\.)?#i', '', $t );
+			} elseif ( preg_match( '/^[\w.+\-]+@[\w\-]+(\.[\w\-]+)+$/u', $t ) ) {
+				$contacts['mail'][] = $t;
+			} elseif ( preg_match( '/^(https?:\/\/|www\.)\S+$/iu', $t ) || preg_match( '/^[a-z0-9\-]+(\.[a-z0-9\-]+)*\.(com|in|org|net|co|io|biz|info|me|uk|us|ai|app|dev|co\.in)(\/\S*)?$/iu', $t ) ) {
+				$contacts['web'][] = $t;
+			} elseif ( preg_match( '/^\+?[\d\s().\-]{7,}$/u', $t ) && preg_match_all( '/\d/', $t ) >= 7 ) {
+				$contacts['phone'][] = $t;
+			} elseif ( $lab && preg_match( '/^(address|addr|location)/iu', $l['t'] ) ) {
+				$contacts['pin'][] = $t;
+			} elseif ( 'p' === $l['k'] && preg_match( '/\d/u', $t ) && false !== strpos( $t, ',' ) && self::local_words( $t ) <= 14 && ! preg_match( '/[.!?]$/u', $t ) ) {
+				$contacts['pin'][] = $t;
+			} elseif ( 'li' === $l['k'] ) {
+				$items[] = $t;
+			} elseif ( self::local_words( $t ) <= 9 && mb_strlen( $t ) <= 70 ) {
+				$short[] = rtrim( $t, ':' );
+			} else {
+				$long[] = $t;
+			}
+		}
+		$keep = function ( $s ) {
+			$s = trim( (string) $s );
+			return ( '' === $s || '[' === mb_substr( $s, 0, 1 ) ) ? $s : '[' . $s . ']';
+		};
+		$take = function ( $want ) use ( &$short, &$long ) {
+			if ( 'long' === $want ) {
+				if ( $long ) {
+					return array_shift( $long );
+				}
+				return $short ? array_shift( $short ) : null;
+			}
+			if ( $short ) {
+				return array_shift( $short );
+			}
+			return $long ? array_shift( $long ) : null;
+		};
+		$blocks = array_values( array_filter( (array) $example, 'is_array' ) );
+		/* the order the lines are used in: on a business card "name, job title, company, tagline"; elsewhere the main title first, then top to bottom */
+		$rank  = 'business_card' === $type ? array( 'name' => 0, 'title' => 1, 'company' => 2, 'tagline' => 3 ) : array();
+		$order = array_keys( $blocks );
+		$main  = null;
+		foreach ( $blocks as $k => $b ) {
+			if ( in_array( $b['t'] ?? '', array( 's_title', 'h1' ), true ) ) {
+				$main = $k;
+				break;
+			}
+		}
+		usort( $order, function ( $a, $b ) use ( $blocks, $rank, $main ) {
+			$ra = isset( $blocks[ $a ]['role'], $rank[ $blocks[ $a ]['role'] ] ) ? $rank[ $blocks[ $a ]['role'] ] : ( $a === $main ? -1 : 10 );
+			$rb = isset( $blocks[ $b ]['role'], $rank[ $blocks[ $b ]['role'] ] ) ? $rank[ $blocks[ $b ]['role'] ] : ( $b === $main ? -1 : 10 );
+			return $ra === $rb ? $a - $b : $ra - $rb;
+		} );
+		foreach ( $order as $k ) {
+			$b = $blocks[ $k ];
+			$t = $b['t'] ?? '';
+			if ( 's_contact' === $t ) {
+				$rows = array();
+				foreach ( (array) ( $b['rows'] ?? array() ) as $r ) {
+					$ic = is_array( $r ) && isset( $r['i'] ) ? $r['i'] : '';
+					if ( isset( $contacts[ $ic ] ) && $contacts[ $ic ] ) {
+						$rows[] = array( 'i' => $ic, 't' => $contacts[ $ic ][0] ); /* the back page can show the same details again */
+					}
+				}
+				$have = array();
+				foreach ( $rows as $r ) {
+					$have[ $r['i'] ] = 1;
+				}
+				foreach ( $contacts as $ic => $vals ) { /* a second phone or email, or a LinkedIn link, the sample has no row for */
+					foreach ( array_slice( $vals, isset( $have[ $ic ] ) ? 1 : 0 ) as $v ) {
+						if ( count( $rows ) < 6 ) {
+							$rows[] = array( 'i' => $ic, 't' => $v );
+						}
+					}
+				}
+				if ( ! $rows ) {
+					foreach ( (array) ( $b['rows'] ?? array() ) as $r ) {
+						if ( is_array( $r ) ) {
+							$rows[] = array( 'i' => $r['i'] ?? '', 't' => $keep( $r['t'] ?? '' ) );
+						}
+					}
+				}
+				$blocks[ $k ]['rows'] = $rows;
+			} elseif ( 's_qr' === $t ) {
+				if ( $contacts['web'] ) {
+					$u = $contacts['web'][0];
+					$blocks[ $k ]['text'] = preg_match( '/^https?:\/\//i', $u ) ? $u : 'https://' . $u;
+				}
+			} elseif ( in_array( $t, array( 'ul', 'ol' ), true ) ) {
+				$n = max( 1, count( (array) ( $b['items'] ?? array() ) ) );
+				if ( $items ) {
+					$blocks[ $k ]['items'] = array_splice( $items, 0, max( $n, 'business_card' === $type ? $n : 8 ) );
+				} else {
+					$blocks[ $k ]['items'] = array_map( $keep, (array) ( $b['items'] ?? array() ) );
+				}
+			} elseif ( in_array( $t, array( 'h1', 'h2', 'h3', 'p', 's_title', 's_sub', 's_kicker', 's_text', 's_cta', 'quote', 'callout' ), true ) && isset( $b['text'] ) ) {
+				$v = $take( in_array( $t, array( 'p', 's_text', 'quote', 'callout' ), true ) ? 'long' : 'short' );
+				$blocks[ $k ]['text'] = null === $v ? $keep( $b['text'] ) : $v;
+			} elseif ( in_array( $t, array( 's_details', 'kv' ), true ) ) {
+				$blocks[ $k ]['rows'] = array_map( function ( $r ) use ( $keep ) { return is_array( $r ) ? array_map( $keep, $r ) : $r; }, (array) ( $b['rows'] ?? array() ) );
+			} elseif ( 'stats' === $t ) {
+				$blocks[ $k ]['items'] = array_map( function ( $r ) use ( $keep ) { return is_array( $r ) ? array( 'v' => $keep( $r['v'] ?? '' ), 'l' => $keep( $r['l'] ?? '' ) ) : $r; }, (array) ( $b['items'] ?? array() ) );
+			}
+		}
+		/* lines that found no place go into the first text box, so nothing the user typed is lost */
+		$rest = array_merge( $short, $long );
+		if ( $rest ) {
+			foreach ( $order as $k ) {
+				if ( in_array( $blocks[ $k ]['t'] ?? '', array( 's_text', 'p' ), true ) ) {
+					$cur = (string) $blocks[ $k ]['text'];
+					$blocks[ $k ]['text'] = trim( ( '[' === mb_substr( $cur, 0, 1 ) ? '' : $cur . ' ' ) . implode( ' ', $rest ) );
+					break;
+				}
+			}
+		}
+		$blocks = self::clean_blocks( $blocks );
+		$title  = '';
+		foreach ( $blocks as $b ) {
+			if ( in_array( $b['t'], array( 's_title', 'h1' ), true ) && ! empty( $b['text'] ) ) {
+				$title = $b['text'];
+				break;
+			}
+		}
+		return array( 'title' => self::clean( $title ? $title : self::local_title( $source ), 160 ), 'subtitle' => '', 'blocks' => $blocks );
+	}
+
+	/* ---------------- My brand: the user's own logo, colours and fonts, saved for every new design ---------------- */
+
+	const BRAND_META = 'ds_doc_brand';
+
+	private static function hex6( $c ) {
+		$c = self::color( $c, '' );
+		if ( '' === $c || '@' === $c[0] ) {
+			return '';
+		}
+		if ( 4 === strlen( $c ) ) {
+			$c = '#' . $c[1] . $c[1] . $c[2] . $c[2] . $c[3] . $c[3];
+		}
+		return strtoupper( $c );
+	}
+	private static function font_name( $f ) {
+		$f = trim( preg_replace( '/[^A-Za-z0-9 \-]/', '', (string) $f ) );
+		return mb_substr( $f, 0, 40 );
+	}
+	/** A logo picture the browser made smaller: PNG, JPEG or WebP only (never SVG), at most about 400 KB. */
+	private static function logo_data( $d ) {
+		$d = is_string( $d ) ? trim( $d ) : '';
+		if ( '' === $d || strlen( $d ) > 560000 || ! preg_match( '#^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$#', $d, $m ) ) {
+			return '';
+		}
+		$bin = base64_decode( $m[2], true );
+		if ( false === $bin || ! function_exists( 'getimagesizefromstring' ) ) {
+			return '';
+		}
+		$info = @getimagesizefromstring( $bin );
+		if ( ! $info || ! in_array( $info['mime'], array( 'image/png', 'image/jpeg', 'image/webp' ), true ) || $info[0] < 8 || $info[1] < 8 || $info[0] > 2400 || $info[1] > 2400 ) {
+			return '';
+		}
+		return 'data:' . $info['mime'] . ';base64,' . base64_encode( $bin );
+	}
+	public static function brand_clean( $b ) {
+		$b = is_array( $b ) ? $b : array();
+		$out = array(
+			'name' => self::clean( isset( $b['name'] ) ? $b['name'] : 'My brand', 40 ),
+			'p'    => self::hex6( isset( $b['p'] ) ? $b['p'] : '' ),
+			's'    => self::hex6( isset( $b['s'] ) ? $b['s'] : '' ),
+			'a'    => self::hex6( isset( $b['a'] ) ? $b['a'] : '' ),
+			'head' => self::font_name( isset( $b['head'] ) ? $b['head'] : '' ),
+			'body' => self::font_name( isset( $b['body'] ) ? $b['body'] : '' ),
+			'logo' => self::logo_data( isset( $b['logo'] ) ? $b['logo'] : '' ),
+			'site' => isset( $b['site'] ) ? esc_url_raw( (string) $b['site'], array( 'http', 'https' ) ) : '',
+			'auto' => ! isset( $b['auto'] ) || ! empty( $b['auto'] ) ? 1 : 0,
+		);
+		if ( '' === $out['name'] ) {
+			$out['name'] = 'My brand';
+		}
+		return $out;
+	}
+	public static function brand_get( $uid ) {
+		$b = get_user_meta( (int) $uid, self::BRAND_META, true );
+		return is_array( $b ) && ! empty( $b['p'] ) ? $b : null;
+	}
+	public static function route_brand( WP_REST_Request $req ) {
+		$uid = get_current_user_id();
+		if ( 'GET' === $req->get_method() ) {
+			return rest_ensure_response( array( 'success' => true, 'brand' => self::brand_get( $uid ) ) );
+		}
+		$p = $req->get_json_params();
+		$p = is_array( $p ) ? $p : array();
+		if ( ! empty( $p['clear'] ) ) {
+			delete_user_meta( $uid, self::BRAND_META );
+			return rest_ensure_response( array( 'success' => true, 'brand' => null ) );
+		}
+		$b = self::brand_clean( isset( $p['brand'] ) ? $p['brand'] : array() );
+		if ( '' === $b['p'] ) {
+			return self::err( 'brand', 'Pick at least your main brand colour.' );
+		}
+		if ( ! empty( $p['brand']['logo'] ) && '' === $b['logo'] ) {
+			return self::err( 'logo', 'The logo must be a PNG, JPG or WebP picture under 400 KB.' );
+		}
+		update_user_meta( $uid, self::BRAND_META, $b );
+		return rest_ensure_response( array( 'success' => true, 'brand' => $b ) );
+	}
+
+	/**
+	 * Read the logo, colours and fonts from the user's own website. The page is fetched by the server with
+	 * wp_safe_remote_get (no local or private addresses), a short timeout and a size limit; nothing is stored
+	 * until the user presses Save.
+	 */
+	public static function route_brand_site( WP_REST_Request $req ) {
+		$url = esc_url_raw( trim( (string) $req->get_param( 'url' ) ), array( 'http', 'https' ) );
+		if ( $url && ! preg_match( '#^https?://#i', $url ) ) {
+			$url = 'https://' . $url;
+		}
+		if ( ! $url || ! wp_http_validate_url( $url ) ) {
+			return self::err( 'url', 'Please type your website address, for example www.yourcompany.com.' );
+		}
+		$uid  = get_current_user_id();
+		$lock = 'ds_doc_bsite_' . $uid;
+		if ( get_transient( $lock ) ) {
+			return self::err( 'slow', 'Please wait a few seconds and try again.', 429 );
+		}
+		set_transient( $lock, 1, 5 );
+		$args = array( 'timeout' => 8, 'redirection' => 3, 'limit_response_size' => 1500000, 'user-agent' => 'Mozilla/5.0 (DesignStager brand reader)' );
+		$res  = wp_safe_remote_get( $url, $args );
+		if ( is_wp_error( $res ) || 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
+			return self::err( 'site', 'We could not open that website. Check the address, or add your logo and colours by hand.' );
+		}
+		$html = (string) wp_remote_retrieve_body( $res );
+		$base = $url;
+
+		/* colours: the theme colour first, then the colours the site's styles use most (not white, black or greys) */
+		$count = array();
+		if ( preg_match( '/<meta[^>]+name=["\']theme-color["\'][^>]+content=["\'](#[0-9a-f]{3,6})["\']/i', $html, $m ) || preg_match( '/<meta[^>]+content=["\'](#[0-9a-f]{3,6})["\'][^>]+name=["\']theme-color["\']/i', $html, $m ) ) {
+			$h = self::hex6( $m[1] );
+			if ( $h ) {
+				$count[ $h ] = 1000;
+			}
+		}
+		$css = '';
+		if ( preg_match_all( '/<style[^>]*>(.*?)<\/style>/is', $html, $mm ) ) {
+			$css .= implode( "\n", $mm[1] );
+		}
+		if ( preg_match_all( '/style=["\']([^"\']+)["\']/i', $html, $mm ) ) {
+			$css .= "\n" . implode( "\n", $mm[1] );
+		}
+		/* the site's own first stylesheet (same host only) */
+		$host = wp_parse_url( $url, PHP_URL_HOST );
+		if ( preg_match_all( '/<link[^>]+rel=["\']stylesheet["\'][^>]*>/i', $html, $ls ) ) {
+			$n = 0;
+			foreach ( $ls[0] as $tag ) {
+				if ( ! preg_match( '/href=["\']([^"\']+)["\']/i', $tag, $hm ) ) {
+					continue;
+				}
+				$href = self::abs_url( html_entity_decode( $hm[1] ), $base );
+				if ( ! $href || wp_parse_url( $href, PHP_URL_HOST ) !== $host || $n >= 2 ) {
+					continue;
+				}
+				$n++;
+				$r2 = wp_safe_remote_get( $href, array( 'timeout' => 6, 'redirection' => 2, 'limit_response_size' => 800000 ) );
+				if ( ! is_wp_error( $r2 ) && 200 === (int) wp_remote_retrieve_response_code( $r2 ) ) {
+					$css .= "\n" . wp_remote_retrieve_body( $r2 );
+				}
+			}
+		}
+		if ( preg_match_all( '/#([0-9a-f]{6}|[0-9a-f]{3})\b/i', $css, $cm ) ) {
+			foreach ( $cm[0] as $c ) {
+				$h = self::hex6( $c );
+				if ( ! $h ) {
+					continue;
+				}
+				list( $r, $g, $b ) = array( hexdec( substr( $h, 1, 2 ) ), hexdec( substr( $h, 3, 2 ) ), hexdec( substr( $h, 5, 2 ) ) );
+				$sat = max( $r, $g, $b ) - min( $r, $g, $b );
+				if ( $sat < 40 ) {
+					continue; /* white, black and greys are not brand colours */
+				}
+				if ( in_array( $h, array( '#007CBA', '#0073AA', '#00A0D2', '#135E96', '#2271B1', '#72AEE6', '#D63638', '#CF2E2E', '#FF6900', '#FCB900', '#7BDCB5', '#00D084', '#8ED1FC', '#0693E3', '#9B51E0', '#F78DA7', '#ABB8C3', '#EB144C', '#00A32A', '#DBA617' ), true ) ) {
+					continue; /* WordPress's own admin and block-editor colours, which most WordPress sites carry */
+				}
+				$count[ $h ] = ( isset( $count[ $h ] ) ? $count[ $h ] : 0 ) + 1;
+			}
+		}
+		arsort( $count );
+		$colors = array();
+		foreach ( array_keys( $count ) as $h ) {
+			$dup = false;
+			foreach ( $colors as $o ) {
+				if ( abs( hexdec( substr( $h, 1, 2 ) ) - hexdec( substr( $o, 1, 2 ) ) ) + abs( hexdec( substr( $h, 3, 2 ) ) - hexdec( substr( $o, 3, 2 ) ) ) + abs( hexdec( substr( $h, 5, 2 ) ) - hexdec( substr( $o, 5, 2 ) ) ) < 60 ) {
+					$dup = true;
+					break;
+				}
+			}
+			if ( ! $dup ) {
+				$colors[] = $h;
+			}
+			if ( count( $colors ) >= 6 ) {
+				break;
+			}
+		}
+
+		/* fonts: Google Fonts links and the first font-family names in the styles */
+		$fonts = array();
+		if ( preg_match_all( '/fonts\.googleapis\.com\/css2?\?([^"\'>\s]+)/i', $html, $gm ) ) {
+			foreach ( $gm[1] as $q ) {
+				if ( preg_match_all( '/family=([^&:;]+)/i', html_entity_decode( $q ), $fm ) ) {
+					foreach ( $fm[1] as $f ) {
+						$fonts[] = self::font_name( str_replace( '+', ' ', urldecode( $f ) ) );
+					}
+				}
+			}
+		}
+		if ( preg_match_all( '/font-family\s*:\s*["\']?([A-Za-z0-9 \-]+)/i', $css, $fm ) ) {
+			foreach ( $fm[1] as $f ) {
+				$f = self::font_name( $f );
+				if ( $f && ! preg_match( '/^(inherit|initial|sans-serif|serif|monospace|system-ui|var|-apple-system|BlinkMacSystemFont|dashicons|Font Awesome.*|fontawesome|icomoon|eicons|star|swiper-icons)$/i', $f ) ) {
+					$fonts[] = $f;
+				}
+			}
+		}
+		$fonts = array_values( array_unique( array_filter( $fonts ) ) );
+		$fonts = array_slice( $fonts, 0, 6 );
+
+		/* logo: an <img> marked as the logo, then the touch icon, then the share picture */
+		$cands = array();
+		if ( preg_match_all( '/<img[^>]+>/i', $html, $im ) ) {
+			foreach ( $im[0] as $tag ) {
+				if ( preg_match( '/(class|id|alt|src)=["\'][^"\']*logo[^"\']*["\']/i', $tag ) && preg_match( '/\s(?:data-)?src=["\']([^"\']+)["\']/i', $tag, $sm ) ) {
+					$cands[] = $sm[1];
+				}
+			}
+		}
+		if ( preg_match( '/<link[^>]+rel=["\']apple-touch-icon[^"\']*["\'][^>]*href=["\']([^"\']+)["\']/i', $html, $m ) ) {
+			$cands[] = $m[1];
+		}
+		if ( preg_match( '/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) ) {
+			$cands[] = $m[1];
+		}
+		$logo = '';
+		foreach ( array_slice( $cands, 0, 4 ) as $c ) {
+			$u = self::abs_url( html_entity_decode( $c ), $base );
+			if ( ! $u || preg_match( '/\.svg(\?|$)/i', $u ) ) {
+				continue; /* SVG files are not stored (they can carry scripts); upload a PNG instead */
+			}
+			$r3 = wp_safe_remote_get( $u, array( 'timeout' => 6, 'redirection' => 2, 'limit_response_size' => 420000 ) );
+			if ( is_wp_error( $r3 ) || 200 !== (int) wp_remote_retrieve_response_code( $r3 ) ) {
+				continue;
+			}
+			$bin  = (string) wp_remote_retrieve_body( $r3 );
+			$info = strlen( $bin ) < 410000 ? @getimagesizefromstring( $bin ) : false;
+			if ( $info && in_array( $info['mime'], array( 'image/png', 'image/jpeg', 'image/webp' ), true ) && $info[0] >= 16 && $info[0] <= 2400 && $info[1] <= 2400 ) {
+				$logo = 'data:' . $info['mime'] . ';base64,' . base64_encode( $bin );
+				break;
+			}
+		}
+		$title = '';
+		if ( preg_match( '/<meta[^>]+property=["\']og:site_name["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) || preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $html, $m ) ) {
+			$title = self::clean( html_entity_decode( $m[1] ), 40 );
+		}
+		if ( ! $colors && ! $logo && ! $fonts ) {
+			return self::err( 'empty', 'We opened the website but could not find a logo or colours. Please add them by hand.' );
+		}
+		return rest_ensure_response( array( 'success' => true, 'site' => $url, 'name' => $title, 'colors' => $colors, 'fonts' => $fonts, 'logo' => $logo ) );
+	}
+	private static function abs_url( $u, $base ) {
+		$u = trim( (string) $u );
+		if ( '' === $u || 0 === strpos( $u, 'data:' ) ) {
+			return '';
+		}
+		if ( 0 === strpos( $u, '//' ) ) {
+			return 'https:' . $u;
+		}
+		if ( preg_match( '#^https?://#i', $u ) ) {
+			return $u;
+		}
+		$p = wp_parse_url( $base );
+		if ( empty( $p['host'] ) ) {
+			return '';
+		}
+		$root = ( isset( $p['scheme'] ) ? $p['scheme'] : 'https' ) . '://' . $p['host'] . ( isset( $p['port'] ) ? ':' . $p['port'] : '' );
+		if ( '/' === $u[0] ) {
+			return $root . $u;
+		}
+		$dir = isset( $p['path'] ) ? preg_replace( '#/[^/]*$#', '/', $p['path'] ) : '/';
+		return $root . ( $dir ? $dir : '/' ) . $u;
+	}
+
+	/**
+	 * Business cards: "Fill from LinkedIn". LinkedIn pages cannot be read by other websites (they need a
+	 * sign-in), so the user gives us the text of their profile - the PDF from LinkedIn's "Save to PDF", or
+	 * the text copied from the page - and the AI picks out the card details. It only copies what is there.
+	 */
+	public static function route_linkedin( WP_REST_Request $req ) {
+		$uid  = get_current_user_id();
+		$text = mb_substr( trim( wp_strip_all_tags( (string) $req->get_param( 'text' ) ) ), 0, 20000 );
+		$url  = trim( (string) $req->get_param( 'url' ) );
+		if ( $url && ! preg_match( '#^(https?://)?([a-z]{2,3}\.)?linkedin\.com/(in|company)/[A-Za-z0-9\-_%.]+/?$#i', $url ) ) {
+			return self::err( 'url', 'That does not look like a LinkedIn profile link (it should look like linkedin.com/in/your-name).' );
+		}
+		if ( mb_strlen( $text ) < 30 ) {
+			return self::err( 'text', 'Add the PDF of your LinkedIn profile, or paste the text of your profile.' );
+		}
+		$cost = (int) self::settings()['assist_cost'];
+		if ( self::balance( $uid ) < $cost || ! self::charge( $uid, $cost ) ) {
+			return self::err( 'credits', 'You need ' . $cost . ' credit' . ( 1 === $cost ? '' : 's' ) . ' for this.', 402, array( 'cost' => $cost ) );
+		}
+		$usr = 'This is the text of a person\'s LinkedIn profile. Pick out the details for their business card.' . "\n" .
+			'Copy them exactly as they appear. Use an empty string for anything that is not in the text - never guess or make up a detail.' . "\n" .
+			'"title" is their current job title, "company" their current employer, "tagline" a short version of their headline (max 8 words, only if the profile has one).' . "\n" .
+			'Return {"name":"","title":"","company":"","tagline":"","phone":"","email":"","website":"","address":"","linkedin":""}' . "\n\nPROFILE:\n" . $text;
+		$j = self::ai_json( 'You copy details from documents accurately. Reply with JSON only.', $usr, 800, 0.1 );
+		if ( is_wp_error( $j ) || ! is_array( $j ) ) {
+			self::refund( $uid, $cost );
+			return self::err( 'ai', ( is_wp_error( $j ) ? $j->get_error_message() : 'Nothing came back.' ) . ' Your credits were refunded.', 502 );
+		}
+		$out = array();
+		foreach ( array( 'name' => 80, 'title' => 100, 'company' => 100, 'tagline' => 120, 'phone' => 40, 'email' => 120, 'website' => 160, 'address' => 200, 'linkedin' => 200 ) as $k => $max ) {
+			$v         = isset( $j[ $k ] ) && is_scalar( $j[ $k ] ) ? self::clean( (string) $j[ $k ], $max ) : '';
+			$out[ $k ] = $v;
+		}
+		/* a detail must really be in the profile text (the AI must not invent phone numbers or emails) */
+		$flat = preg_replace( '/\s+/', '', mb_strtolower( $text ) );
+		foreach ( array( 'phone', 'email', 'website' ) as $k ) {
+			$needle = preg_replace( '/\s+/', '', mb_strtolower( $out[ $k ] ) );
+			if ( 'phone' === $k ) {
+				$needle = preg_replace( '/\D/', '', $needle );
+				$hay    = preg_replace( '/\D/', '', $flat );
+			} else {
+				$hay = $flat;
+			}
+			if ( '' !== $needle && false === strpos( $hay, preg_replace( '#^https?://(www\.)?#', '', rtrim( $needle, '/' ) ) ) ) {
+				$out[ $k ] = '';
+			}
+		}
+		if ( $url ) {
+			$out['linkedin'] = preg_replace( '#^https?://(www\.)?#i', '', rtrim( $url, '/' ) );
+		}
+		return rest_ensure_response( array( 'success' => true, 'card' => $out, 'cost' => $cost, 'credits_balance' => self::balance( $uid ) ) );
 	}
 
 	private static function write_fixed( $type, $topic, $lang, $tone, $dir, $example, $source ) {

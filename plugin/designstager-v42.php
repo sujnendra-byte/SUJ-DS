@@ -2,13 +2,21 @@
 /**
  * Plugin Name: Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in
  * Description: All active DesignStager Code Snippets packaged as a single plugin. V42 = V41 (41.5.0) + AI Document: write with AI or use your own text, review, then a designed document in the AI Presentation-style editor; 784 designs in 8 categories (business, education, career, letters, meetings, finance, marketing, events) incl. 2-sided flyers, tri-fold brochures, posters, social posts, infographics, business cards, invitations, menus, certificates, tickets and folded cards; page sizes per type; Word, PDF, PNG, JPG, TIFF (96-1200 dpi) and EPS+SVG downloads + DesignStager Word add-in. Deactivate V41 before activating V42.
- * Version: 42.0.3
+ * Version: 42.0.4
  * Author: DesignStager
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
  *
  * CHANGELOG
  * ---------
+ * 42.0.4 - 2026-10-24 AI Document: Use AI switch, My brand, View all pop-ups, Fill from LinkedIn. 2 includes updated (371, 373).
+ *   371, 373  "Use My Text" now has a Use AI switch (like AI Presentation): off = no AI call, the text is placed
+ *        into the design line by line (cards: name, job title, company, phone, email, website, address).
+ *        My brand: logo, colours and fonts saved to the user's account (user meta, logged-in only), read from
+ *        their website if they want (wp_safe_remote_get, size and time limits, PNG/JPG/WebP logos only),
+ *        shown first in the themes and used on every new design. View all opens a pop-up with every design or theme.
+ *        Business cards: Fill from LinkedIn reads the profile PDF or pasted text (LinkedIn pages cannot be opened
+ *        by other sites); the AI only copies details that are in the text. Thumbnails skip photos that fail to load.
  * 42.0.3 - 2026-10-23 Picture fill, sizes and box-select. 5 includes updated (151, 265, 371, 372, 373).
  *   371-373  AI Document: Fill > Picture for shapes, design pieces, text boxes and texts (generate with AI,
  *        browse the store, upload). With several shapes selected, one picture shows through all of them.
@@ -1373,7 +1381,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DSV42_VERSION', '42.0.3' );
+define( 'DSV42_VERSION', '42.0.4' );
 define( 'DSV42_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DSV42_URL', plugin_dir_url( __FILE__ ) );
 

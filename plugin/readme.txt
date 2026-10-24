@@ -1,11 +1,17 @@
 === Designstager-V42-AI Document (designed Word documents, 784 designs) + Word add-in ===
 Requires PHP: 7.4
-Stable tag: 42.0.3
+Stable tag: 42.0.4
 
 All active DesignStager Code Snippets packaged as a single plugin.
 
 V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
+
+NEW IN 42.0.4
+ - includes/371, 373: AI Document - Use AI switch on Use My Text (off = no AI, your words
+   placed as typed); My brand (logo, colours and fonts saved as a personal theme, optionally
+   read from your website) used on every new design; View all pop-ups for designs and themes;
+   business cards: Fill from LinkedIn (profile PDF or pasted text).
 
 NEW IN 42.0.3
  - includes/371-373: AI Document - Fill > Picture (AI, store, upload) for every shape and

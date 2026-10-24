@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 07:00:00
+ * Modified   : 2026-10-24 12:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.7.0-flyers' );
+define( 'DS_DOC_APP_VER', '1.8.1-brand' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2558,6 +2558,142 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   function savePrefs() { try { localStorage.setItem('dsdoc_prefs', JSON.stringify({ type: S.type, tpl: S.tpl, theme: S.theme, lang: S.lang, tone: S.tone, size: S.size, pages: S.pages })); } catch (e) { /* ignore */ } }
   if (D.design(S.tpl).types.indexOf(S.type) < 0) S.tpl = D.designsFor(S.type)[0].id;
 
+  /* ---------------- My brand: your logo, colours and fonts, saved to your account and used on every new design ---------------- */
+  var BRAND = CFG.brand || null;
+  function brandTheme(b) {
+    var p = b.p, s2 = b.s || D.mix(p, '#FFFFFF', 0.3), a = b.a || s2;
+    return { id: 'my-brand', name: b.name || 'My brand', p: p, s: s2, a: a, ink: '#1C1E26', mute: '#5E6573', tint: D.mix(p, '#FFFFFF', 0.94), line: D.mix(p, '#FFFFFF', 0.82), head: b.head || 'Aptos Display', body: b.body || b.head || 'Aptos', mine: 1 };
+  }
+  function registerBrand(b) {
+    for (var i = D.THEMES.length - 1; i >= 0; i--) if (D.THEMES[i].id === 'my-brand') D.THEMES.splice(i, 1);
+    BRAND = b && b.p ? b : null;
+    if (BRAND) D.THEMES.unshift(brandTheme(BRAND));
+    D.myBrand = BRAND;
+  }
+  registerBrand(BRAND);
+  if (BRAND && BRAND.auto) S.theme = 'my-brand';
+  else if (S.theme === 'my-brand' && !BRAND) S.theme = '';
+  /* a new design gets the brand logo when the brand is used */
+  function brandLogo(doc) {
+    if (BRAND && BRAND.logo && (BRAND.auto || S.theme === 'my-brand') && !(doc.logo && doc.logo.src)) doc.logo = { src: BRAND.logo };
+    return doc;
+  }
+  var FONTS0 = ['Aptos', 'Aptos Display', 'Arial', 'Calibri', 'Cambria', 'Georgia', 'Helvetica', 'Segoe UI', 'Verdana', 'Trebuchet MS', 'Century Gothic', 'Gill Sans MT', 'Bahnschrift', 'Rockwell', 'Bodoni MT', 'Garamond', 'Times New Roman', 'Poppins', 'Montserrat', 'Roboto', 'Open Sans', 'Lato', 'Inter', 'Raleway', 'Nunito', 'Playfair Display', 'Merriweather'];
+  function fontList(extra) {
+    var seen = {}, out = [];
+    (extra || []).concat(FONTS0, D.THEMES.map(function (t) { return t.head; }), D.THEMES.map(function (t) { return t.body; })).forEach(function (f) { if (f && !seen[f.toLowerCase()]) { seen[f.toLowerCase()] = 1; out.push(f); } });
+    return out;
+  }
+  /* pictures are made smaller in the browser (an SVG logo becomes a PNG), so the saved logo stays light */
+  function shrinkLogo(src, cb) {
+    var im = new Image();
+    im.onload = function () {
+      var w = im.naturalWidth || 600, h = im.naturalHeight || 300, k = Math.min(1, 700 / Math.max(w, h));
+      var tries = [k, k * 0.75, k * 0.55, k * 0.4];
+      for (var i = 0; i < tries.length; i++) {
+        var c = document.createElement('canvas'); c.width = Math.max(8, Math.round(w * tries[i])); c.height = Math.max(8, Math.round(h * tries[i]));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        var d = '';
+        try { d = c.toDataURL('image/png'); if (d.length > 520000) d = c.toDataURL('image/webp', 0.9); } catch (er) { cb(''); return; }
+        if (d.length <= 520000 && /^data:image\/(png|webp)/.test(d)) { cb(d); return; }
+      }
+      cb('');
+    };
+    im.onerror = function () { cb(''); };
+    im.src = src;
+  }
+  function openBrand() {
+    var old = $('.dd-gal', root); if (old) old.remove();
+    var W = Object.assign({ name: 'My brand', p: '#1F3864', s: '#2E74B5', a: '#F2B134', head: 'Aptos Display', body: 'Aptos', logo: '', site: '', auto: 1 }, BRAND || {});
+    var found = { colors: [], fonts: [] }, slot = 'p';
+    var m = el('div', 'dd-gal');
+    m.innerHTML = '<div class="dd-gbox dd-bk" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3>My brand</h3><p>Your logo, colours and fonts. Saved to your account as a personal theme and used on every new design.</p></div><button type="button" class="dd-gx" data-b="x" title="Close">×</button></div>' +
+      '<div class="dd-bkbody"><div class="dd-bkform">' +
+      '<label class="dd-l">Your website (optional)</label><div class="dd-bkrow"><input type="url" id="bk-site" placeholder="www.yourcompany.com"><button type="button" class="dd-bkbtn" data-b="site">Get logo &amp; colours</button></div>' +
+      '<div class="dd-bkfound" id="bk-found"></div>' +
+      '<label class="dd-l">Logo</label><div class="dd-bklogo"><div class="lg" id="bk-lg"></div><div><button type="button" class="dd-bkbtn" data-b="up">Upload logo</button> <button type="button" class="dd-bkbtn ghost" data-b="nolg">Remove</button><input type="file" id="bk-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="dd-hide"><small>PNG with a see-through background works best. SVG is turned into a PNG.</small></div></div>' +
+      '<label class="dd-l">Brand colours <small>(click a slot, then a colour found on your website — or pick one)</small></label><div class="dd-bkcols">' +
+      [['p', 'Main'], ['s', 'Second'], ['a', 'Accent']].map(function (x) { return '<label class="sl" data-slot="' + x[0] + '"><input type="color" data-c="' + x[0] + '"><span>' + x[1] + '</span></label>'; }).join('') + '</div>' +
+      '<div class="dd-row2"><div><label class="dd-l">Heading font</label><select id="bk-head"></select></div><div><label class="dd-l">Text font</label><select id="bk-body"></select></div></div>' +
+      '<label class="dd-l">Name</label><input type="text" id="bk-name" maxlength="40">' +
+      '<label class="dd-bkauto"><input type="checkbox" id="bk-auto"> Use my brand on every new design (logo, colours and fonts)</label>' +
+      '</div><div class="dd-bkpv"><div class="hd">Preview</div><div id="bk-pv"></div></div></div>' +
+      '<div class="dd-bkft">' + (BRAND ? '<button type="button" class="dd-bkbtn ghost" data-b="del">Delete my brand</button>' : '') + '<span class="dd-sp"></span><button type="button" class="dd-bkbtn ghost" data-b="x">Cancel</button><button type="button" class="dd-bkbtn pri" data-b="save">Save as personal</button></div></div>';
+    root.appendChild(m); document.body.classList.add('dd-noscroll');
+    function close() { m.remove(); document.removeEventListener('keydown', key); document.body.classList.remove('dd-noscroll'); }
+    function key(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', key);
+    function fonts() {
+      var fl = fontList(found.fonts.concat([W.head, W.body]));
+      ['head', 'body'].forEach(function (k) { $('#bk-' + k, m).innerHTML = fl.map(function (f) { return '<option' + (f === W[k] ? ' selected' : '') + '>' + esc(f) + '</option>'; }).join(''); });
+    }
+    function paint() {
+      $$('[data-c]', m).forEach(function (i) { i.value = /^#[0-9a-f]{6}$/i.test(W[i.dataset.c]) ? W[i.dataset.c] : '#888888'; });
+      $$('.sl', m).forEach(function (l) { l.classList.toggle('on', l.dataset.slot === slot); });
+      $('#bk-lg', m).innerHTML = W.logo ? '<img alt="Logo" src="' + esc(W.logo) + '">' : '<span>No logo yet</span>';
+      $('#bk-found', m).innerHTML = found.colors.length ? '<span>Found on your website:</span>' + found.colors.map(function (c) { return '<button type="button" class="fc" data-fc="' + c + '" style="background:' + c + '" title="' + c + '"></button>'; }).join('') : '';
+      var t = brandTheme(W), pv = $('#bk-pv', m);
+      pv.innerHTML = '<div class="bkcard" style="background:' + t.tint + ';border-top:8px solid ' + t.p + '">' + (W.logo ? '<img alt="" src="' + esc(W.logo) + '">' : '') +
+        '<b style="color:' + t.p + ';font-family:' + esc(t.head) + ',sans-serif">' + esc(W.name || 'My brand') + '</b><i style="font-family:' + esc(t.body) + ',sans-serif;color:' + t.mute + '">Your headings use ' + esc(t.head) + ' and your text uses ' + esc(t.body) + '.</i>' +
+        '<div class="bar"><em style="background:' + t.p + '"></em><em style="background:' + t.s + '"></em><em style="background:' + t.a + '"></em></div><span class="cta" style="background:' + t.a + ';color:' + D.onColor(t.a) + '">Call to action</span></div>';
+    }
+    $('#bk-site', m).value = W.site || ''; $('#bk-name', m).value = W.name || 'My brand'; $('#bk-auto', m).checked = !!W.auto;
+    fonts(); paint();
+    m.addEventListener('input', function (e) {
+      var c = e.target.dataset && e.target.dataset.c; if (c) { W[c] = e.target.value.toUpperCase(); slot = c; paint(); }
+      if (e.target.id === 'bk-name') { W.name = e.target.value; paint(); }
+    });
+    m.addEventListener('change', function (e) {
+      if (e.target.id === 'bk-head' || e.target.id === 'bk-body') { W[e.target.id.slice(3)] = e.target.value; paint(); }
+      if (e.target.id === 'bk-auto') W.auto = e.target.checked ? 1 : 0;
+      if (e.target.id === 'bk-file' && e.target.files[0]) {
+        var f = e.target.files[0], rd = new FileReader();
+        if (f.size > 8 * 1024 * 1024) { toast('That picture is too big. Please use a logo under 8 MB.', 'err'); return; }
+        rd.onload = function () { shrinkLogo(rd.result, function (d) { if (!d) { toast('That picture could not be used as a logo. Try a PNG or JPG.', 'err'); return; } W.logo = d; paint(); }); };
+        rd.readAsDataURL(f); e.target.value = '';
+      }
+    });
+    m.addEventListener('click', function (e) {
+      if (e.target === m) { close(); return; }
+      var sl = e.target.closest('.sl'); if (sl) { slot = sl.dataset.slot; paint(); }
+      var fc = e.target.closest('[data-fc]'); if (fc) { W[slot] = fc.dataset.fc; slot = slot === 'p' ? 's' : slot === 's' ? 'a' : 'a'; paint(); return; }
+      var b = e.target.closest('[data-b]'); if (!b) return;
+      var a = b.dataset.b;
+      if (a === 'x') close();
+      if (a === 'up') $('#bk-file', m).click();
+      if (a === 'nolg') { W.logo = ''; paint(); }
+      if (a === 'site') {
+        var u = $('#bk-site', m).value.trim(); if (!u) { toast('Type your website address first.', 'err'); return; }
+        b.disabled = true; b.textContent = 'Reading your website…';
+        api('POST', 'ds/v1/doc-brand-site', { url: u }).then(function (r) {
+          found.colors = r.colors || []; found.fonts = r.fonts || []; W.site = r.site || u;
+          if (found.colors[0]) W.p = found.colors[0];
+          if (found.colors[1]) W.s = found.colors[1];
+          if (found.colors[2]) W.a = found.colors[2];
+          if (found.fonts[0]) { W.head = found.fonts[0]; W.body = found.fonts[1] || found.fonts[0]; }
+          if (r.logo) W.logo = r.logo;
+          if (r.name && (!W.name || W.name === 'My brand')) { W.name = r.name; $('#bk-name', m).value = r.name; }
+          fonts(); paint();
+          toast('Found ' + found.colors.length + ' colour' + (found.colors.length === 1 ? '' : 's') + (r.logo ? ', your logo' : '') + (found.fonts.length ? ' and ' + found.fonts.length + ' font' + (found.fonts.length === 1 ? '' : 's') : '') + '. Check them, then press Save.', 'ok', 6000);
+        }).catch(function (er) { toast(er.message || 'We could not read that website.', 'err', 6000); })
+          .then(function () { b.disabled = false; b.innerHTML = 'Get logo &amp; colours'; });
+      }
+      if (a === 'del') {
+        api('POST', 'ds/v1/doc-brand', { clear: 1 }).then(function () {
+          registerBrand(null); if (S.theme === 'my-brand') S.theme = ''; close(); refreshAll(); toast('Your brand was deleted.', 'ok');
+        }).catch(function (er) { toast(er.message || 'Could not delete. Please try again.', 'err'); });
+      }
+      if (a === 'save') {
+        W.name = $('#bk-name', m).value.trim() || 'My brand';
+        b.disabled = true; b.textContent = 'Saving…';
+        api('POST', 'ds/v1/doc-brand', { brand: W }).then(function (r) {
+          registerBrand(r.brand); S.theme = 'my-brand'; close(); refreshAll();
+          toast('Saved. "' + (r.brand.name || 'My brand') + '" is now at the top of your themes' + (r.brand.auto ? ' and is used on every new design.' : '.'), 'ok', 6000);
+        }).catch(function (er) { toast(er.message || 'Could not save. Please try again.', 'err'); b.disabled = false; b.textContent = 'Save as personal'; });
+      }
+    });
+  }
+
   /* ---------------- mini previews ---------------- */
   var io = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
     es.forEach(function (e) { if (e.isIntersecting && e.target.__draw) { var f = e.target.__draw; e.target.__draw = null; io.unobserve(e.target); f(); } });
@@ -2575,12 +2711,29 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     };
     if (io && !opts.now) { box.__draw = draw; io.observe(box); } else draw();
   }
+  /* the soft background behind a thumbnail: a different pattern for neighbouring designs */
+  function mkBack(c1, c2, c3, id) {
+    var h = 0; String(id || '').split('').forEach(function (ch) { h = (h * 31 + ch.charCodeAt(0)) >>> 0; });
+    var P = [
+      'linear-gradient(135deg,' + c1 + ',' + c2 + ')',
+      'radial-gradient(circle at 28% 22%,' + c2 + ',' + c1 + ' 72%)',
+      'radial-gradient(rgba(15,23,42,.10) 1.4px,transparent 1.6px) 0 0/12px 12px,linear-gradient(160deg,' + c1 + ',' + c2 + ')',
+      'repeating-linear-gradient(45deg,rgba(255,255,255,.38) 0 6px,transparent 6px 15px),linear-gradient(135deg,' + c1 + ',' + c2 + ')',
+      'linear-gradient(rgba(15,23,42,.06) 1px,transparent 1px) 0 0/14px 14px,linear-gradient(90deg,rgba(15,23,42,.06) 1px,transparent 1px) 0 0/14px 14px,' + c1,
+      'linear-gradient(112deg,' + c1 + ' 0 56%,' + c2 + ' 56%)',
+      'radial-gradient(circle at 86% 14%,' + c3 + ' 0 24%,transparent 24.5%),radial-gradient(circle at 8% 92%,rgba(255,255,255,.55) 0 20%,transparent 20.5%),' + c1,
+      'repeating-radial-gradient(circle at 0 100%,transparent 0 13px,rgba(255,255,255,.4) 13px 15px),linear-gradient(135deg,' + c1 + ',' + c2 + ')',
+      'conic-gradient(from 200deg at 70% 40%,' + c1 + ',' + c2 + ',' + c1 + ')',
+      'linear-gradient(180deg,' + c2 + ' 0 38%,' + c1 + ' 38%)'
+    ];
+    return P[h % P.length];
+  }
   /** Design thumbnails as mockups: the page (and the page behind it) on a soft colour background with a shadow; they lift on hover. */
   function mockup(box, doc, dz) {
     var draw = function () {
       box.innerHTML = ''; box.classList.add('dd-mk');
       var t = D.look(doc), sz = D.size(doc), bw = box.clientWidth || 200, bh = box.clientHeight || 150, n = 1;
-      box.style.background = 'linear-gradient(135deg,' + D.mix(t.p, '#FFFFFF', 0.86) + ',' + D.mix(t.a || t.p, '#FFFFFF', 0.7) + ')';
+      box.style.background = mkBack(D.mix(t.p, '#FFFFFF', 0.86), D.mix(t.a || t.p, '#FFFFFF', 0.7), D.mix(t.p, '#FFFFFF', 0.72), dz.id);
       try { if (dz.kind === 'panels') n = Math.min(2, D.panelSpec(doc, t, dz, sz).pages.length); else if (dz.cover || D.type(doc.type).pages > 1) n = 2; } catch (er) { n = 1; }
       var land = sz.w > sz.h * 1.05, pw, ph;
       if (n > 1 && land) { ph = bh * 0.42; pw = ph * sz.w / sz.h; if (pw > bw * 0.74) { pw = bw * 0.74; ph = pw * sz.h / sz.w; } }
@@ -2607,13 +2760,19 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     photoPool = Promise.all(qs.map(function (q) { return api('GET', 'ds/v1/mkt-slide-images?s=' + encodeURIComponent(q) + '&cat=images&per_page=12&page=1').then(function (r) { return r.items || []; }).catch(function () { return []; }); })).then(function (all) {
       var seen = {}, out = [];
       all.forEach(function (list) { list.forEach(function (it) { if (it && (it.thumb || it.full) && (!it.tier || it.tier === 'free') && !seen[it.id]) { seen[it.id] = 1; out.push(it.thumb || it.full); } }); });
-      if (out.length) { D.samplePhotos = out; try { drawDesigns(); drawPreview(); } catch (er) { /* the start view is not shown */ } }
-      return out;
+      /* keep only pictures that load, and small ones first: the thumbnails stay quick (like the presentation templates) */
+      function probe(u) { return new Promise(function (res) { var im = new Image(), done = false, tm = setTimeout(function () { if (!done) { done = true; res(null); } }, 7000); im.onload = function () { if (done) return; done = true; clearTimeout(tm); res({ u: u, w: im.naturalWidth || 0 }); }; im.onerror = function () { if (done) return; done = true; clearTimeout(tm); res(null); }; im.src = u; }); }
+      return Promise.all(out.slice(0, 40).map(probe)).then(function (r) {
+        var ok = r.filter(Boolean), small = ok.filter(function (x) { return x.w <= 1600; }), use = (small.length >= 6 ? small : ok).map(function (x) { return x.u; });
+        if (use.length) { D.samplePhotos = use; try { drawDesigns(); drawPreview(); } catch (er) { /* the start view is not shown */ } }
+        return use;
+      });
     });
     return photoPool;
   }
   function sampleFor(type, tpl, theme) {
     var d = D.sample(type); d.tpl = tpl; d.theme = theme || ''; d.size = S.size; d.lang = S.lang;
+    if (BRAND && BRAND.logo && (BRAND.auto || theme === 'my-brand')) d.logo = { src: BRAND.logo }; /* the thumbnails show your own logo too */
     return d;
   }
 
@@ -2647,7 +2806,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     '<label class="dd-l" style="margin-top:0">Document type</label><select id="dd-type"></select>' +
     '<label class="dd-l" id="dd-topic-l">What is your document about?</label>' +
     '<div class="dd-box"><textarea id="dd-topic" maxlength="60000" placeholder="E.g. A business plan for an online bakery in Bengaluru with delivery and catering"></textarea>' +
-    '<div class="dd-tbar"><button type="button" class="dd-up" data-act="upload">' + IC.clip + ' Upload PDF, Word or text</button><input type="file" id="dd-file" accept=".txt,.md,.docx,.pdf" class="dd-hide"><span class="dd-sp"></span><span id="dd-count">0 / 3000 chars</span></div></div>' +
+    '<div class="dd-tbar"><button type="button" class="dd-up" data-act="upload">' + IC.clip + ' Upload PDF, Word or text</button><input type="file" id="dd-file" accept=".txt,.md,.docx,.pdf" class="dd-hide"><button type="button" class="dd-up dd-lib dd-hide" data-act="linkedin" id="dd-lib"><span class="inb">in</span> Fill from LinkedIn</button><span class="dd-sp"></span><button type="button" class="dd-uai dd-hide" id="dd-uai" role="switch" aria-checked="true"><span class="tr" aria-hidden="true"></span><span>Use AI</span></button><span id="dd-count">0 / 3000 chars</span></div></div>' +
     '<div class="dd-box dd-dir" id="dd-dir-wrap"><div class="hd"><i>' + IC.sliders + '</i>Specific AI Directives (Optional)</div><textarea id="dd-dir" maxlength="800" placeholder="E.g. Add a pricing table · Include a 12-month timeline · Show the budget as a chart"></textarea></div>' +
     '<div class="dd-row"><div><label class="dd-l">Pages</label><select id="dd-pages"></select></div><div><label class="dd-l">Language</label><select id="dd-lang">' +
     LANGS.map(function (l) { return '<option' + (l === S.lang ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join('') + '</select></div>' +
@@ -2687,8 +2846,24 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     $('#dd-topic-l').textContent = m === 'preserve' ? 'Paste your text (we keep your words)' : 'What is your document about?';
     elTopic.placeholder = m === 'preserve' ? 'Paste the text of your document here, or upload a file…' : 'E.g. A business plan for an online bakery in Bengaluru with delivery and catering';
     $('#dd-dir-wrap').classList.toggle('dd-hide', m !== 'ai');
+    $('#dd-uai').classList.toggle('dd-hide', m !== 'preserve');
+    showLi();
+    paintUseAi();
     updateCount(); updateCost();
   }
+  /* "Use AI" switch on Use My Text (same as AI Presentation): off = no AI at all, your words are placed into the design as you typed them */
+  if (S.useAi == null) S.useAi = !CFG.useAiFree;
+  function useAiOn() { return S.mode === 'preserve' && S.useAi && !CFG.useAiFree; }
+  function paintUseAi() {
+    var b = $('#dd-uai'); if (!b) return;
+    var on = S.useAi && !CFG.useAiFree;
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+    b.title = CFG.useAiFree ? 'Use AI is part of the paid plans. Your text is laid out by its headings, lists and line breaks.'
+      : on ? 'AI arranges your exact words. Turn off to place your text by its headings, lists and line breaks, with no AI.'
+        : 'AI is off: your text is placed by its headings, lists and line breaks, word for word.';
+    $('#dd-topic-l').textContent = S.mode !== 'preserve' ? 'What is your document about?' : on ? 'Paste your text (we keep your words)' : 'Paste your text (no AI — placed exactly as you type it)';
+  }
+  function showLi() { var b = $('#dd-lib'); if (b) b.classList.toggle('dd-hide', S.type !== 'business_card'); }
   function updateCount() {
     var max = S.mode === 'preserve' ? 60000 : 3000;
     elTopic.maxLength = max;
@@ -2720,10 +2895,17 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
 
   function drawThemes() {
     var box = $('#dd-themes'), dz = D.design(S.tpl), own = D.theme(dz.theme);
-    var items = [{ id: '', name: 'Design colours', t: own }].concat(D.THEMES.filter(function (x) { return !x.hide; }).map(function (t) { return { id: t.id, name: t.name, t: t }; }));
-    box.innerHTML = items.map(function (x) {
+    var items = [{ id: '', name: 'Design colours', t: own }].concat(D.THEMES.filter(function (x) { return !x.hide && !x.mine; }).map(function (t) { return { id: t.id, name: t.name, t: t }; }));
+    box.innerHTML = brandTile() + items.map(function (x) {
       return '<button type="button" class="dd-th' + (x.id === S.theme ? ' on' : '') + '" data-theme="' + x.id + '"><div class="sw"><i style="background:' + x.t.p + '"></i><i style="background:' + x.t.s + '"></i><i style="background:' + x.t.a + '"></i><i style="background:' + x.t.tint + '"></i></div><b>' + esc(x.name) + '</b><span>' + esc(x.t.head) + '</span></button>';
     }).join('');
+  }
+  /* "My brand" sits first in the theme list: your saved personal theme, or a button to add one */
+  function brandTile() {
+    if (!BRAND) return '<button type="button" class="dd-th dd-mybr add" data-act="brand"><div class="plus">+</div><b>Add my brand</b><span>Logo, colours &amp; fonts</span></button>';
+    var t = brandTheme(BRAND);
+    return '<div class="dd-th dd-mybr' + (S.theme === 'my-brand' ? ' on' : '') + '" data-theme="my-brand" role="button" tabindex="0"><span class="tag">Personal</span><button type="button" class="ed" data-act="brand" title="Edit my brand">Edit</button>' +
+      '<div class="sw">' + (BRAND.logo ? '<img alt="" src="' + esc(BRAND.logo) + '">' : '') + '<i style="background:' + t.p + '"></i><i style="background:' + t.s + '"></i><i style="background:' + t.a + '"></i></div><b>' + esc(t.name) + '</b><span>' + esc(t.head) + '</span></div>';
   }
   function drawChips() {
     var gs = ['auto', 'all'].concat(groups);
@@ -2770,10 +2952,88 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     }
   }, 120);
 
+  /* "View all" pop-ups: every design (or every theme) in one big window, with search and categories */
+  function openGallery(kind) {
+    var old = $('.dd-gal', root); if (old) old.remove();
+    var isD = kind === 'designs', grp = isD ? (S.group || 'auto') : '', q = '';
+    var m = el('div', 'dd-gal');
+    m.innerHTML = '<div class="dd-gbox" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3>' + (isD ? 'All document designs' : 'All colour themes') + '</h3><p id="dd-gn"></p></div>' +
+      '<input type="search" id="dd-gq" placeholder="' + (isD ? 'Search designs…' : 'Search themes or fonts…') + '"><button type="button" class="dd-gx" data-g="x" title="Close">×</button></div>' +
+      (isD ? '<div class="dd-chips dd-gchips" id="dd-gchips"></div>' : '') +
+      '<div class="dd-ggrid ' + (isD ? 'des' : 'thm') + '" id="dd-ggrid"></div></div>';
+    root.appendChild(m); document.body.classList.add('dd-noscroll');
+    var grid = $('#dd-ggrid', m), io = null;
+    function close() { if (io) io.disconnect(); m.remove(); document.removeEventListener('keydown', key); document.body.classList.remove('dd-noscroll'); }
+    function key(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', key);
+    function match(txt) { return !q || txt.toLowerCase().indexOf(q) >= 0; }
+    function chips() {
+      var gs = ['auto', 'all'].concat(groups);
+      $('#dd-gchips', m).innerHTML = gs.map(function (g) { return '<button type="button" class="dd-chip' + (g === grp ? ' on' : '') + '" data-gg="' + esc(g) + '">' + (g === 'auto' ? 'For this document' : g === 'all' ? 'All designs' : esc(g)) + '</button>'; }).join('');
+    }
+    function draw() {
+      if (io) io.disconnect();
+      grid.innerHTML = ''; grid.scrollTop = 0;
+      if (isD) {
+        var list = grp === 'auto' ? D.designsFor(S.type) : grp === 'all' ? D.DESIGNS.slice() : D.DESIGNS.filter(function (d) { return D.type(d.types[0]).group === grp; });
+        list = list.filter(function (d) { return match(d.name + ' ' + (d.desc || '') + ' ' + d.types.map(function (t) { return D.type(t).name; }).join(' ')); });
+        $('#dd-gn', m).textContent = list.length + ' design' + (list.length === 1 ? '' : 's');
+        /* the thumbnails are drawn only when they scroll into view, so a window of 1000+ designs opens at once */
+        io = 'IntersectionObserver' in window ? new IntersectionObserver(function (en) {
+          en.forEach(function (x) {
+            if (!x.isIntersecting) return;
+            io.unobserve(x.target);
+            var dz = D.design(x.target.dataset.d), t = dz.types.indexOf(S.type) >= 0 ? S.type : dz.types[0];
+            try { mockup(x.target, sampleFor(t, dz.id, S.theme), dz); } catch (er) { /* one broken thumbnail must not stop the rest */ }
+          });
+        }, { root: grid, rootMargin: '300px' }) : null;
+        list.forEach(function (dz) {
+          var b = el('button', 'dd-ds' + (dz.id === S.tpl ? ' on' : ''));
+          b.type = 'button'; b.dataset.tpl = dz.id;
+          var pv = el('div', 'pv'); pv.dataset.d = dz.id; b.appendChild(pv);
+          b.appendChild(el('b', '', esc(dz.name))); b.appendChild(el('span', '', esc(dz.desc || D.type(dz.types[0]).name)));
+          grid.appendChild(b);
+          if (io) io.observe(pv); else { var t = dz.types.indexOf(S.type) >= 0 ? S.type : dz.types[0]; mockup(pv, sampleFor(t, dz.id, S.theme), dz); }
+        });
+        if (!list.length) grid.innerHTML = '<div class="dd-empty">No designs match your search.</div>';
+      } else {
+        var own = D.theme(D.design(S.tpl).theme);
+        var items = (BRAND ? [{ id: 'my-brand', name: brandTheme(BRAND).name + ' (personal)', t: brandTheme(BRAND) }] : []).concat([{ id: '', name: 'Design colours', t: own }]).concat(D.THEMES.filter(function (x) { return !x.hide && !x.mine; }).map(function (t) { return { id: t.id, name: t.name, t: t }; }));
+        items = items.filter(function (x) { return match(x.name + ' ' + (x.t.head || '') + ' ' + (x.t.body || '')); });
+        $('#dd-gn', m).textContent = items.length + ' theme' + (items.length === 1 ? '' : 's');
+        grid.innerHTML = items.map(function (x) {
+          var t = x.t;
+          return '<button type="button" class="dd-th dd-gth' + (x.id === S.theme ? ' on' : '') + '" data-theme="' + x.id + '">' +
+            '<div class="smp" style="background:' + t.tint + ';border-top:6px solid ' + t.p + '"><i style="color:' + t.p + ';font-family:' + esc(t.head) + ',serif">Aa</i><em style="background:' + t.s + '"></em><em style="background:' + t.a + ';width:40%"></em></div>' +
+            '<div class="sw"><i style="background:' + t.p + '"></i><i style="background:' + t.s + '"></i><i style="background:' + t.a + '"></i><i style="background:' + t.tint + '"></i></div><b>' + esc(x.name) + '</b><span>' + esc(t.head) + (t.body && t.body !== t.head ? ' · ' + esc(t.body) : '') + '</span></button>';
+        }).join('') || '<div class="dd-empty">No themes match your search.</div>';
+      }
+    }
+    m.addEventListener('click', function (e) {
+      if (e.target === m || e.target.closest('[data-g="x"]')) { close(); return; }
+      var c = e.target.closest('[data-gg]'); if (c) { grp = c.dataset.gg; chips(); draw(); return; }
+      if (e.target.closest('[data-tpl],[data-theme]')) setTimeout(function () {
+        close();
+        if (isD) { S.group = grp === 'auto' || grp === 'all' ? grp : grp; drawChips(); drawDesigns(); var on = $('#dd-designs .dd-ds.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
+      }, 0);
+    });
+    $('#dd-gq', m).addEventListener('input', debounce(function () { q = this.value.trim().toLowerCase(); draw(); }.bind($('#dd-gq', m)), 200));
+    if (isD) chips();
+    draw();
+    setTimeout(function () { $('#dd-gq', m).focus(); }, 50);
+  }
+
   function refreshAll() { drawThemes(); drawChips(); drawDesigns(); drawPreview(); updateCost(); savePrefs(); }
 
   root.addEventListener('click', function (e) {
     var b = e.target.closest('[data-mode]'); if (b && root.contains(b)) { setMode(b.dataset.mode); return; }
+    if (e.target.closest('#dd-uai')) {
+      if (CFG.useAiFree) { toast('Use AI is part of the paid plans. On your plan, your text is laid out by its headings, lists and line breaks.', '', 6000); paintUseAi(); return; }
+      S.useAi = !S.useAi; paintUseAi();
+      toast(S.useAi ? 'Use AI is on: AI arranges your words into the design.' : 'Use AI is off: your text is placed as you typed it — one line per place (for cards: name, job title, company, then phone, email, website, address).', 'ok', 6000);
+      return;
+    }
+    if (e.target.closest('[data-act="brand"]')) { openBrand(); return; }
     b = e.target.closest('[data-theme]'); if (b) { S.theme = b.dataset.theme; drawThemes(); drawDesigns(); drawPreview(); updateCost(); savePrefs(); return; }
     b = e.target.closest('[data-group]'); if (b) { S.group = b.dataset.group; drawChips(); drawDesigns(); return; }
     b = e.target.closest('[data-tpl]'); if (b) {
@@ -2788,11 +3048,12 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     b = e.target.closest('[data-act]'); if (!b) return;
     var act = b.dataset.act;
     if (act === 'upload') $('#dd-file').click();
-    if (act === 'alldesigns') { S.group = 'all'; drawChips(); drawDesigns(); }
-    if (act === 'allthemes') { var tb2 = $('#dd-themes'); tb2.style.maxHeight = tb2.style.maxHeight ? '' : 'none'; }
+    if (act === 'linkedin') openLinkedIn();
+    if (act === 'alldesigns') openGallery('designs');
+    if (act === 'allthemes') openGallery('themes');
   });
   elType.addEventListener('change', function () {
-    S.type = elType.value; fillPages();
+    S.type = elType.value; fillPages(); showLi();
     if (D.design(S.tpl).types.indexOf(S.type) < 0) S.tpl = D.designsFor(S.type)[0].id;
     fillSizes(); S.group = 'auto'; refreshAll();
   });
@@ -2814,6 +3075,57 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     }).catch(function (err) { toast(err.message || 'That file could not be read.', 'err'); });
   });
   $('#dd-go').addEventListener('click', function () { start(); });
+
+  /* ---------------- business cards: fill the details from a LinkedIn profile ---------------- */
+  function openLinkedIn() {
+    var old = $('.dd-gal', root); if (old) old.remove();
+    var m = el('div', 'dd-gal');
+    m.innerHTML = '<div class="dd-gbox dd-bk dd-li" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3><span class="inb">in</span> Fill from LinkedIn</h3><p>The AI copies your name, job title, company and contact details from your profile onto the card. It never makes anything up.</p></div><button type="button" class="dd-gx" data-l="x" title="Close">×</button></div>' +
+      '<div class="dd-bkform" style="padding:4px 22px 10px;overflow:auto">' +
+      '<label class="dd-l">Your LinkedIn profile link</label><input type="text" id="li-url" placeholder="linkedin.com/in/your-name">' +
+      '<div class="dd-linote">LinkedIn does not let other websites open profiles, so please also give us the profile itself — the quickest way: on your LinkedIn profile press <b>More → Save to PDF</b>, then upload that PDF here. Or copy the text of your profile page and paste it below.</div>' +
+      '<div class="dd-bkrow" style="margin-top:10px"><button type="button" class="dd-bkbtn" data-l="up">Upload LinkedIn PDF</button><input type="file" id="li-file" accept=".pdf,.txt" class="dd-hide"><span id="li-fn" class="dd-lifn"></span></div>' +
+      '<label class="dd-l">…or paste your profile text</label><textarea id="li-text" rows="7" maxlength="20000" placeholder="Name, headline, current job, contact info…"></textarea>' +
+      '</div><div class="dd-bkft"><span class="dd-lic">Uses ' + (+CFG.assistCost || 1) + ' credit' + ((+CFG.assistCost || 1) === 1 ? '' : 's') + '</span><span class="dd-sp"></span><button type="button" class="dd-bkbtn ghost" data-l="x">Cancel</button><button type="button" class="dd-bkbtn pri" data-l="go">Get my details</button></div></div>';
+    root.appendChild(m); document.body.classList.add('dd-noscroll');
+    function close() { m.remove(); document.removeEventListener('keydown', key); document.body.classList.remove('dd-noscroll'); }
+    function key(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', key);
+    $('#li-file', m).addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+      $('#li-fn', m).textContent = 'Reading ' + f.name + '…';
+      readFile(f).then(function (txt) {
+        txt = String(txt || '').replace(/\r/g, '').trim();
+        if (!txt) throw new Error('No text was found in that file.');
+        $('#li-text', m).value = txt.slice(0, 20000); $('#li-fn', m).textContent = '✓ ' + f.name;
+      }).catch(function (er) { $('#li-fn', m).textContent = ''; toast(er.message || 'That file could not be read.', 'err'); });
+    });
+    m.addEventListener('click', function (e) {
+      if (e.target === m) { close(); return; }
+      var b = e.target.closest('[data-l]'); if (!b) return;
+      if (b.dataset.l === 'x') close();
+      if (b.dataset.l === 'up') $('#li-file', m).click();
+      if (b.dataset.l === 'go') {
+        var txt = $('#li-text', m).value.trim(), url = $('#li-url', m).value.trim();
+        if (txt.length < 30) { toast('Upload your LinkedIn PDF or paste the text of your profile first.', 'err', 6000); return; }
+        b.disabled = true; b.textContent = 'Reading your profile…';
+        api('POST', 'ds/v1/doc-linkedin', { text: txt, url: url }).then(function (r) {
+          if (r.credits_balance != null) setCredits(r.credits_balance);
+          var c = r.card || {}, lines = [c.name, c.title, c.company, c.tagline, c.phone, c.email, c.website, c.address ? 'Address: ' + c.address : '', c.linkedin].filter(function (x) { return x && String(x).trim(); });
+          if (!lines.length) throw new Error('No card details were found in that profile.');
+          close();
+          if (S.mode !== 'preserve') setMode('preserve');
+          elTopic.value = lines.join('\n'); updateCount(); updateCost();
+          toast('Your details were added from LinkedIn. Check them, then press Generate Document.', 'ok', 7000);
+          elTopic.focus();
+        }).catch(function (er) {
+          toast(er.message || 'Your profile could not be read.', 'err', 7000);
+          if (er.data && er.data.credits_balance != null) setCredits(er.data.credits_balance);
+          b.disabled = false; b.textContent = 'Get my details';
+        });
+      }
+    });
+  }
 
   /* ---------------- reading uploaded files ---------------- */
   function loadScript(src) {
@@ -2929,7 +3241,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   function closeGen() { if (gen) { gen.remove(); gen = null; } document.body.classList.remove('dd-noscroll'); }
 
   function newDoc() {
-    return { v: 1, type: S.type, tpl: S.tpl, theme: S.theme, size: S.size, lang: S.lang, title: '', subtitle: '', kicker: D.type(S.type).name, author: (CFG.user && CFG.user.name) || 'Your Name', org: '', date: today(), cover: { q: '' }, blocks: [] };
+    return brandLogo({ v: 1, type: S.type, tpl: S.tpl, theme: S.theme, size: S.size, lang: S.lang, title: '', subtitle: '', kicker: D.type(S.type).name, author: (CFG.user && CFG.user.name) || 'Your Name', org: '', date: today(), cover: { q: '' }, blocks: [] });
   }
 
   function start() {
@@ -2941,12 +3253,12 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     var cost = localCost(pagesForCost());
     if (S.credits < cost) { toast('You need ' + cost + ' credits for this document. You have ' + S.credits + '.', 'err', 6000); if (CFG.buyUrl) setTimeout(function () { location.href = CFG.buyUrl; }, 1600); return; }
     var go = $('#dd-go'); go.disabled = true; go.innerHTML = '<span class="dd-spin"></span> Starting…';
-    var doc = newDoc(), plan = ['Planning the document', 'Writing the content', 'Preparing your review'];
+    var doc = newDoc(), plan = S.mode === 'preserve' && !useAiOn() ? ['Reading your text', 'Placing your words', 'Preparing your review'] : ['Planning the document', 'Writing the content', 'Preparing your review'];
     gen = genOverlay(t.fixed ? 'Creating your ' + t.name.toLowerCase() : 'Creating your document');
     steps(plan, 0, 0.04);
     var example = t.fixed ? stripIds(D.sample(S.type).blocks) : null;
     var job = null, refund = 0;
-    api('POST', 'ds/v1/doc-start', { type: S.type, topic: S.mode === 'ai' ? topic : '', source_text: S.mode === 'preserve' ? topic : '', mode: S.mode === 'preserve' ? 'preserve' : 'ai', pages: +S.pages, language: S.lang, tone: S.tone, directives: ($('#dd-dir').value || '').trim(), example: example })
+    api('POST', 'ds/v1/doc-start', { type: S.type, topic: S.mode === 'ai' ? topic : '', source_text: S.mode === 'preserve' ? topic : '', mode: S.mode === 'preserve' ? 'preserve' : 'ai', use_ai: S.mode === 'preserve' ? useAiOn() : true, pages: +S.pages, language: S.lang, tone: S.tone, directives: ($('#dd-dir').value || '').trim(), example: example })
       .then(function (r) {
         job = r.job; setCredits(r.credits_balance);
         if (r.fixed) {
@@ -3038,7 +3350,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   function reviewDoc(doc, docId, opts) {
     var groups = rvGroups(doc.blocks || []), dz = D.design(doc.tpl), sectioned = groups.some(function (g) { return g.head; });
     var m = el('div', 'dd-rv');
-    m.innerHTML = '<div class="rv-box"><div class="rv-hd"><div><h3>Review your document</h3><p>This is the text the AI wrote. Change anything, delete what you don’t need or add more — nothing is designed yet. When it looks right, press <b>Generate Word document</b>.</p></div><button type="button" class="rv-x" data-rv="close" title="Close">×</button></div>' +
+    m.innerHTML = '<div class="rv-box"><div class="rv-hd"><div><h3>Review your document</h3><p>' + (S.mode === 'preserve' && !useAiOn() ? 'This is your text, placed without AI.' : 'This is the text the AI wrote.') + ' Change anything, delete what you don’t need or add more — nothing is designed yet. When it looks right, press <b>Generate Word document</b>.</p></div><button type="button" class="rv-x" data-rv="close" title="Close">×</button></div>' +
       '<div class="rv-main"><nav class="rv-nav" id="rv-nav"></nav><div class="rv-body" id="rv-body"></div></div>' +
       '<div class="rv-ft"><span class="rv-info" id="rv-info"></span><button type="button" class="rv-btn" data-rv="back">' + (opts ? 'Cancel' : '← Back to edit') + '</button><button type="button" class="rv-btn pri" data-rv="go">' + (opts ? 'Apply changes →' : 'Generate Word document →') + '</button></div></div>';
     document.body.appendChild(m); document.body.classList.add('dd-noscroll');
@@ -4319,6 +4631,12 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-btn:hover{border-color:var(--blue2)}
 #dsdoc-app .dd-btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
 #dsdoc-app .dd-btn[disabled]{opacity:.55;cursor:not-allowed}
+#dsdoc-app .dd-uai{display:inline-flex;align-items:center;gap:8px;background:transparent;border:0;padding:4px 6px;color:var(--tx);font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+#dsdoc-app .dd-uai .tr{position:relative;width:34px;height:20px;border-radius:999px;background:#2a3346;border:1px solid #3a465f;transition:background .15s}
+#dsdoc-app .dd-uai .tr::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#8b97ad;transition:transform .15s,background .15s}
+#dsdoc-app .dd-uai[aria-checked="true"] .tr{background:#2563eb;border-color:#3b82f6}
+#dsdoc-app .dd-uai[aria-checked="true"] .tr::after{transform:translateX(14px);background:#fff}
+#dsdoc-app .dd-uai.dd-hide{display:none}
 #dsdoc-app .dd-up{background:transparent;border:1px solid var(--bd);border-radius:20px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--tx)}
 #dsdoc-app .dd-gobar{display:flex;align-items:center;gap:16px;margin-top:26px;padding-top:22px;border-top:1px solid var(--bd)}
 #dsdoc-app .dd-gobar .info{flex:1;min-width:0}
@@ -4340,6 +4658,65 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 #dsdoc-app .dd-chip{border:1px solid var(--bd);background:var(--field);color:var(--mut2);border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600}
 #dsdoc-app .dd-chip.on{background:#131b33;border-color:var(--blue2);color:#fff}
+#dsdoc-app .dd-mybr{position:relative;border-color:#3b82f6 !important;cursor:pointer}
+#dsdoc-app .dd-mybr.add{border-style:dashed !important;display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
+#dsdoc-app .dd-mybr .plus{width:26px;height:26px;border-radius:8px;background:#2563eb;color:#fff;font-size:20px;line-height:24px;text-align:center;margin-bottom:6px}
+#dsdoc-app .dd-mybr .tag{position:absolute;top:-8px;left:8px;background:#2563eb;color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;letter-spacing:.3px}
+#dsdoc-app .dd-mybr .ed{position:absolute;top:4px;right:4px;background:var(--field);border:1px solid var(--bd);color:var(--tx);font-size:11px;font-weight:700;border-radius:7px;padding:2px 7px;cursor:pointer}
+#dsdoc-app .dd-mybr .sw img{height:22px;max-width:48px;object-fit:contain;margin-right:4px;background:#fff;border-radius:4px;padding:1px}
+#dsdoc-app .dd-bk{width:min(940px,96vw);height:auto;max-height:94vh}
+#dsdoc-app .dd-bkbody{display:grid;grid-template-columns:1.25fr 1fr;gap:22px;padding:4px 22px 10px;overflow:auto}
+#dsdoc-app .dd-bkform input[type=url],#dsdoc-app .dd-bkform input[type=text],#dsdoc-app .dd-bkform select{width:100%;background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:9px 12px;color:var(--tx);font-size:13.5px;box-sizing:border-box}
+#dsdoc-app .dd-bkrow{display:flex;gap:8px}
+#dsdoc-app .dd-bkbtn{background:var(--field);border:1px solid var(--bd);color:var(--tx);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+#dsdoc-app .dd-bkbtn.pri{background:#2563eb;border-color:#2563eb;color:#fff}
+#dsdoc-app .dd-bkbtn.ghost{background:transparent}
+#dsdoc-app .dd-bkbtn:disabled{opacity:.6;cursor:wait}
+#dsdoc-app .dd-bkfound{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--mut)}
+#dsdoc-app .dd-bkfound .fc{width:26px;height:26px;border-radius:7px;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0}
+#dsdoc-app .dd-bklogo{display:flex;gap:14px;align-items:center}
+#dsdoc-app .dd-bklogo .lg{width:120px;height:70px;border-radius:10px;background:repeating-conic-gradient(#e8ebf0 0 25%,#fff 0 50%) 0 0/14px 14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden;color:#6b7280;font-size:12px}
+#dsdoc-app .dd-bklogo .lg img{max-width:92%;max-height:86%;object-fit:contain}
+#dsdoc-app .dd-bklogo small{display:block;margin-top:6px;color:var(--mut);font-size:11.5px}
+#dsdoc-app .dd-bkcols{display:flex;gap:10px}
+#dsdoc-app .dd-bkcols .sl{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border:2px solid transparent;border-radius:12px;cursor:pointer;font-size:12px;color:var(--mut2)}
+#dsdoc-app .dd-bkcols .sl.on{border-color:#3b82f6}
+#dsdoc-app .dd-bkcols input[type=color]{width:54px;height:40px;border:0;background:transparent;padding:0;cursor:pointer}
+#dsdoc-app .dd-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#dsdoc-app .dd-bkauto{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px;color:var(--tx)}
+#dsdoc-app .dd-bkpv .hd{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px}
+#dsdoc-app .bkcard{border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px;min-height:230px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#dsdoc-app .bkcard img{max-height:54px;max-width:60%;object-fit:contain;align-self:flex-start}
+#dsdoc-app .bkcard b{font-size:26px;line-height:1.15}
+#dsdoc-app .bkcard i{font-style:normal;font-size:13px;line-height:1.5}
+#dsdoc-app .bkcard .bar{display:flex;gap:6px}
+#dsdoc-app .bkcard .bar em{flex:1;height:10px;border-radius:5px}
+#dsdoc-app .bkcard .cta{align-self:flex-start;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700}
+#dsdoc-app .dd-bkft{display:flex;gap:10px;align-items:center;padding:12px 22px 18px;border-top:1px solid var(--bd)}
+@media (max-width:760px){#dsdoc-app .dd-bkbody{grid-template-columns:1fr}}
+#dsdoc-app .inb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#0A66C2;color:#fff;font:800 11px/1 Arial,sans-serif;vertical-align:-3px;margin-right:2px}
+#dsdoc-app .dd-li{width:min(640px,96vw)}
+#dsdoc-app .dd-li textarea{width:100%;box-sizing:border-box;background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx);font-size:13px;resize:vertical}
+#dsdoc-app .dd-linote{margin-top:10px;font-size:12.5px;line-height:1.55;color:var(--mut2);background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+#dsdoc-app .dd-lifn,#dsdoc-app .dd-lic{font-size:12.5px;color:var(--mut);align-self:center}
+#dsdoc-app .dd-gal{position:fixed;inset:0;z-index:100000;background:rgba(4,7,13,.78);display:flex;align-items:center;justify-content:center;padding:24px}
+#dsdoc-app .dd-gbox{width:min(1180px,96vw);height:min(860px,92vh);background:var(--card,#141a26);border:1px solid var(--bd);border-radius:18px;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:hidden}
+#dsdoc-app .dd-ghd{display:flex;align-items:center;gap:14px;padding:18px 22px 12px}
+#dsdoc-app .dd-ghd>div{flex:1;min-width:0}
+#dsdoc-app .dd-ghd h3{margin:0;font-size:19px;font-weight:800;color:var(--tx)}
+#dsdoc-app .dd-ghd p{margin:2px 0 0;font-size:12.5px;color:var(--mut)}
+#dsdoc-app .dd-ghd input{width:min(300px,40vw);background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:9px 12px;color:var(--tx);font-size:13.5px}
+#dsdoc-app .dd-gx{background:transparent;border:1px solid var(--bd);color:var(--tx);width:36px;height:36px;border-radius:10px;font-size:22px;line-height:1;cursor:pointer}
+#dsdoc-app .dd-gchips{padding:0 22px 10px;margin:0}
+#dsdoc-app .dd-ggrid{flex:1;overflow:auto;display:grid;gap:16px;padding:8px 22px 24px;align-content:start;grid-auto-rows:max-content}
+#dsdoc-app .dd-ggrid>*{min-height:max-content}
+#dsdoc-app .dd-ggrid.des{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+#dsdoc-app .dd-ggrid.thm{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+#dsdoc-app .dd-gth .smp{height:74px;border-radius:10px;margin-bottom:8px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+#dsdoc-app .dd-gth .smp i{font-style:normal;font-weight:700;font-size:24px;line-height:1}
+#dsdoc-app .dd-gth .smp em{display:block;height:6px;border-radius:3px;width:70%}
+#dsdoc-app .dd-gal .dd-empty{grid-column:1/-1}
+@media (max-width:640px){#dsdoc-app .dd-gal{padding:8px}#dsdoc-app .dd-ghd{flex-wrap:wrap}#dsdoc-app .dd-ghd input{width:100%;order:3}#dsdoc-app .dd-ggrid.des{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #dsdoc-app .dd-designs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-height:520px;overflow:auto;padding-right:6px}
 #dsdoc-app .dd-ds{border:1px solid var(--bd);background:var(--field);border-radius:14px;padding:10px 10px 4px;color:var(--tx);text-align:left}
 #dsdoc-app .dd-ds .pv{height:150px;border-radius:9px;overflow:hidden;background:#fff;position:relative}
@@ -5195,6 +5572,8 @@ function ds_doc_page_shortcode() {
 		'pricing'    => ds_doc_pricing(),
 		'maxPages'   => (int) $s['max_pages'],
 		'assistCost' => (int) $s['assist_cost'],
+		'brand'      => $uid && class_exists( 'DS_AI_Doc' ) && method_exists( 'DS_AI_Doc', 'brand_get' ) ? DS_AI_Doc::brand_get( $uid ) : null,
+		'useAiFree'  => $uid && function_exists( 'ds_uai_is_free' ) ? (bool) ds_uai_is_free( $uid ) : false,
 		'loginUrl'   => wp_login_url( ds_doc_page_url() ),
 		'buyUrl'     => home_url( '/pricing/' ),
 		'links'      => array(
