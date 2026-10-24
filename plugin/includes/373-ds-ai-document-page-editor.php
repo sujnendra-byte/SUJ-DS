@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 14:30:00
+ * Modified   : 2026-10-24 15:30:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.8.9-editpage' );
+define( 'DS_DOC_APP_VER', '1.9.0-iconbtn' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -3944,7 +3944,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     var typingSnap = debounce(function () { snapshot(); }, 900);
 
     function render(keepScroll) {
-      var st = canvas.scrollTop;
+      var st = canvas.scrollTop; hideIconBtn();
       try { if (D.detachArt && !D.artOn(doc)) D.detachArt(doc); } catch (er) { /* keep the drawn design */ }
       api2 = D.render(docBox, doc, { edit: true, gap: 64 });   /* room above each page for its Edit page button */
       if (LE) LE.onRender(api2);
@@ -4207,11 +4207,46 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       typingSnap(); changed(); relayout();
     });
     docBox.addEventListener('focusin', function (e) { var b = e.target.closest('.dsd-blk'); if (b && b.dataset.id !== sel && LE && !LE.busy() && LE.selected().indexOf('B:' + b.dataset.id) < 0) select(b.dataset.id); });
+    /* contact icons: a small "Change icon" button next to the touched icon opens a window with the icons to choose from */
+    var icBtn = null, icFor = null;
+    var IC_NAMES = { phone: 'Phone', mail: 'Email', web: 'Website', pin: 'Address', user: 'Person', link: 'Link / LinkedIn' };
+    function hideIconBtn() { if (icBtn) { icBtn.remove(); icBtn = null; } icFor = null; }
+    function showIconBtn(icn) {
+      hideIconBtn();
+      var blk = icn.closest('.dsd-blk'); if (!blk) return;
+      icFor = { id: blk.dataset.id, ri: +icn.dataset.ic };
+      icBtn = el('button', 'dd-icbtn'); icBtn.type = 'button'; icBtn.innerHTML = '&#9733; Change icon';
+      var r = icn.getBoundingClientRect();
+      icBtn.style.left = Math.round(r.right + 8) + 'px'; icBtn.style.top = Math.round(r.top + r.height / 2 - 15) + 'px';
+      icBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+      icBtn.addEventListener('click', function (e) { e.stopPropagation(); var f = icFor; hideIconBtn(); if (f) openIconPop(f); });
+      document.body.appendChild(icBtn);
+    }
+    function openIconPop(f) {
+      var cb = doc.blocks[blockOf(f.id)]; if (!cb || !cb.rows || !cb.rows[f.ri]) return;
+      var cur = cb.rows[f.ri].i, ord = D.ICON_ORDER || Object.keys(D.ICONS || {});
+      var m = el('div', 'dd-icpop');
+      m.innerHTML = '<div class="box" role="dialog" aria-modal="true"><div class="hd"><b>Choose an icon</b><span>for “' + esc(String(cb.rows[f.ri].t || '').slice(0, 40)) + '”</span><button type="button" data-ix="x" title="Close">×</button></div><div class="grid">' +
+        ord.map(function (k) { return '<button type="button" class="ico' + (k === cur ? ' on' : '') + '" data-ik="' + k + '"><svg viewBox="0 0 24 24"><path d="' + (D.ICONS[k] || '') + '"/></svg><span>' + esc(IC_NAMES[k] || k) + '</span></button>'; }).join('') + '</div></div>';
+      document.body.appendChild(m);
+      function close() { m.remove(); document.removeEventListener('keydown', key, true); }
+      function key(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+      document.addEventListener('keydown', key, true);
+      m.addEventListener('click', function (e) {
+        if (e.target === m || e.target.closest('[data-ix="x"]')) { close(); return; }
+        var b = e.target.closest('[data-ik]'); if (!b) return;
+        var cb2 = doc.blocks[blockOf(f.id)];
+        if (cb2 && cb2.rows && cb2.rows[f.ri] && cb2.rows[f.ri].i !== b.dataset.ik) { snapshot(); cb2.rows[f.ri].i = b.dataset.ik; changed(); render(true); }
+        close();
+      });
+    }
+    canvas.addEventListener('scroll', hideIconBtn);
     docBox.addEventListener('click', function (e) {
       var act = e.target.closest('[data-act="cover-pic"]');
       if (act) { pickPicture(function (p) { snapshot(); doc.cover = doc.cover || {}; doc.cover.src = p.data || p.src; doc.cover.pid = p.pid || 0; doc.cover.url = p.url || ''; changed(); render(true); }); return; }
       var icn = e.target.closest('.dsd-s-ct .ic[data-ic]');
-      if (icn) { var cb = doc.blocks[blockOf(icn.closest('.dsd-blk').dataset.id)], ri = +icn.dataset.ic; if (cb && cb.rows && cb.rows[ri]) { var ord = D.ICON_ORDER || ['phone', 'mail', 'web', 'pin']; snapshot(); cb.rows[ri].i = ord[(ord.indexOf(cb.rows[ri].i) + 1) % ord.length]; changed(); render(true); } return; }
+      if (icn) { showIconBtn(icn); }   /* a contact icon no longer changes by itself when touched: a Change icon button appears next to it */
+      else hideIconBtn();
       var b = e.target.closest('.dsd-blk');
       if (b && b.dataset.t === 's_photo' && e.target.closest('.dsd-s-ph')) { pickPicture(function (p) { var bb = doc.blocks[blockOf(b.dataset.id)]; snapshot(); bb.src = p.data || p.src; bb.pid = p.pid || 0; bb.url = p.url || ''; changed(); render(true); }); return; }
       if (b) { if (b.dataset.t === 'image' && e.target.closest('.ph')) pickPicture(function (p) { var bb = doc.blocks[blockOf(b.dataset.id)]; snapshot(); bb.src = p.data || p.src; bb.pid = p.pid || 0; bb.url = p.url || ''; changed(); render(true); }); }
@@ -5105,6 +5140,17 @@ body.dd-noscroll{overflow:hidden!important}
 @media(max-width:800px){.dd-rv.rv-pgm .rv-main{grid-template-columns:1fr}.dd-rv .rv-pvw{padding:14px}}
 #dde-zoom{position:relative}
 #dde-pgb{position:absolute;left:0;top:0;width:0;height:0;z-index:30}
+.dd-icbtn{position:fixed;z-index:2147482000;display:inline-flex;align-items:center;gap:6px;background:#fff;color:#111827;border:1px solid #93c5fd;border-radius:9px;padding:6px 11px;font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:pointer;text-transform:none;letter-spacing:normal}
+.dd-icbtn:hover{background:#eff6ff}
+.dd-icpop{position:fixed;inset:0;z-index:2147482600;background:rgba(3,6,12,.7);display:flex;align-items:center;justify-content:center;padding:16px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.dd-icpop .box{width:min(460px,96vw);background:#141a26;border:1px solid #2a3550;border-radius:16px;padding:18px 18px 20px;color:#e6ecf7;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.dd-icpop .hd{display:flex;align-items:baseline;gap:8px;margin-bottom:14px}
+.dd-icpop .hd b{font-size:17px}.dd-icpop .hd span{flex:1;font-size:12.5px;color:#8b97ad;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.dd-icpop .hd button{background:transparent;border:1px solid #2a3550;color:#e6ecf7;width:32px;height:32px;border-radius:9px;font-size:20px;line-height:1;cursor:pointer}
+.dd-icpop .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.dd-icpop .ico{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;background:#1b2234;border:1px solid #2a3550;border-radius:12px;color:#e6ecf7;font-size:12.5px;cursor:pointer;text-transform:none;letter-spacing:normal}
+.dd-icpop .ico svg{width:30px;height:30px;fill:currentColor}
+.dd-icpop .ico:hover{border-color:#3b82f6}.dd-icpop .ico.on{border-color:#3b82f6;background:#1e3a8a}
 .dd-pgbtn{position:absolute;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;padding:8px 14px;font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;text-transform:none;letter-spacing:normal}
 .dd-pgbtn:hover{background:#f3f6fb;border-color:#93c5fd}
 @media(max-width:800px){.dd-rv .rv-main{grid-template-columns:1fr}.dd-rv .rv-nav{display:none}}

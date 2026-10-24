@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 15:00:00
+ * Modified   : 2026-10-24 15:30:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.7.1-keepsize' );
+define( 'DS_DOC_ENGINE_VER', '1.7.2-iconbtn' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -4273,7 +4273,7 @@ D.toDocx = function (doc, opts) {
     };
     if (b.t === 's_contact') {
       return w('<div class="dsd-s-ct">' + (b.rows || []).map(function (r, k) {
-        return '<div class="r"><i class="ic" data-ic="' + k + '" title="' + (o.edit ? 'Click to change the icon' : '') + '"><svg viewBox="0 0 24 24"><path d="' + (IC[r.i] || IC.link) + '"/></svg></i>' + edf('span', 'tx', 'rows.' + k + '.t', r.t, 'Contact') + '</div>';
+        return '<div class="r"><i class="ic" data-ic="' + k + '" title="' + (o.edit ? 'Click the icon, then press Change icon' : '') + '"><svg viewBox="0 0 24 24"><path d="' + (IC[r.i] || IC.link) + '"/></svg></i>' + edf('span', 'tx', 'rows.' + k + '.t', r.t, 'Contact') + '</div>';
       }).join('') + '</div>');
     }
     if (b.t === 's_qr') {
