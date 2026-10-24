@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 12:00:00
+ * Modified   : 2026-10-24 13:00:00
  * Load order : 371 of 374
  */
 /**
@@ -1004,57 +1004,160 @@ final class DS_AI_Doc {
 		return $root . ( $dir ? $dir : '/' ) . $u;
 	}
 
+	/** A LinkedIn profile link in any form (with or without https, www, a country part like in., or ?extras) to https://www.linkedin.com/in/name */
+	private static function li_url( $u ) {
+		$u = trim( (string) $u );
+		if ( '' === $u ) {
+			return '';
+		}
+		if ( preg_match( '#^(?:https?://)?(?:[a-z]{2,3}\.)?linkedin\.com/(in|company)/([^/?\#\s]+)#i', $u, $m ) ) {
+			return 'https://www.linkedin.com/' . strtolower( $m[1] ) . '/' . rawurlencode( rawurldecode( $m[2] ) );
+		}
+		return false;
+	}
+
+	/** Try the public profile page from its link. LinkedIn often refuses other websites; then this returns ''. */
+	private static function li_public_text( $url ) {
+		$res = wp_safe_remote_get( $url, array( 'timeout' => 8, 'redirection' => 2, 'limit_response_size' => 1500000, 'user-agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'headers' => array( 'Accept-Language' => 'en' ) ) );
+		if ( is_wp_error( $res ) || 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
+			return '';
+		}
+		$html = (string) wp_remote_retrieve_body( $res );
+		if ( preg_match( '#authwall|/login\?|uas/login#i', substr( $html, 0, 20000 ) ) && ! preg_match( '/property=["\']og:title/i', $html ) ) {
+			return '';
+		}
+		$bits = array();
+		foreach ( array( '/<title[^>]*>([^<]+)<\/title>/i', '/property=["\']og:title["\'][^>]+content=["\']([^"\']+)/i', '/property=["\']og:description["\'][^>]+content=["\']([^"\']+)/i', '/name=["\']description["\'][^>]+content=["\']([^"\']+)/i' ) as $re ) {
+			if ( preg_match( $re, $html, $m ) ) {
+				$bits[] = html_entity_decode( $m[1], ENT_QUOTES );
+			}
+		}
+		if ( preg_match_all( '#<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>#is', $html, $mm ) ) {
+			foreach ( $mm[1] as $js ) {
+				$bits[] = wp_strip_all_tags( $js );
+			}
+		}
+		$t = trim( implode( "\n", array_unique( $bits ) ) );
+		return preg_match( '/sign in|log in|join linkedin/i', $t ) && mb_strlen( $t ) < 120 ? '' : mb_substr( $t, 0, 8000 );
+	}
+
 	/**
-	 * Business cards: "Fill from LinkedIn". LinkedIn pages cannot be read by other websites (they need a
-	 * sign-in), so the user gives us the text of their profile - the PDF from LinkedIn's "Save to PDF", or
-	 * the text copied from the page - and the AI picks out the card details. It only copies what is there.
+	 * Business cards: "Fill from LinkedIn". Works from the profile link alone when LinkedIn shows the public
+	 * page; otherwise from the profile PDF, the profile text or screenshots of the profile. The AI only copies
+	 * what is there; phone, email and website are checked against the text.
 	 */
 	public static function route_linkedin( WP_REST_Request $req ) {
 		$uid  = get_current_user_id();
 		$text = mb_substr( trim( wp_strip_all_tags( (string) $req->get_param( 'text' ) ) ), 0, 20000 );
-		$url  = trim( (string) $req->get_param( 'url' ) );
-		if ( $url && ! preg_match( '#^(https?://)?([a-z]{2,3}\.)?linkedin\.com/(in|company)/[A-Za-z0-9\-_%.]+/?$#i', $url ) ) {
-			return self::err( 'url', 'That does not look like a LinkedIn profile link (it should look like linkedin.com/in/your-name).' );
+		$url  = self::li_url( $req->get_param( 'url' ) );
+		if ( false === $url ) {
+			return self::err( 'url', 'That does not look like a LinkedIn profile link. Copy it from your profile page; it looks like linkedin.com/in/your-name.' );
 		}
-		if ( mb_strlen( $text ) < 30 ) {
-			return self::err( 'text', 'Add the PDF of your LinkedIn profile, or paste the text of your profile.' );
+		/* screenshots: up to 3 pictures the browser made smaller (JPEG/PNG/WebP, about 2 MB at most each) */
+		$imgs = array();
+		foreach ( array_slice( (array) $req->get_param( 'images' ), 0, 3 ) as $d ) {
+			if ( ! is_string( $d ) || strlen( $d ) > 2800000 || ! preg_match( '#^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$#', $d, $m ) ) {
+				continue;
+			}
+			$bin  = base64_decode( $m[2], true );
+			$info = $bin ? @getimagesizefromstring( $bin ) : false;
+			if ( $info && in_array( $info['mime'], array( 'image/png', 'image/jpeg', 'image/webp' ), true ) && $info[0] <= 4000 && $info[1] <= 8000 ) {
+				$imgs[] = 'data:' . $info['mime'] . ';base64,' . base64_encode( $bin );
+			}
+		}
+		$from_link = '';
+		if ( $url && mb_strlen( $text ) < 30 && ! $imgs ) {
+			$from_link = self::li_public_text( $url );
+			if ( '' === $from_link ) {
+				return self::err( 'link_blocked', 'LinkedIn did not let us open your profile from the link alone (it asks for a sign-in). Please also add your profile PDF (on LinkedIn: More → Save to PDF) or a screenshot of your profile.', 400, array( 'need' => 'file' ) );
+			}
+			$text = $from_link;
+		}
+		if ( mb_strlen( $text ) < 30 && ! $imgs ) {
+			return self::err( 'text', 'Add your LinkedIn profile link, the PDF of your profile, a screenshot, or paste the profile text.' );
 		}
 		$cost = (int) self::settings()['assist_cost'];
 		if ( self::balance( $uid ) < $cost || ! self::charge( $uid, $cost ) ) {
 			return self::err( 'credits', 'You need ' . $cost . ' credit' . ( 1 === $cost ? '' : 's' ) . ' for this.', 402, array( 'cost' => $cost ) );
 		}
-		$usr = 'This is the text of a person\'s LinkedIn profile. Pick out the details for their business card.' . "\n" .
-			'Copy them exactly as they appear. Use an empty string for anything that is not in the text - never guess or make up a detail.' . "\n" .
-			'"title" is their current job title, "company" their current employer, "tagline" a short version of their headline (max 8 words, only if the profile has one).' . "\n" .
-			'Return {"name":"","title":"","company":"","tagline":"","phone":"","email":"","website":"","address":"","linkedin":""}' . "\n\nPROFILE:\n" . $text;
-		$j = self::ai_json( 'You copy details from documents accurately. Reply with JSON only.', $usr, 800, 0.1 );
-		if ( is_wp_error( $j ) || ! is_array( $j ) ) {
+		$ask = 'This is a person\'s LinkedIn profile (it may be a printed page or a screenshot, with LinkedIn menus and suggestions around it - ignore those, and ignore other people shown under "People also viewed" or similar). Pick out THE PROFILE OWNER\'s details for their business card.' . "\n" .
+			'Copy them exactly as they appear. Use an empty string for anything that is not shown - never guess or make up a detail.' . "\n" .
+			'"title" is their current job title (from the headline or the current job, e.g. "Founder"), "company" their current employer (e.g. from "Founder at Designstager"), "tagline" a short version of their About text or headline (max 8 words, only if there is one), "address" their location as shown (e.g. "Mangaluru, Karnataka, India").' . "\n" .
+			'Return {"name":"","title":"","company":"","tagline":"","phone":"","email":"","website":"","address":"","linkedin":""}';
+		if ( $imgs ) {
+			$j = self::ai_vision_json( $ask . ( $text ? "\n\nTEXT FROM THE PROFILE:\n" . mb_substr( $text, 0, 8000 ) : '' ), $imgs );
+		} else {
+			$j = self::ai_json( 'You copy details from documents accurately. Reply with JSON only.', $ask . "\n\nPROFILE:\n" . $text, 800, 0.1 );
+		}
+		if ( is_wp_error( $j ) || ! is_array( $j ) || empty( $j['name'] ) ) {
 			self::refund( $uid, $cost );
-			return self::err( 'ai', ( is_wp_error( $j ) ? $j->get_error_message() : 'Nothing came back.' ) . ' Your credits were refunded.', 502 );
+			$msg = is_wp_error( $j ) ? $j->get_error_message() : 'We could not find your name in that profile. Try the PDF from LinkedIn (More → Save to PDF) or a clearer screenshot of the top of your profile.';
+			return self::err( 'ai', $msg . ' Your credits were refunded.', 502, array( 'credits_balance' => self::balance( $uid ) ) );
 		}
 		$out = array();
 		foreach ( array( 'name' => 80, 'title' => 100, 'company' => 100, 'tagline' => 120, 'phone' => 40, 'email' => 120, 'website' => 160, 'address' => 200, 'linkedin' => 200 ) as $k => $max ) {
-			$v         = isset( $j[ $k ] ) && is_scalar( $j[ $k ] ) ? self::clean( (string) $j[ $k ], $max ) : '';
-			$out[ $k ] = $v;
+			$out[ $k ] = isset( $j[ $k ] ) && is_scalar( $j[ $k ] ) ? self::clean( (string) $j[ $k ], $max ) : '';
 		}
-		/* a detail must really be in the profile text (the AI must not invent phone numbers or emails) */
-		$flat = preg_replace( '/\s+/', '', mb_strtolower( $text ) );
-		foreach ( array( 'phone', 'email', 'website' ) as $k ) {
-			$needle = preg_replace( '/\s+/', '', mb_strtolower( $out[ $k ] ) );
-			if ( 'phone' === $k ) {
-				$needle = preg_replace( '/\D/', '', $needle );
-				$hay    = preg_replace( '/\D/', '', $flat );
-			} else {
-				$hay = $flat;
+		/* with text, phone / email / website must really be in it (the AI must not invent contact details) */
+		if ( ! $imgs ) {
+			$flat = preg_replace( '/\s+/', '', mb_strtolower( $text ) );
+			foreach ( array( 'phone', 'email', 'website' ) as $k ) {
+				$needle = preg_replace( '/\s+/', '', mb_strtolower( $out[ $k ] ) );
+				$hay    = $flat;
+				if ( 'phone' === $k ) {
+					$needle = preg_replace( '/\D/', '', $needle );
+					$hay    = preg_replace( '/\D/', '', $flat );
+				}
+				if ( '' !== $needle && false === strpos( $hay, preg_replace( '#^https?://(www\.)?#', '', rtrim( $needle, '/' ) ) ) ) {
+					$out[ $k ] = '';
+				}
 			}
-			if ( '' !== $needle && false === strpos( $hay, preg_replace( '#^https?://(www\.)?#', '', rtrim( $needle, '/' ) ) ) ) {
-				$out[ $k ] = '';
-			}
 		}
-		if ( $url ) {
-			$out['linkedin'] = preg_replace( '#^https?://(www\.)?#i', '', rtrim( $url, '/' ) );
+		/* the LinkedIn line on the card: the link the user gave, or the one in their profile, always short and clean */
+		$li = $url ? $url : self::li_url( $out['linkedin'] );
+		if ( ! $li && preg_match( '#linkedin\.com/in/[^/?\#\s]+#i', $text, $m ) ) {
+			$li = self::li_url( $m[0] );
 		}
-		return rest_ensure_response( array( 'success' => true, 'card' => $out, 'cost' => $cost, 'credits_balance' => self::balance( $uid ) ) );
+		$out['linkedin'] = $li ? preg_replace( '#^https://www\.#', '', $li ) : '';
+		if ( $out['website'] && false !== stripos( $out['website'], 'linkedin.com' ) ) {
+			$out['website'] = '';
+		}
+		return rest_ensure_response( array( 'success' => true, 'card' => $out, 'from' => $imgs ? 'screenshot' : ( $from_link ? 'link' : 'text' ), 'cost' => $cost, 'credits_balance' => self::balance( $uid ) ) );
+	}
+
+	/** The same AI service, with pictures (the vision model the site already uses for creator uploads). */
+	private static function ai_vision_json( $prompt, $images ) {
+		$keys = function_exists( 'ds_get_api_keys' ) ? ds_get_api_keys() : array();
+		$key  = isset( $keys['groq'] ) ? $keys['groq'] : '';
+		if ( ! $key ) {
+			return new WP_Error( 'ds_doc_no_key', 'The AI service is not set up on this site yet.' );
+		}
+		$content = array();
+		foreach ( $images as $d ) {
+			$content[] = array( 'type' => 'image_url', 'image_url' => array( 'url' => $d ) );
+		}
+		$content[] = array( 'type' => 'text', 'text' => $prompt . "\nReply with JSON only." );
+		$resp = wp_remote_post( 'https://api.groq.com/openai/v1/chat/completions', array(
+			'timeout' => 60,
+			'headers' => array( 'Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json' ),
+			'body'    => wp_json_encode( array(
+				'model'           => apply_filters( 'ds_doc_vision_model', 'meta-llama/llama-4-scout-17b-16e-instruct' ),
+				'messages'        => array( array( 'role' => 'user', 'content' => $content ) ),
+				'temperature'     => 0.1,
+				'max_tokens'      => 800,
+				'response_format' => array( 'type' => 'json_object' ),
+			) ),
+		) );
+		if ( is_wp_error( $resp ) ) {
+			return new WP_Error( 'ds_doc_ai_http', 'The AI service did not answer. Please try again.' );
+		}
+		$data = json_decode( wp_remote_retrieve_body( $resp ), true );
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $resp ) ) {
+			return new WP_Error( 'ds_doc_ai_http', 'The AI service is busy. Please try again. (' . sanitize_text_field( isset( $data['error']['message'] ) ? $data['error']['message'] : 'HTTP ' . wp_remote_retrieve_response_code( $resp ) ) . ')' );
+		}
+		$c = isset( $data['choices'][0]['message']['content'] ) ? preg_replace( '/^```(?:json)?\s*|\s*```$/i', '', trim( $data['choices'][0]['message']['content'] ) ) : '';
+		$j = json_decode( $c, true );
+		return is_array( $j ) ? $j : new WP_Error( 'ds_doc_ai_json', 'The AI returned an unreadable answer. Please try again.' );
 	}
 
 	private static function write_fixed( $type, $topic, $lang, $tone, $dir, $example, $source ) {

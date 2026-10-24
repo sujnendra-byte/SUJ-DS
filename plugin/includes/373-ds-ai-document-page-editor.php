@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 12:00:00
+ * Modified   : 2026-10-24 13:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.8.1-brand' );
+define( 'DS_DOC_APP_VER', '1.8.2-linkedin' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -3077,50 +3077,95 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   $('#dd-go').addEventListener('click', function () { start(); });
 
   /* ---------------- business cards: fill the details from a LinkedIn profile ---------------- */
+  /* a screenshot is made smaller in the browser before it is sent (JPEG, at most 1600 px wide) */
+  function shrinkShot(file) {
+    return new Promise(function (res, rej) {
+      var rd = new FileReader();
+      rd.onload = function () {
+        var im = new Image();
+        im.onload = function () {
+          var k = Math.min(1, 1600 / (im.naturalWidth || 1600), 3600 / (im.naturalHeight || 3600));
+          var c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+          var d = c.toDataURL('image/jpeg', 0.85);
+          if (d.length > 2700000) d = c.toDataURL('image/jpeg', 0.6);
+          res(d);
+        };
+        im.onerror = function () { rej(new Error(file.name + ' could not be read as a picture.')); };
+        im.src = rd.result;
+      };
+      rd.onerror = function () { rej(new Error(file.name + ' could not be read.')); };
+      rd.readAsDataURL(file);
+    });
+  }
   function openLinkedIn() {
     var old = $('.dd-gal', root); if (old) old.remove();
+    var shots = [], cost = +CFG.assistCost || 1;
     var m = el('div', 'dd-gal');
-    m.innerHTML = '<div class="dd-gbox dd-bk dd-li" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3><span class="inb">in</span> Fill from LinkedIn</h3><p>The AI copies your name, job title, company and contact details from your profile onto the card. It never makes anything up.</p></div><button type="button" class="dd-gx" data-l="x" title="Close">×</button></div>' +
+    m.innerHTML = '<div class="dd-gbox dd-bk dd-li" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3><span class="inb">in</span> Fill from LinkedIn</h3><p>The AI copies your name, job title, company, location and contact details from your profile onto the card. It never makes anything up.</p></div><button type="button" class="dd-gx" data-l="x" title="Close">×</button></div>' +
       '<div class="dd-bkform" style="padding:4px 22px 10px;overflow:auto">' +
-      '<label class="dd-l">Your LinkedIn profile link</label><input type="text" id="li-url" placeholder="linkedin.com/in/your-name">' +
-      '<div class="dd-linote">LinkedIn does not let other websites open profiles, so please also give us the profile itself — the quickest way: on your LinkedIn profile press <b>More → Save to PDF</b>, then upload that PDF here. Or copy the text of your profile page and paste it below.</div>' +
-      '<div class="dd-bkrow" style="margin-top:10px"><button type="button" class="dd-bkbtn" data-l="up">Upload LinkedIn PDF</button><input type="file" id="li-file" accept=".pdf,.txt" class="dd-hide"><span id="li-fn" class="dd-lifn"></span></div>' +
-      '<label class="dd-l">…or paste your profile text</label><textarea id="li-text" rows="7" maxlength="20000" placeholder="Name, headline, current job, contact info…"></textarea>' +
-      '</div><div class="dd-bkft"><span class="dd-lic">Uses ' + (+CFG.assistCost || 1) + ' credit' + ((+CFG.assistCost || 1) === 1 ? '' : 's') + '</span><span class="dd-sp"></span><button type="button" class="dd-bkbtn ghost" data-l="x">Cancel</button><button type="button" class="dd-bkbtn pri" data-l="go">Get my details</button></div></div>';
+      '<label class="dd-l">1. Your LinkedIn profile link</label><input type="text" id="li-url" placeholder="linkedin.com/in/your-name  (copy it from your browser’s address bar)">' +
+      '<div class="dd-linote">We first try your link alone. LinkedIn often asks for a sign-in and does not let other websites read profiles — if that happens, add your profile below as a <b>PDF</b> (on your profile: <b>More → Save to PDF</b>, or print the page to PDF), <b>screenshots</b> of your profile, or the profile text.</div>' +
+      '<label class="dd-l">2. Profile PDF or screenshots (if the link is not enough)</label>' +
+      '<div class="dd-lidrop" id="li-drop"><button type="button" class="dd-bkbtn" data-l="up">Upload PDF or screenshots</button><span>PDF, PNG, JPG · up to 3 screenshots</span><input type="file" id="li-file" accept=".pdf,.txt,image/png,image/jpeg,image/webp" multiple class="dd-hide"></div>' +
+      '<div class="dd-lifiles" id="li-files"></div>' +
+      '<label class="dd-l">…or paste your profile text</label><textarea id="li-text" rows="5" maxlength="20000" placeholder="Name, headline, current job, location, contact info…"></textarea>' +
+      '</div><div class="dd-bkft"><span class="dd-lic">Uses ' + cost + ' credit' + (cost === 1 ? '' : 's') + ' (not charged when nothing is found)</span><span class="dd-sp"></span><button type="button" class="dd-bkbtn ghost" data-l="x">Cancel</button><button type="button" class="dd-bkbtn pri" data-l="go">Get my details</button></div></div>';
     root.appendChild(m); document.body.classList.add('dd-noscroll');
     function close() { m.remove(); document.removeEventListener('keydown', key); document.body.classList.remove('dd-noscroll'); }
     function key(e) { if (e.key === 'Escape') close(); }
     document.addEventListener('keydown', key);
-    $('#li-file', m).addEventListener('change', function (e) {
-      var f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
-      $('#li-fn', m).textContent = 'Reading ' + f.name + '…';
-      readFile(f).then(function (txt) {
-        txt = String(txt || '').replace(/\r/g, '').trim();
-        if (!txt) throw new Error('No text was found in that file.');
-        $('#li-text', m).value = txt.slice(0, 20000); $('#li-fn', m).textContent = '✓ ' + f.name;
-      }).catch(function (er) { $('#li-fn', m).textContent = ''; toast(er.message || 'That file could not be read.', 'err'); });
+    function files() {
+      $('#li-files', m).innerHTML = shots.map(function (s, i) { return '<span class="f"><img alt="" src="' + s.d + '">' + esc(s.n) + '<button type="button" data-lr="' + i + '" title="Remove">×</button></span>'; }).join('') +
+        ($('#li-text', m).dataset.pdf ? '<span class="f">📄 ' + esc($('#li-text', m).dataset.pdf) + '</span>' : '');
+    }
+    function addFiles(list) {
+      Array.prototype.forEach.call(list, function (f) {
+        if (/^image\//.test(f.type)) {
+          if (shots.length >= 3) { toast('Up to 3 screenshots.', 'err'); return; }
+          shrinkShot(f).then(function (d) { shots.push({ n: f.name, d: d }); files(); }).catch(function (er) { toast(er.message, 'err'); });
+        } else {
+          readFile(f).then(function (txt) {
+            txt = String(txt || '').replace(/\r/g, '').trim();
+            if (!txt) throw new Error('No text was found in that PDF. Try a screenshot instead.');
+            var ta = $('#li-text', m); ta.value = txt.slice(0, 20000); ta.dataset.pdf = f.name; files();
+            if (!$('#li-url', m).value) { var u = txt.match(/(?:https?:\/\/)?(?:[a-z]{2,3}\.)?linkedin\.com\/in\/[^\s/?#]+/i); if (u) $('#li-url', m).value = u[0].replace(/^https?:\/\/(www\.)?/i, ''); }
+          }).catch(function (er) { toast(er.message || 'That file could not be read.', 'err'); });
+        }
+      });
+    }
+    $('#li-file', m).addEventListener('change', function (e) { addFiles(e.target.files || []); e.target.value = ''; });
+    var drop = $('#li-drop', m);
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
+    drop.addEventListener('drop', function (e) { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files || []); });
+    m.addEventListener('paste', function (e) { /* a screenshot pasted with Ctrl+V / Cmd+V */
+      var it = Array.prototype.filter.call((e.clipboardData && e.clipboardData.files) || [], function (f) { return /^image\//.test(f.type); });
+      if (it.length) { e.preventDefault(); addFiles(it); }
     });
     m.addEventListener('click', function (e) {
       if (e.target === m) { close(); return; }
+      var rm = e.target.closest('[data-lr]'); if (rm) { shots.splice(+rm.dataset.lr, 1); files(); return; }
       var b = e.target.closest('[data-l]'); if (!b) return;
       if (b.dataset.l === 'x') close();
       if (b.dataset.l === 'up') $('#li-file', m).click();
       if (b.dataset.l === 'go') {
         var txt = $('#li-text', m).value.trim(), url = $('#li-url', m).value.trim();
-        if (txt.length < 30) { toast('Upload your LinkedIn PDF or paste the text of your profile first.', 'err', 6000); return; }
-        b.disabled = true; b.textContent = 'Reading your profile…';
-        api('POST', 'ds/v1/doc-linkedin', { text: txt, url: url }).then(function (r) {
+        if (!url && txt.length < 30 && !shots.length) { toast('Add your LinkedIn link, a PDF or a screenshot of your profile first.', 'err', 6000); return; }
+        b.disabled = true; b.textContent = shots.length ? 'Reading your screenshots…' : txt.length >= 30 ? 'Reading your profile…' : 'Opening your LinkedIn link…';
+        api('POST', 'ds/v1/doc-linkedin', { text: txt, url: url, images: shots.map(function (s) { return s.d; }) }).then(function (r) {
           if (r.credits_balance != null) setCredits(r.credits_balance);
           var c = r.card || {}, lines = [c.name, c.title, c.company, c.tagline, c.phone, c.email, c.website, c.address ? 'Address: ' + c.address : '', c.linkedin].filter(function (x) { return x && String(x).trim(); });
           if (!lines.length) throw new Error('No card details were found in that profile.');
           close();
           if (S.mode !== 'preserve') setMode('preserve');
           elTopic.value = lines.join('\n'); updateCount(); updateCost();
-          toast('Your details were added from LinkedIn. Check them, then press Generate Document.', 'ok', 7000);
+          toast('Your details were added from LinkedIn' + (r.from === 'link' ? ' (from your link)' : '') + '. Check them, then press Generate Document.', 'ok', 7000);
           elTopic.focus();
         }).catch(function (er) {
-          toast(er.message || 'Your profile could not be read.', 'err', 7000);
+          toast(er.message || 'Your profile could not be read.', 'err', 9000);
           if (er.data && er.data.credits_balance != null) setCredits(er.data.credits_balance);
+          if (er.data && er.data.need === 'file') { drop.classList.add('need'); drop.scrollIntoView({ block: 'center' }); }
           b.disabled = false; b.textContent = 'Get my details';
         });
       }
@@ -4698,6 +4743,12 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-li{width:min(640px,96vw)}
 #dsdoc-app .dd-li textarea{width:100%;box-sizing:border-box;background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx);font-size:13px;resize:vertical}
 #dsdoc-app .dd-linote{margin-top:10px;font-size:12.5px;line-height:1.55;color:var(--mut2);background:var(--field);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+#dsdoc-app .dd-lidrop{display:flex;align-items:center;gap:12px;border:1.5px dashed var(--bd);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--mut)}
+#dsdoc-app .dd-lidrop.over,#dsdoc-app .dd-lidrop.need{border-color:#3b82f6;background:rgba(59,130,246,.08)}
+#dsdoc-app .dd-lifiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+#dsdoc-app .dd-lifiles .f{display:inline-flex;align-items:center;gap:6px;background:var(--field);border:1px solid var(--bd);border-radius:9px;padding:4px 6px 4px 4px;font-size:12px;color:var(--tx);max-width:240px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#dsdoc-app .dd-lifiles img{width:34px;height:26px;object-fit:cover;border-radius:5px}
+#dsdoc-app .dd-lifiles button{background:transparent;border:0;color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px}
 #dsdoc-app .dd-lifn,#dsdoc-app .dd-lic{font-size:12.5px;color:var(--mut);align-self:center}
 #dsdoc-app .dd-gal{position:fixed;inset:0;z-index:100000;background:rgba(4,7,13,.78);display:flex;align-items:center;justify-content:center;padding:24px}
 #dsdoc-app .dd-gbox{width:min(1180px,96vw);height:min(860px,92vh);background:var(--card,#141a26);border:1px solid var(--bd);border-radius:18px;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:hidden}
