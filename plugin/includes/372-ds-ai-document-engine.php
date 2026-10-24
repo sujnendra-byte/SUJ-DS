@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 07:00:00
+ * Modified   : 2026-10-24 15:00:00
  * Load order : 372 of 374
  */
 /**
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_engine_js' ) ) :
-define( 'DS_DOC_ENGINE_VER', '1.7.0-flyers' );
+define( 'DS_DOC_ENGINE_VER', '1.7.1-keepsize' );
 function ds_doc_engine_js() {
 	return <<<'DSJS'
 /*! DesignStager Document Engine — (c) DesignStager */
@@ -3720,9 +3720,13 @@ D.toDocx = function (doc, opts) {
         var h = +el.getAttribute('data-h'), f = 1;
         if (el.querySelector('.dsd-blk[data-sc]')) { res[el.getAttribute('data-pg') + '.' + el.getAttribute('data-zn')] = 1; el.style.setProperty('--fit', '1'); return; }   /* sizes set by hand are kept */
         var jc = el.style.justifyContent;
+        /* a text moved by hand (dragged) must keep its size: measure the zone as if nothing was moved */
+        var moved = Array.prototype.filter.call(el.querySelectorAll('.dsd-blk'), function (b) { return b.style.translate && b.style.translate !== 'none'; }), keep = moved.map(function (b) { return b.style.translate; });
+        moved.forEach(function (b) { b.style.translate = 'none'; });
         el.style.setProperty('--fit', '1'); el.style.justifyContent = 'flex-start';
         while ((el.scrollHeight > h + 1 || el.scrollWidth > el.clientWidth + 2) && f > 0.42) { f = Math.round((f - 0.04) * 100) / 100; el.style.setProperty('--fit', String(f)); }
         el.style.justifyContent = jc;
+        moved.forEach(function (b, i) { b.style.translate = keep[i]; });
         res[el.getAttribute('data-pg') + '.' + el.getAttribute('data-zn')] = f;
       });
       D._fit[fk] = res;

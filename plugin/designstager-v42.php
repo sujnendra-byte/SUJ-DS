@@ -9,7 +9,7 @@
  *
  * CHANGELOG
  * ---------
- * 42.0.5 - 2026-10-24 AI Document: Fill from LinkedIn accepts any profile link, tries the link alone, and reads screenshots. 2 includes updated (371, 373).
+ * 42.0.5 - 2026-10-24 AI Document: Fill from LinkedIn accepts any profile link, tries the link alone, and reads screenshots. 3 includes updated (371, 372, 373).
  *   371, 373  A link copied from the address bar (with ?isSelfProfile=true or similar) was refused as "not a
  *        LinkedIn profile link". Links are now cleaned to linkedin.com/in/name. The link alone is tried first
  *        (LinkedIn usually asks for a sign-in; then the user is asked for the PDF or a screenshot, with no charge).
@@ -22,6 +22,8 @@
  *        Address / LinkedIn picker; the logo and photo show a short note instead of empty fields.
  *        Editor: an "Edit page" button above every page (cards: Edit front side / Edit back side), like
  *        "Edit + Add Points" in AI Presentation: a window with only that page's text and a live preview of the page.
+ *   372  Cards, flyers, brochures: a text dragged to a new place no longer shrinks by itself (the automatic
+ *        fit is measured as if the text had not been moved).
  * 42.0.4 - 2026-10-24 AI Document: Use AI switch, My brand, View all pop-ups, Fill from LinkedIn. 2 includes updated (371, 373).
  *   371, 373  "Use My Text" now has a Use AI switch (like AI Presentation): off = no AI call, the text is placed
  *        into the design line by line (cards: name, job title, company, phone, email, website, address).
