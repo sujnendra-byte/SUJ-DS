@@ -17,6 +17,9 @@
  *        The window now asks for the PDF / screenshots first; the link is optional (shown on the card) with a
  *        "Use this link for the QR code" switch.
  *        Problems (no credits, nothing found, link blocked) now show inside the window with a Buy credits link.
+ *        Review window: each place is named by what goes there (Your name, Job title, Company name, Headline,
+ *        Back – heading...) instead of "Big title" / "Subtitle"; contact lines have a Phone / Email / Website /
+ *        Address / LinkedIn picker; the logo and photo show a short note instead of empty fields.
  * 42.0.4 - 2026-10-24 AI Document: Use AI switch, My brand, View all pop-ups, Fill from LinkedIn. 2 includes updated (371, 373).
  *   371, 373  "Use My Text" now has a Use AI switch (like AI Presentation): off = no AI call, the text is placed
  *        into the design line by line (cards: name, job title, company, phone, email, website, address).

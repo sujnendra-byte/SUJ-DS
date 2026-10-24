@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 13:45:00
+ * Modified   : 2026-10-24 14:00:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.8.4-linkedin' );
+define( 'DS_DOC_APP_VER', '1.8.6-review' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -3379,10 +3379,22 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   var RV_LABEL = { h2: 'Subheading', h3: 'Small heading', p: 'Paragraph', ul: 'Bullet list', ol: 'Numbered list', check: 'Checklist', quote: 'Quote', callout: 'Callout box', stats: 'Key numbers',
     table: 'Table', chart: 'Chart', timeline: 'Timeline', cols: 'Columns', kv: 'Details', image: 'Picture', pb: 'Page break', toc: 'Contents', lh: 'Letterhead', title: 'Title', addr: 'Address',
     sign: 'Sign-off', inv: 'Invoice lines', todo: 'Tasks', week: 'Week', cal: 'Calendar', sigs: 'Signatures', r_head: 'Name & contacts', r_sec: 'Resume section', r_entry: 'Job / education',
-    r_skills: 'Skills', s_kicker: 'Small line', s_title: 'Big title', s_sub: 'Subtitle', s_text: 'Text', s_cta: 'Button text', s_details: 'Details', s_contact: 'Contact details', s_mark: 'Logo', s_qr: 'QR code', s_photo: 'Photo', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate', h1: 'Section heading' };
+    r_skills: 'Skills', s_kicker: 'Small line above the heading', s_title: 'Heading', s_sub: 'Short line', s_text: 'Text', s_cta: 'Button text', s_details: 'Details', s_contact: 'Contact details', s_mark: 'Logo', s_qr: 'QR code', s_photo: 'Photo', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate', h1: 'Section heading' };
   var RV_KEYS = { text: 'Text', title: 'Title', sub: 'Subtitle', by: 'Said by', cap: 'Caption', q: 'Picture search words', name: 'Name', role: 'Role', lines: 'Lines', items: 'Items', v: 'Number', l: 'Label', d: 'When',
     org: 'Organisation', date: 'Dates', contacts: 'Contacts', close: 'Closing', rows: 'Rows', head: 'Columns', task: 'Task', due: 'Due', pr: 'Priority', q2: 'Qty', r: 'Rate', days: 'Days', n: 'Dish', p: 'Price',
     event: 'Event', place: 'Place', price: 'Price', pre: 'Line above the name', reason: 'Reason', sections: 'Menu sections', unit: 'Unit' };
+  /* designs with places (cards, flyers, brochures): name each place by what goes there, not by its text style */
+  var RV_ROLE = {
+    business_card: { logo: 'Logo', company: 'Company name', tagline: 'Company tagline', name: 'Your name', title: 'Job title', contact: 'Contact details', qr: 'QR code', photo: 'Photo' },
+    flyer: { kicker: 'Small line above the headline', title: 'Headline', sub: 'Line under the headline', text: 'Main text', list: 'List of points', cta: 'Button text', badgeK: 'Badge – small line', badgeT: 'Badge – offer (e.g. 50% OFF)', contact: 'Contact details', photo1: 'Photo 1', photo2: 'Photo 2', photo3: 'Photo 3',
+      bh1: 'Back – first heading', blist: 'Back – list of points', bh2: 'Back – second heading', btext: 'Back – text', btext2: 'Back – more text', bdet: 'Back – details', bcta: 'Back – button text', bcontact: 'Back – contact details', bphoto: 'Back – photo', stats: 'Key numbers', bstats: 'Back – key numbers' },
+    brochure: { cvk: 'Cover – company name', cvt: 'Cover – title', cvs: 'Cover – short line', cvp: 'Cover – photo', fh: 'Inside flap – heading', ft: 'Inside flap – text', fl: 'Inside flap – points', flp: 'Inside flap – photo', bkh: 'Back – heading', bkc: 'Back – contact details', bkq: 'Back – QR code', bkp: 'Back – photo',
+      i1h: 'Inside 1 – heading', i1t: 'Inside 1 – text', i1s: 'Inside 1 – key numbers', i1p: 'Inside 1 – photo', i2h: 'Inside 2 – heading', i2l: 'Inside 2 – points', i2p: 'Inside 2 – photo', i3h: 'Inside 3 – heading', i3l: 'Inside 3 – points', i3c: 'Inside 3 – button text', i3p: 'Inside 3 – photo' }
+  };
+  RV_ROLE.brochure_a4 = Object.assign({}, RV_ROLE.flyer, { title: 'Cover title', kicker: 'Cover – small line', sub: 'Cover – short line', text: 'Cover – text', blist: 'Inside – points' });
+  var RV_PH = { name: 'Your full name', title: 'e.g. Marketing Manager', company: 'Your company name', tagline: 'A short line about your company (optional)' };
+  var CT_TYPES = [['phone', 'Phone'], ['mail', 'Email'], ['web', 'Website'], ['pin', 'Address'], ['link', 'LinkedIn / link'], ['user', 'Other']];
+  function rvLabel(b, type) { var r = b.role && RV_ROLE[type] && RV_ROLE[type][b.role]; return r || RV_LABEL[b.t] || b.t; }
   var RV_ADD = [['p', 'Paragraph'], ['h2', 'Subheading'], ['ul', 'Bullet list'], ['ol', 'Numbered list'], ['quote', 'Quote'], ['callout', 'Callout box'], ['stats', 'Key numbers'], ['table', 'Table'], ['chart', 'Chart'], ['timeline', 'Timeline'], ['cols', 'Two columns'], ['image', 'Picture']];
   function rvNew(t) {
     var b = { t: t, id: D.uid() };
@@ -3450,7 +3462,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     function genericFld(b, gi, bi) {
       var base = gi + '.' + bi + '.', h = '';
       Object.keys(b).forEach(function (k) {
-        if (/^(t|id|src|pid|url|w|side|tone|y|m|cur|tax|n|start|kind)$/.test(k)) return;
+        if (/^(t|id|src|pid|url|w|side|tone|y|m|cur|tax|n|start|kind|role|pg|zn|dx|dy|sc|st|r|sides|pts)$/.test(k)) return;
         var v = b[k], lab = RV_KEYS[k] || k;
         if (typeof v === 'string' || typeof v === 'number') h += fld(base + k, v, { label: lab, area: k === 'text' || k === 'reason' });
         else if (Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; })) h += '<label class="rv-lab">' + esc(lab) + ' <i>(one per line)</i></label><textarea class="rv-in" data-blines="' + base + k + '" rows="' + Math.max(3, v.length + 1) + '">' + esc(v.join('\n')) + '</textarea>';
@@ -3471,7 +3483,17 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       var base = gi + '.' + bi + '.';
       switch (b.t) {
         case 'p': case 's_text': return '<textarea class="rv-in" data-b="' + base + 'text" rows="' + Math.min(14, Math.max(3, Math.ceil(String(b.text || '').length / 90) + 1)) + '" placeholder="Write a paragraph…">' + esc(b.text || '') + '</textarea>';
-        case 'h2': case 'h3': case 's_title': case 's_sub': case 's_kicker': case 'r_sec': case 's_cta': return '<input class="rv-in big" data-b="' + base + 'text" value="' + esc(b.text || '') + '">';
+        case 'h2': case 'h3': case 's_title': case 's_sub': case 's_kicker': case 'r_sec': case 's_cta': return '<input class="rv-in big" data-b="' + base + 'text" value="' + esc(b.text || '') + '"' + (b.role && RV_PH[b.role] && doc.type === 'business_card' ? ' placeholder="' + esc(RV_PH[b.role]) + '"' : '') + '>';
+        case 's_mark': return '<p class="rv-note">Your logo goes here. Upload it in the editor: click the logo, then <b>Upload logo</b>' + (D.myBrand && D.myBrand.logo ? ' — your saved brand logo is used automatically' : '') + '.</p>';
+        case 's_photo': return '<p class="rv-note">A photo goes here. You can pick or upload it in the editor.</p>';
+        case 's_qr': return '<label class="rv-lab">Link the QR code opens</label><input class="rv-in" data-b="' + base + 'text" value="' + esc(b.text || '') + '" placeholder="www.yourcompany.com or linkedin.com/in/your-name">';
+        case 's_contact':
+          return '<div class="rv-rows">' + (b.rows || []).map(function (r, ri) {
+            if (!r.i) r.i = 'phone';
+            return '<div class="rv-rowi rv-ct"><select class="rv-in" data-b="' + base + 'rows.' + ri + '.i">' + CT_TYPES.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r.i ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' +
+              '<input class="rv-in" data-b="' + base + 'rows.' + ri + '.t" value="' + esc(r.t || '') + '" placeholder="' + esc({ phone: '+91 98450 00000', mail: 'name@company.com', web: 'www.company.com', pin: 'Street, City', link: 'linkedin.com/in/your-name' }[r.i] || '') + '">' +
+              '<button type="button" class="rv-del" data-op="delitem" data-at="' + gi + '.' + bi + '" data-k="rows" data-i="' + ri + '" title="Remove">×</button></div>';
+          }).join('') + '</div><div class="rv-mini"><button type="button" data-op="additem" data-at="' + gi + '.' + bi + '" data-k="rows">+ Add a contact line</button></div>';
         case 'ul': case 'ol': case 'check': return '<textarea class="rv-in" data-blines="' + base + 'items" rows="' + Math.max(3, (b.items || []).length + 1) + '" placeholder="One point per line">' + esc((b.items || []).join('\n')) + '</textarea>';
         case 'quote': return '<textarea class="rv-in" data-b="' + base + 'text" rows="2">' + esc(b.text || '') + '</textarea><label class="rv-lab">Said by</label><input class="rv-in" data-b="' + base + 'by" value="' + esc(b.by || '') + '">';
         case 'callout': return '<input class="rv-in" data-b="' + base + 'title" value="' + esc(b.title || '') + '" placeholder="Title"><textarea class="rv-in" data-b="' + base + 'text" rows="2" style="margin-top:6px">' + esc(b.text || '') + '</textarea>';
@@ -3483,7 +3505,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       return genericFld(b, gi, bi);
     }
     function draw() {
-      var h = '<div class="rv-doc"><label class="rv-lab">Document title</label><input class="rv-in big" data-d="title" value="' + esc(doc.title || '') + '">' +
+      var h = '<div class="rv-doc"><label class="rv-lab">' + (D.type(doc.type).fixed ? 'Name in My Documents <i>(not printed on the design)</i>' : 'Document title') + '</label><input class="rv-in big" data-d="title" value="' + esc(doc.title || '') + '">' +
         (doc.subtitle != null && dz.kind !== 'single' ? '<label class="rv-lab">Subtitle</label><input class="rv-in" data-d="subtitle" value="' + esc(doc.subtitle || '') + '">' : '') + '</div>';
       var nh = '';
       groups.forEach(function (g, gi) {
@@ -3492,7 +3514,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
         h += '<section class="rv-sec" id="rv-s' + gi + '"><div class="rv-sh">' + (g.head ? '<input class="rv-in big hd" data-b="' + gi + '.h.text" value="' + esc(g.head.text || '') + '" placeholder="Section heading">' : '<span class="rv-st">' + esc(name) + '</span>') +
           '<span class="rv-acts">' + (g.head ? '<button type="button" data-op="secup" data-at="' + gi + '" title="Move section up">↑</button><button type="button" data-op="secdown" data-at="' + gi + '" title="Move section down">↓</button><button type="button" data-op="secdel" data-at="' + gi + '" title="Delete section">' + IC.trash + '</button>' : '') + '</span></div>';
         g.blocks.forEach(function (b, bi) {
-          h += '<div class="rv-blk"><div class="rv-bh"><span class="rv-tag">' + esc(RV_LABEL[b.t] || b.t) + '</span><span class="rv-acts"><button type="button" data-op="up" data-at="' + gi + '.' + bi + '" title="Move up">↑</button><button type="button" data-op="down" data-at="' + gi + '.' + bi + '" title="Move down">↓</button><button type="button" data-op="del" data-at="' + gi + '.' + bi + '" title="Delete">' + IC.trash + '</button></span></div>' + blockFld(b, gi, bi) + '</div>';
+          h += '<div class="rv-blk"><div class="rv-bh"><span class="rv-tag">' + esc(rvLabel(b, doc.type)) + '</span><span class="rv-acts"><button type="button" data-op="up" data-at="' + gi + '.' + bi + '" title="Move up">↑</button><button type="button" data-op="down" data-at="' + gi + '.' + bi + '" title="Move down">↓</button><button type="button" data-op="del" data-at="' + gi + '.' + bi + '" title="Delete">' + IC.trash + '</button></span></div>' + blockFld(b, gi, bi) + '</div>';
         });
         h += '<div class="rv-add"><select data-addto="' + gi + '"><option value="">+ Add to this section…</option>' + RV_ADD.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + '</option>'; }).join('') + '</select>' +
           (sectioned ? '<button type="button" data-op="secadd" data-at="' + gi + '">+ New section below</button>' : '') + '</div></section>';
@@ -3502,7 +3524,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     }
     function count() {
       var w = 0; groups.forEach(function (g) { [g.head].concat(g.blocks).forEach(function (b) { if (b) w += (JSON.stringify(b).match(/[A-Za-zऀ-෿]+/g) || []).length; }); });
-      $('#rv-info', m).textContent = groups.filter(function (g) { return g.head; }).length + ' sections · about ' + Math.max(1, Math.round(w * 0.8)).toLocaleString() + ' words';
+      var nsec = groups.filter(function (g) { return g.head; }).length;
+      $('#rv-info', m).textContent = (nsec ? nsec + ' section' + (nsec === 1 ? '' : 's') + ' · ' : '') + 'about ' + Math.max(1, Math.round(w * 0.8)).toLocaleString() + ' words';
     }
     function blockAt(at) { var p = at.split('.'); return { g: groups[+p[0]], gi: +p[0], bi: +p[1] }; }
     body.addEventListener('input', function (e) {
@@ -3519,7 +3542,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     });
     body.addEventListener('change', function (e) {
       var sel = e.target.closest('[data-addto]'); if (sel && sel.value) { groups[+sel.dataset.addto].blocks.push(rvNew(sel.value)); draw(); var s2 = $('#rv-s' + sel.dataset.addto, m); if (s2) s2.lastElementChild.previousElementSibling.scrollIntoView({ block: 'center' }); return; }
-      if (e.target.dataset.b && /\.kind$/.test(e.target.dataset.b)) draw();
+      if (e.target.dataset.b && /\.kind$|\.rows\.\d+\.i$/.test(e.target.dataset.b)) draw();
     });
     m.addEventListener('click', function (e) {
       var go = e.target.closest('[data-go]'); if (go) { e.preventDefault(); var s3 = $('#rv-s' + go.dataset.go, m); if (s3) s3.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
@@ -4020,7 +4043,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
       var top = r.top - cr.top + canvas.scrollTop - 42, left = r.left - cr.left + canvas.scrollLeft;
       tb.style.top = Math.max(canvas.scrollTop + 4, top) + 'px'; tb.style.left = Math.max(4, left) + 'px';
     }
-    var TYPE_LABEL = { chart: 'Chart', h1: 'Heading', h2: 'Subheading', h3: 'Small heading', p: 'Paragraph', ul: 'Bullets', ol: 'Numbered', check: 'Checklist', quote: 'Quote', callout: 'Callout', stats: 'Stats', table: 'Table', timeline: 'Timeline', cols: 'Columns', kv: 'Details', image: 'Picture', pb: 'Page break', toc: 'Contents', lh: 'Letterhead', title: 'Title', addr: 'Address', sign: 'Sign-off', inv: 'Invoice items', todo: 'To-do table', week: 'Week', cal: 'Calendar', sigs: 'Signatures', r_head: 'Name', r_sec: 'Section', r_entry: 'Entry', r_skills: 'Skills', s_kicker: 'Small line', s_title: 'Big title', s_sub: 'Subtitle', s_text: 'Text', s_cta: 'Button', s_details: 'Details', s_contact: 'Contact details', s_mark: 'Logo', s_qr: 'QR code', s_photo: 'Photo', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate' };
+    var TYPE_LABEL = { chart: 'Chart', h1: 'Heading', h2: 'Subheading', h3: 'Small heading', p: 'Paragraph', ul: 'Bullets', ol: 'Numbered', check: 'Checklist', quote: 'Quote', callout: 'Callout', stats: 'Stats', table: 'Table', timeline: 'Timeline', cols: 'Columns', kv: 'Details', image: 'Picture', pb: 'Page break', toc: 'Contents', lh: 'Letterhead', title: 'Title', addr: 'Address', sign: 'Sign-off', inv: 'Invoice items', todo: 'To-do table', week: 'Week', cal: 'Calendar', sigs: 'Signatures', r_head: 'Name', r_sec: 'Section', r_entry: 'Entry', r_skills: 'Skills', s_kicker: 'Small line above the heading', s_title: 'Heading', s_sub: 'Short line', s_text: 'Text', s_cta: 'Button', s_details: 'Details', s_contact: 'Contact details', s_mark: 'Logo', s_qr: 'QR code', s_photo: 'Photo', s_menu: 'Menu', s_tickets: 'Tickets', s_cert: 'Certificate' };
     var RICH = { p: 1, ul: 1, ol: 1, check: 1, quote: 1, callout: 1, cols: 1, timeline: 1, table: 1, r_entry: 1, s_text: 1, h1: 1, h2: 1, h3: 1, kv: 1, addr: 0 };
     var CONVERT = ['h1', 'h2', 'h3', 'p', 'ul', 'ol', 'check', 'quote', 'callout'];
     function blockText(b) {
@@ -5039,6 +5062,8 @@ body.dd-noscroll{overflow:hidden!important}
 .dd-rv .rv-gh{font-size:11px;font-weight:700;color:#9aa3b5;align-self:center;padding-left:4px}
 .dd-rv .rv-rows{display:flex;flex-direction:column;gap:6px}
 .dd-rv .rv-rowi{display:flex;gap:6px;align-items:center}
+.dd-rv .rv-ct select.rv-in{flex:0 0 150px;width:150px}
+.dd-rv .rv-ct input.rv-in{flex:1}
 .dd-rv .rv-del{background:none;border:0;color:#94a3b8;font-size:18px;width:26px;flex:none;padding:0}
 .dd-rv .rv-mini{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .dd-rv .rv-mini button,.dd-rv .rv-add button{background:#1a2030;border:1px solid rgba(255,255,255,.08);color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12.5px}
