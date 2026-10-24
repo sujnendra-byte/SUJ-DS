@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 16:00:00
+ * Modified   : 2026-10-24 16:30:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.9.2-brand5' );
+define( 'DS_DOC_APP_VER', '1.9.3-brandfonts' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2673,7 +2673,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
           if (r.colors && r.colors[2]) W.a = r.colors[2];
           W.d = r.dark || '#1C1E26';
           W.l = r.light || D.mix(W.p, '#FFFFFF', 0.94);
-          if (found.fonts[0]) { W.head = found.fonts[0]; W.body = found.fonts[1] || found.fonts[0]; }
+          if (r.head_font || found.fonts[0]) { W.head = r.head_font || found.fonts[0]; W.body = r.body_font || found.fonts[1] || W.head; }
           if (r.logo) W.logo = r.logo;
           if (r.name && (!W.name || W.name === 'My brand')) { W.name = r.name; $('#bk-name', m).value = r.name; }
           fonts(); paint();

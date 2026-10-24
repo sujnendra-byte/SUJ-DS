@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 16:00:00
+ * Modified   : 2026-10-24 16:30:00
  * Load order : 371 of 374
  */
 /**
@@ -927,7 +927,9 @@ final class DS_AI_Doc {
 					continue;
 				}
 				$p = 5;
-				if ( preg_match( '#/themes/#i', $href ) ) {
+				if ( preg_match( '#bootstrap|slick|swiper|owl\.|owl-carousel|animate|font-?awesome|aos\.|magnific|fancybox|select2|lightbox|splide|flickity|jquery|normalize|reset\.css|icons?\.css|/vendor/|/lib/|\.min\.css.*bootstrap#i', $href ) ) {
+					$p = 9;   /* ready-made libraries, even inside the theme folder, are not the site's own colours or fonts */
+				} elseif ( preg_match( '#/themes/#i', $href ) ) {
 					$p = 1;
 				} elseif ( preg_match( '#/uploads/(elementor|oxygen|bricks|generateblocks|kadence)|custom|style|main|theme|brand#i', $href ) ) {
 					$p = 2;
@@ -939,7 +941,7 @@ final class DS_AI_Doc {
 		}
 		usort( $links, function ( $a, $b ) { return $a[0] === $b[0] ? $a[1] - $b[1] : $a[0] - $b[0]; } );
 		$sheets = '';
-		foreach ( array_slice( $links, 0, 4 ) as $lk ) {
+		foreach ( array_slice( $links, 0, 6 ) as $lk ) {
 			if ( $lk[0] >= 9 ) {
 				break;
 			}
@@ -976,26 +978,87 @@ final class DS_AI_Doc {
 			$css .= implode( "\n", $mm[1] );
 		}
 		$css .= $sheets;
-		/* fonts: Google Fonts links and the first font-family names in the styles */
-		$fonts = array();
+		/* fonts: the heading font (rules for h1-h3 / titles) and the text font (body, p), from the site's own
+		 * styles; Google Fonts links and font variables (Elementor, theme.json) help; icon fonts are skipped */
+		$icon_re = '/^(inherit|initial|unset|revert|sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|var|-apple-system|BlinkMacSystemFont|Segoe UI Emoji|Apple Color Emoji|dashicons|Font Awesome.*|FontAwesome|fontawesome|icomoon|eicons|star|swiper-icons|slick|swiper|fontello|flaticon|themify|Material Icons.*|Material Symbols.*|bootstrap-icons|feather|ionicons|lineicons|elementskit|revicons|WooCommerce|icons?|Courier New|monospace)$/i';
+		$fh = array();
+		$fb = array();
+		$fa = array();
+		$tally = function ( &$arr, $f, $w ) use ( $icon_re ) {
+			$f = self::font_name( $f );
+			if ( '' === $f || preg_match( $icon_re, $f ) || preg_match( '/icon|awesome|glyph/i', $f ) ) {
+				return;
+			}
+			$k = strtolower( $f );
+			if ( ! isset( $arr[ $k ] ) ) {
+				$arr[ $k ] = array( $f, 0 );
+			}
+			$arr[ $k ][1] += $w;
+		};
 		if ( preg_match_all( '/fonts\.googleapis\.com\/css2?\?([^"\'>\s]+)/i', $html, $gm ) ) {
 			foreach ( $gm[1] as $q ) {
 				if ( preg_match_all( '/family=([^&:;]+)/i', html_entity_decode( $q ), $fm ) ) {
 					foreach ( $fm[1] as $f ) {
-						$fonts[] = self::font_name( str_replace( '+', ' ', urldecode( $f ) ) );
+						$tally( $fa, str_replace( '+', ' ', urldecode( $f ) ), 3 );
 					}
 				}
 			}
 		}
-		if ( preg_match_all( '/font-family\s*:\s*["\']?([A-Za-z0-9 \-]+)/i', $css, $fm ) ) {
-			foreach ( $fm[1] as $f ) {
-				$f = self::font_name( $f );
-				if ( $f && ! preg_match( '/^(inherit|initial|sans-serif|serif|monospace|system-ui|var|-apple-system|BlinkMacSystemFont|dashicons|Font Awesome.*|fontawesome|icomoon|eicons|star|swiper-icons|slick|swiper|fontello|flaticon|themify|Material Icons.*|Material Symbols.*|bootstrap-icons|feather|ionicons|lineicons|elementskit|revicons|WooCommerce|icons?)$/i', $f ) ) {
-					$fonts[] = $f;
+		/* font variables: --e-global-typography-primary-font-family, --wp--preset--font-family--heading, --heading-font ... */
+		if ( preg_match_all( '/--([\w-]*font[\w-]*)\s*:\s*["\']?([A-Za-z0-9 \-]+)/i', $css, $vm, PREG_SET_ORDER ) ) {
+			foreach ( $vm as $x ) {
+				if ( preg_match( '/size|weight|style|height|spacing|icon/i', $x[1] ) ) {
+					continue;
+				}
+				if ( preg_match( '/head|title|primary|display/i', $x[1] ) ) {
+					$tally( $fh, $x[2], 4 );
+				} elseif ( preg_match( '/body|text|base|secondary/i', $x[1] ) ) {
+					$tally( $fb, $x[2], 4 );
+				} else {
+					$tally( $fa, $x[2], 2 );
 				}
 			}
 		}
-		$fonts = array_values( array_unique( array_filter( $fonts ) ) );
+		/* rules: selector { ... font-family: X } */
+		if ( preg_match_all( '/([^{}@;]{1,300})\{[^{}]*?font-family\s*:\s*["\']?([A-Za-z0-9 \-]+)/i', $css, $rm, PREG_SET_ORDER ) ) {
+			foreach ( $rm as $x ) {
+				$sel = strtolower( $x[1] );
+				if ( false !== strpos( $sel, '@font-face' ) ) {
+					continue;
+				}
+				if ( preg_match( '/(^|[\s,>])h[1-3]\b|title|heading|headline|hero/', $sel ) ) {
+					$tally( $fh, $x[2], 3 );
+				}
+				if ( preg_match( '/(^|[\s,])(body|html|p)\b/', $sel ) ) {
+					$tally( $fb, $x[2], 3 );
+				}
+				$tally( $fa, $x[2], 1 );
+			}
+		}
+		$top = function ( $arr ) {
+			uasort( $arr, function ( $a, $b ) { return $b[1] - $a[1]; } );
+			return array_map( function ( $x ) { return $x[0]; }, array_values( $arr ) );
+		};
+		$heads = $top( $fh );
+		$bodies = $top( $fb );
+		$all = $top( $fa );
+		$head_font = $heads ? $heads[0] : ( $all ? $all[0] : '' );
+		$body_font = $bodies ? $bodies[0] : '';
+		if ( '' === $body_font ) {
+			foreach ( $all as $f ) {
+				if ( strtolower( $f ) !== strtolower( $head_font ) ) {
+					$body_font = $f;
+					break;
+				}
+			}
+		}
+		if ( '' === $body_font ) {
+			$body_font = $head_font;
+		}
+		if ( '' === $head_font ) {
+			$head_font = $body_font;
+		}
+		$fonts = array_values( array_unique( array_filter( array_merge( array( $head_font, $body_font ), $heads, $bodies, $all ) ) ) );
 		$fonts = array_slice( $fonts, 0, 6 );
 
 		/* logo: an <img> marked as the logo, then the touch icon, then the share picture */
@@ -1037,7 +1100,7 @@ final class DS_AI_Doc {
 		if ( ! $colors && ! $logo && ! $fonts ) {
 			return self::err( 'empty', 'We opened the website but could not find a logo or colours. Please add them by hand.' );
 		}
-		return rest_ensure_response( array( 'success' => true, 'site' => $url, 'name' => $title, 'colors' => $colors, 'dark' => $dark, 'light' => $light, 'fonts' => $fonts, 'logo' => $logo ) );
+		return rest_ensure_response( array( 'success' => true, 'site' => $url, 'name' => $title, 'colors' => $colors, 'dark' => $dark, 'light' => $light, 'head_font' => $head_font, 'body_font' => $body_font, 'fonts' => $fonts, 'logo' => $logo ) );
 	}
 	private static function abs_url( $u, $base ) {
 		$u = trim( (string) $u );
