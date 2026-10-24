@@ -9,6 +9,7 @@
  *
  * CHANGELOG
  * ---------
+ * 42.0.8 - 2026-10-24 AI Document: the design list shows only designs for the chosen document type (category buttons removed).
  * 42.0.8 - 2026-10-24 AI Document: 250 new invitation cards (50 styles x 5 versions) on a 5 x 7 inch card, also A5, A4 and Letter. 3 includes updated (371, 372, 373).
  * 42.0.7 - 2026-10-24 AI Document: each infographic layout now has 5 really different versions (different arrangement and shapes, not just a recolour). 1 include updated (372).
  * 42.0.6 - 2026-10-24 AI Document: 150 new infographics on a tall 800 x 2000 page. 2 includes updated (371, 372).

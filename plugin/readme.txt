@@ -8,6 +8,8 @@ V42 is V41 (41.5.0) with 1 include updated (353) and 4 added (371-374).
 Deactivate V41 before activating V42 (never both).
 
 NEW IN 42.0.8
+ - includes/373: AI Document - the design list (and its "View all" window) shows only the
+   designs for the chosen document type; the category buttons are gone.
  - includes/371, 372, 373: AI Document - 250 new invitation cards: 50 styles (weddings, Indian
    weddings, engagement, Griha Pravesh, naming, birthdays, baby shower, festivals, gala) x 5
    different layouts, on a 5 x 7 inch card (also A5, A4, Letter). Colours follow the theme.

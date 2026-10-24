@@ -7,7 +7,7 @@
  * Priority   : 10
  * Scope      : global
  * Tags       : 
- * Modified   : 2026-10-24 23:50:00
+ * Modified   : 2026-10-24 12:05:00
  * Load order : 373 of 374
  */
 /**
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 if ( ! function_exists( 'ds_doc_page_shortcode' ) ) :
-define( 'DS_DOC_APP_VER', '1.9.4-invites' );
+define( 'DS_DOC_APP_VER', '1.9.5-typeonly' );
 
 function ds_doc_app_js() {
 	return <<<'DSJS'
@@ -2818,8 +2818,8 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     '<div class="dd-gobar"><div class="info"><div class="dd-cost" id="dd-cost"></div></div><button type="button" class="dd-go" id="dd-go">' + IC.spark + ' Generate Document</button></div>' +
     '<div class="dd-hint" id="dd-hint"></div></div></div>' +
     '<div><div class="dd-card"><h3>Colour &amp; Typography <span class="req">Required</span><button type="button" class="lnk" data-act="allthemes">Explore ' + D.THEMES.filter(function (x) { return !x.hide; }).length + ' Themes ›</button></h3><div class="dd-sub">Cohesive colour palettes and font styling</div><div class="dd-themes" id="dd-themes"></div></div>' +
-    '<div class="dd-card"><h3>Document Designs <span class="req">Required</span><button type="button" class="lnk" data-act="alldesigns">View All (' + D.DESIGNS.length + ') ›</button></h3><div class="dd-sub">Select the layout and look of your document</div>' +
-    '<div class="dd-chips" id="dd-chips"></div><div class="dd-designs" id="dd-designs"></div>' +
+    '<div class="dd-card"><h3>Document Designs <span class="req">Required</span><button type="button" class="lnk" data-act="alldesigns" id="dd-dsall">View All (' + D.designsFor(S.type).length + ') ›</button></h3><div class="dd-sub">Select the layout and look of your document</div>' +
+    '<div class="dd-chips" id="dd-chips" hidden></div><div class="dd-designs" id="dd-designs"></div>' +
     '<div class="dd-pvbox"><div class="hd">Design preview <span id="dd-pvname"></span></div><div class="dd-preview" id="dd-preview"></div></div>' +
     '<div class="dd-note">Pick a theme above to recolour this design (colours + fonts), or keep "Design colours". Every design downloads as a real Word document.</div></div></div></div>' +
     '<div class="dd-sep"></div><div id="dd-mydocs-card"><div class="dd-mh"><span class="ib">' + IC.folder + '</span><h2>My Documents</h2><span class="n" id="dd-ndocs">0 Documents</span>' +
@@ -2910,14 +2910,15 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     return '<div class="dd-th dd-mybr' + (S.theme === 'my-brand' ? ' on' : '') + '" data-theme="my-brand" role="button" tabindex="0"><span class="tag">Personal</span><button type="button" class="ed" data-act="brand" title="Edit my brand">Edit</button>' +
       '<div class="sw">' + (BRAND.logo ? '<img alt="" src="' + esc(BRAND.logo) + '">' : '') + '<i style="background:' + t.p + '"></i><i style="background:' + t.s + '"></i><i style="background:' + t.a + '"></i><i style="background:' + t.ink + '"></i><i style="background:' + t.tint + '"></i></div><b>' + esc(t.name) + '</b><span>' + esc(t.head) + '</span></div>';
   }
-  function drawChips() {
+  function drawChips() {   /* only the designs made for the chosen document type are shown, so there are no category buttons */
+    var cb = $('#dd-chips'); if (cb) { cb.innerHTML = ''; cb.hidden = true; } return;
     var gs = ['auto', 'all'].concat(groups);
     $('#dd-chips').innerHTML = gs.map(function (g) { return '<button type="button" class="dd-chip' + (g === S.group ? ' on' : '') + '" data-group="' + esc(g) + '">' + (g === 'auto' ? 'For this document' : g === 'all' ? 'All designs' : esc(g)) + '</button>'; }).join('');
   }
   function drawDesigns() {
     var box = $('#dd-designs');
-    var list = S.group === 'auto' ? D.designsFor(S.type) : S.group === 'all' ? D.DESIGNS.slice() : D.DESIGNS.filter(function (d) { return D.type(d.types[0]).group === S.group; });
-    if (!list.length) list = D.designsFor(S.type);
+    var list = D.designsFor(S.type), va = $('#dd-dsall');
+    if (va) va.textContent = 'View All (' + list.length + ') ›';
     box.innerHTML = '';
     list.forEach(function (dz) {
       var b = el('button', 'dd-ds' + (dz.id === S.tpl ? ' on' : ''));
@@ -2958,11 +2959,11 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
   /* "View all" pop-ups: every design (or every theme) in one big window, with search and categories */
   function openGallery(kind) {
     var old = $('.dd-gal', root); if (old) old.remove();
-    var isD = kind === 'designs', grp = isD ? (S.group || 'auto') : '', q = '';
+    var isD = kind === 'designs', grp = isD ? 'auto' : '', q = '';
     var m = el('div', 'dd-gal');
-    m.innerHTML = '<div class="dd-gbox" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3>' + (isD ? 'All document designs' : 'All colour themes') + '</h3><p id="dd-gn"></p></div>' +
+    m.innerHTML = '<div class="dd-gbox" role="dialog" aria-modal="true"><div class="dd-ghd"><div><h3>' + (isD ? 'All ' + esc(D.type(S.type).name.toLowerCase()) + ' designs' : 'All colour themes') + '</h3><p id="dd-gn"></p></div>' +
       '<input type="search" id="dd-gq" placeholder="' + (isD ? 'Search designs…' : 'Search themes or fonts…') + '"><button type="button" class="dd-gx" data-g="x" title="Close">×</button></div>' +
-      (isD ? '<div class="dd-chips dd-gchips" id="dd-gchips"></div>' : '') +
+      (isD ? '<div class="dd-chips dd-gchips" id="dd-gchips" hidden></div>' : '') +
       '<div class="dd-ggrid ' + (isD ? 'des' : 'thm') + '" id="dd-ggrid"></div></div>';
     root.appendChild(m); document.body.classList.add('dd-noscroll');
     var grid = $('#dd-ggrid', m), io = null;
@@ -2971,6 +2972,7 @@ setInterval(function(){ if (open() && !document.getElementById('dsel-dock')) hid
     document.addEventListener('keydown', key);
     function match(txt) { return !q || txt.toLowerCase().indexOf(q) >= 0; }
     function chips() {
+      return;   /* the window shows only this document type's designs */
       var gs = ['auto', 'all'].concat(groups);
       $('#dd-gchips', m).innerHTML = gs.map(function (g) { return '<button type="button" class="dd-chip' + (g === grp ? ' on' : '') + '" data-gg="' + esc(g) + '">' + (g === 'auto' ? 'For this document' : g === 'all' ? 'All designs' : esc(g)) + '</button>'; }).join('');
     }
@@ -4840,6 +4842,7 @@ function ds_doc_app_css() {
 #dsdoc-app .dd-th span{display:block;font-size:12px;color:var(--mut);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #dsdoc-app .dd-th.on{border-color:var(--blue2);box-shadow:0 0 0 1px var(--blue2)}
 #dsdoc-app .dd-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+#dsdoc-app .dd-chips[hidden]{display:none}
 #dsdoc-app .dd-chip{border:1px solid var(--bd);background:var(--field);color:var(--mut2);border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600}
 #dsdoc-app .dd-chip.on{background:#131b33;border-color:var(--blue2);color:#fff}
 #dsdoc-app .dd-mybr{position:relative;border-color:#3b82f6 !important;cursor:pointer}
